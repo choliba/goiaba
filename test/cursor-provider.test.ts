@@ -1,7 +1,28 @@
-import { describe, expect, test } from 'bun:test';
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { CursorProvider } from '../src/providers/cursor-provider.js';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+
+import { clearConfigCache, loadConfig } from '../src/config/index.js';
+import { closeLogger, openLogger } from '../src/log/index.js';
 import type { ProgramOutput } from '../src/execute/types.js';
+import { CursorProvider } from '../src/providers/cursor-provider.js';
+
+beforeEach(() => {
+  clearConfigCache();
+});
+
+afterEach(() => {
+  closeLogger();
+  clearConfigCache();
+});
 
 describe('CursorProvider', () => {
   test('descreve o comando sem executá-lo', () => {
@@ -117,6 +138,95 @@ describe('CursorProvider', () => {
       '--trust',
       '--resume',
       'chat-123',
+    ]);
+  });
+
+  test('debug registra tool calls de shell sem stdout', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
+
+    try {
+      writeFileSync(
+        join(cwd, 'goiaba.config.ts'),
+        `export default { logDir: 'logs', debug: true };\n`,
+      );
+      await loadConfig({ cwd });
+      openLogger();
+
+      const provider = new CursorProvider({ model: 'modelo' });
+      await collect(
+        provider.parseOutput(
+          source([
+            {
+              channel: 'stdout',
+              chunk: `${JSON.stringify({
+                type: 'tool_call',
+                subtype: 'completed',
+                call_id: 'tool-1',
+                tool_call: {
+                  shellToolCall: {
+                    args: {
+                      command: 'ping -c 1 google.com',
+                      workingDirectory: cwd,
+                    },
+                    result: {
+                      success: {
+                        exitCode: 0,
+                        stdout: 'secret-output',
+                        stderr: '',
+                      },
+                    },
+                  },
+                },
+              })}\n`,
+            },
+          ]),
+        ),
+      );
+
+      const files = readdirSync(join(cwd, 'logs')).filter((name) =>
+        name.endsWith('.jsonl'),
+      );
+      const records = readFileSync(join(cwd, 'logs', files[0] ?? ''), 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+
+      expect(records).toEqual([
+        expect.objectContaining({
+          level: 'debug',
+          type: 'tool',
+          subtype: 'completed',
+          call_id: 'tool-1',
+          tool: 'shell',
+          args: {
+            command: 'ping -c 1 google.com',
+            workingDirectory: cwd,
+          },
+        }),
+      ]);
+      expect(JSON.stringify(records)).not.toContain('secret-output');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test('informa o workspace para o --trust não cair na raiz', () => {
+    const provider = new CursorProvider({ model: 'modelo' });
+    const command = provider.createCommand(
+      'pergunta',
+      undefined,
+      '/home/dev/dev/sandbox-teste',
+    );
+
+    expect(command.arguments).toEqual([
+      '--print',
+      '--output-format',
+      'stream-json',
+      '--model',
+      'modelo',
+      '--workspace',
+      '/home/dev/dev/sandbox-teste',
+      '--trust',
     ]);
   });
 });

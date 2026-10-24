@@ -1,3 +1,30 @@
+import { createInterface } from 'node:readline/promises';
+
+export interface OutputAdapter {
+  ask(question: string): Promise<string>;
+  write(value: string): void;
+}
+
+export class StandardOutput implements OutputAdapter {
+  public async ask(_question: string): Promise<string> {
+    const input = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: false,
+    });
+
+    try {
+      return await input.question('');
+    } finally {
+      input.close();
+    }
+  }
+
+  public write(value: string): void {
+    process.stdout.write(value.endsWith('\n') ? value : `${value}\n`);
+  }
+}
+
 export interface OutputEvent<T> {
   readonly executionId: string;
   readonly programId: string;
@@ -9,6 +36,26 @@ interface OutputQueue<T> {
   close(): void;
   fail(error: Error): void;
   read(onReturn?: () => void): AsyncIterable<T>;
+}
+
+export class OutputStream<T> implements AsyncIterable<T> {
+  private readonly queue = createQueue<T>();
+
+  public publish(value: T): void {
+    this.queue.push(value);
+  }
+
+  public close(): void {
+    this.queue.close();
+  }
+
+  public fail(error: Error): void {
+    this.queue.fail(error);
+  }
+
+  public [Symbol.asyncIterator](): AsyncIterator<T> {
+    return this.queue.read()[Symbol.asyncIterator]();
+  }
 }
 
 interface Execution<T> {

@@ -2,6 +2,7 @@ import type {
   ProgramCommand,
   ProgramOutput,
 } from '../execute/types.js';
+import { debug } from '../log/index.js';
 import type { Provider, ProviderEvent } from './types.js';
 
 export interface CodexProviderOptions {
@@ -121,11 +122,21 @@ function readEvent(line: string): ProviderEvent<string> | undefined {
 
     const item = event.item;
 
-    if (
-      !isRecord(item) ||
-      item.type !== 'agent_message' ||
-      typeof item.text !== 'string'
-    ) {
+    if (!isRecord(item)) {
+      return undefined;
+    }
+
+    if (item.type === 'command_execution') {
+      debug({
+        type: 'tool',
+        tool: 'shell',
+        command: item.command,
+        cwd: item.cwd,
+        exitCode: item.exit_code ?? item.exitCode,
+      });
+    }
+
+    if (item.type !== 'agent_message' || typeof item.text !== 'string') {
       return undefined;
     }
 

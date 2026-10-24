@@ -22,7 +22,11 @@ export type ProviderEvent<TOutput> =
 
 export interface Provider<TInput, TOutput> {
   readonly id: string;
-  createCommand(input: TInput, sessionId?: string): ProgramCommand;
+  createCommand(
+    input: TInput,
+    sessionId?: string,
+    workspaceRoot?: string,
+  ): ProgramCommand;
   parseOutput(
     output: AsyncIterable<ProgramOutput>,
   ): AsyncIterable<ProviderEvent<TOutput>>;

@@ -2,6 +2,7 @@ import type {
   ProgramCommand,
   ProgramOutput,
 } from '../execute/types.js';
+import { debug } from '../log/index.js';
 import type { Provider, ProviderEvent } from './types.js';
 
 export interface CursorProviderOptions {
@@ -35,7 +36,11 @@ export class CursorProvider implements Provider<string, string> {
     this.trust = trust;
   }
 
-  public createCommand(input: string, sessionId?: string): ProgramCommand {
+  public createCommand(
+    input: string,
+    sessionId?: string,
+    workspaceRoot?: string,
+  ): ProgramCommand {
     return {
       executable: this.executable,
       arguments: [
@@ -44,6 +49,9 @@ export class CursorProvider implements Provider<string, string> {
         'stream-json',
         '--model',
         this.model,
+        ...(workspaceRoot === undefined
+          ? []
+          : ['--workspace', workspaceRoot]),
         ...(this.trust ? ['--trust'] : []),
         ...(this.force ? ['--force'] : []),
         ...(sessionId === undefined ? [] : ['--resume', sessionId]),
@@ -125,6 +133,10 @@ function readEvents(
       events.push({ value: { type: 'session', id: event.session_id } });
     }
 
+    if (event.type === 'tool_call') {
+      logToolCall(event);
+    }
+
     if (event.type === 'assistant') {
       const text = readAssistantText(event.message);
 
@@ -189,6 +201,73 @@ function appendInteractionProtocol(input: string): string {
     '- Encerre o turno imediatamente após a pergunta e não continue a tarefa.',
     '- Quando receber a resposta no próximo turno, continue a tarefa normalmente.',
   ].join('\n')}`;
+}
+
+function logToolCall(event: Record<string, unknown>): void {
+  if (!isRecord(event.tool_call)) {
+    return;
+  }
+
+  const entry = Object.entries(event.tool_call)[0];
+
+  if (entry === undefined) {
+    return;
+  }
+
+  const [rawName, payload] = entry;
+  const body = isRecord(payload) ? payload : {};
+
+  debug({
+    type: 'tool',
+    subtype: event.subtype,
+    call_id: event.call_id,
+    tool: rawName.replace(/ToolCall$/, ''),
+    args: sanitizeToolValue(body.args),
+    result: sanitizeToolResult(body.result),
+  });
+}
+
+function sanitizeToolValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeToolValue);
+  }
+
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const sanitized: Record<string, unknown> = {};
+
+  for (const [key, nested] of Object.entries(value)) {
+    if (key === 'parsingResult') {
+      continue;
+    }
+
+    if (
+      (key === 'fileText' ||
+        key === 'contents' ||
+        key === 'old_string' ||
+        key === 'new_string' ||
+        key === 'stdout' ||
+        key === 'stderr') &&
+      typeof nested === 'string'
+    ) {
+      sanitized[key] = { bytes: nested.length };
+      continue;
+    }
+
+    sanitized[key] = sanitizeToolValue(nested);
+  }
+
+  return sanitized;
+}
+
+function sanitizeToolResult(result: unknown): unknown {
+  if (result === undefined) {
+    return undefined;
+  }
+
+  return sanitizeToolValue(result);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

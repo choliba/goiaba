@@ -1,6 +1,16 @@
 import { describe, expect, test } from 'bun:test';
 
-import { OutputDispatcher } from '../src/output/index.js';
+import { OutputDispatcher, OutputStream } from '../src/output/index.js';
+
+test('OutputStream entrega e encerra uma sequência de valores', async () => {
+  const output = new OutputStream<string>();
+
+  output.publish('stdout');
+  output.publish('stderr');
+  output.close();
+
+  expect(await collect(output)).toEqual(['stdout', 'stderr']);
+});
 
 describe('OutputDispatcher', () => {
   test('entrega valores genéricos para a execução e assinantes', async () => {

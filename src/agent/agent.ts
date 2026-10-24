@@ -1,24 +1,27 @@
-import { createInterface } from 'node:readline/promises';
-
 import type { AgentAsk, AgentOptions, AgentProvider } from './types.js';
-import { Executor } from '../execute/index.js';
+import { Executor, ProgramExecutionError } from '../execute/index.js';
+import { closeLogger, openLogger } from '../log/index.js';
 import type { AgentEvent } from '../providers/types.js';
+import { UsageError } from '../errors.js';
+import { StandardOutput, type OutputAdapter } from '../output/index.js';
 import type { Workspace } from '../workspace/index.js';
 
 export class Agent {
+  public readonly prompt: string;
+
   private readonly provider: AgentProvider;
   private readonly executor: Executor<string>;
   private readonly workspace: Workspace;
-  private readonly prompt: string;
-  private readonly ask: AgentAsk;
+  private readonly output: OutputAdapter;
 
   public constructor({
     prompt,
     provider,
     workspace,
-    ask = askFromTerminal,
     executor,
     output,
+    interaction = new StandardOutput(),
+    permissions,
   }: AgentOptions) {
     if (prompt.trim().length === 0) {
       throw new Error('O prompt do agente não pode estar vazio.');
@@ -28,22 +31,38 @@ export class Agent {
       throw new Error('Informe executor ou output, não ambos.');
     }
 
+    this.prompt = prompt;
     this.provider = provider;
     this.workspace = workspace;
-    this.prompt = prompt;
-    this.ask = ask;
     this.executor = executor ?? new Executor({ output });
+    this.output = interaction;
+    if (permissions !== undefined) workspace.applyPermissions(permissions);
   }
 
   public async run(): Promise<void> {
-    for await (const event of this.interact(this.prompt, this.ask)) {
-      if (event.type === 'output') {
-        writeLine(event.value);
+    try {
+      for await (const event of this.interact(this.prompt, (question) =>
+        this.output.ask(question),
+      )) {
+        if (event.type === 'output') {
+          this.output.write(event.value);
+        }
+      }
+    } catch (error) {
+      if (isAbortError(error)) {
+        this.output.write('\n');
+        return;
       }
 
-      if (event.type === 'ask') {
-        writeLine(event.question);
+      if (
+        error instanceof UsageError ||
+        error instanceof ProgramExecutionError
+      ) {
+        this.output.write(error.message);
+        return;
       }
+
+      throw error;
     }
   }
 
@@ -51,56 +70,77 @@ export class Agent {
     input: string,
     answer: AgentAsk,
   ): AsyncIterable<AgentEvent<string>> {
+    const logger = openLogger();
+    logger.log({ type: 'input', value: input });
+
     let nextInput = input;
     let sessionId: string | undefined;
 
-    while (true) {
-      let pendingAnswer: Promise<string> | undefined;
+    try {
+      while (true) {
+        let pendingAnswer: Promise<string> | undefined;
 
-      for await (const event of this.executor.run(
-        this.provider,
-        this.workspace,
-        nextInput,
-        sessionId,
-      )) {
-        if (event.type === 'session') {
-          sessionId = event.id;
-          continue;
+        for await (const event of this.executor.run(
+          this.provider,
+          this.workspace,
+          nextInput,
+          sessionId,
+        )) {
+          if (event.type === 'session') {
+            sessionId = event.id;
+            logger.log({ type: 'session', id: event.id });
+            continue;
+          }
+
+          logger.log({ ...event });
+
+          if (event.type === 'ask') {
+            yield { type: 'output', value: event.question };
+          }
+
+          yield event;
+
+          if (event.type === 'ask' && pendingAnswer === undefined) {
+            pendingAnswer = Promise.resolve(answer(event.question));
+            // Keep the rejection handled until this turn finishes and awaits it.
+            void pendingAnswer.catch(() => undefined);
+          }
         }
 
-        yield event;
-
-        if (event.type === 'ask' && pendingAnswer === undefined) {
-          pendingAnswer = answer(event.question);
+        if (pendingAnswer === undefined) {
+          return;
         }
+
+        if (sessionId === undefined) {
+          throw new Error('O provider não informou o identificador da sessão.');
+        }
+
+        nextInput = await pendingAnswer;
+        logger.log({ type: 'answer', value: nextInput });
+      }
+    } catch (error) {
+      if (!isAbortError(error)) {
+        logger.log({
+          type: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
 
-      if (pendingAnswer === undefined) {
-        return;
-      }
-
-      if (sessionId === undefined) {
-        throw new Error('O provider não informou o identificador da sessão.');
-      }
-
-      nextInput = await pendingAnswer;
+      throw error;
+    } finally {
+      closeLogger();
+      await this.workspace.close();
     }
   }
 }
 
-function writeLine(value: string): void {
-  process.stdout.write(value.endsWith('\n') ? value : `${value}\n`);
-}
-
-async function askFromTerminal(_question: string): Promise<string> {
-  const terminal = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  try {
-    return await terminal.question('> ');
-  } finally {
-    terminal.close();
+function isAbortError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
   }
+
+  return (
+    ('name' in error && error.name === 'AbortError') ||
+    ('code' in error && error.code === 'ABORT_ERR')
+  );
 }

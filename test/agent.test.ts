@@ -1,33 +1,119 @@
-import { expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { Agent } from '../src/agent/agent.js';
+import { clearConfigCache } from '../src/config/index.js';
 import type { ProgramCommand, ProgramOutput } from '../src/execute/types.js';
 import type { Provider } from '../src/providers/types.js';
 import type { ProviderEvent } from '../src/providers/types.js';
 import { Workspace } from '../src/workspace/index.js';
 
-test('Agent escreve a saída ao executar', async () => {
-  const chunks: string[] = [];
-  const write = process.stdout.write;
-  process.stdout.write = ((chunk: string | Uint8Array) => {
-    chunks.push(String(chunk));
-    return true;
-  }) as typeof write;
+beforeEach(() => {
+  clearConfigCache();
+});
 
-  try {
-    await new Agent({
-      prompt: 'mensagem',
-      provider: new EchoProvider(),
-      workspace: new Workspace({
-        type: 'unrestricted',
-        root: process.cwd(),
-      }),
-    }).run();
-  } finally {
-    process.stdout.write = write;
+afterEach(() => {
+  clearConfigCache();
+});
+
+test('Agent recusa permissões sem sandbox', () => {
+  expect(() => new Agent({
+    prompt: 'mensagem',
+    provider: new EchoProvider(),
+    workspace: new Workspace({ type: 'unrestricted', root: process.cwd() }),
+    permissions: {
+      default: 'deny',
+      allow: {
+        filesystem: [{
+          operations: ['read', 'write'],
+          paths: ['/workspace/**'],
+        }],
+      },
+    },
+  })).toThrow('Docker ou Bubblewrap');
+});
+
+test('Agent entrega a saída pelo interact', async () => {
+  const agent = new Agent({
+    prompt: 'mensagem',
+    provider: new EchoProvider(),
+    workspace: new Workspace({
+      type: 'unrestricted',
+      root: process.cwd(),
+    }),
+  });
+  const events: ProviderEvent<string>[] = [];
+
+  for await (const event of agent.interact('mensagem', unusedAsk)) {
+    events.push(event);
   }
 
-  expect(chunks.join('')).toContain('mensagem');
+  expect(events).toEqual([{ type: 'output', value: 'mensagem' }]);
+});
+
+test('Agent.run escreve output e ask pelos ports injetados', async () => {
+  const values: string[] = [];
+  const agent = new Agent({
+    prompt: 'início',
+    provider: new InteractiveProvider(),
+    workspace: new Workspace({
+      type: 'unrestricted',
+      root: process.cwd(),
+    }),
+    interaction: {
+      ask: async (question) => {
+        expect(question).toBe('Qual é o seu nome?');
+        return 'dev';
+      },
+      write: (value) => {
+        values.push(value);
+      },
+    },
+  });
+
+  await agent.run();
+
+  expect(values).toEqual(['Qual é o seu nome?', 'Olá, dev']);
+});
+
+test('Agent.run encerra em silêncio quando o ask aborta', async () => {
+  const agent = new Agent({
+    prompt: 'início',
+    provider: new InteractiveProvider(),
+    workspace: new Workspace({
+      type: 'unrestricted',
+      root: process.cwd(),
+    }),
+    interaction: {
+      ask: async () => {
+        throw { name: 'AbortError' };
+      },
+      write: () => undefined,
+    },
+  });
+
+  await agent.run();
+});
+
+test('Agent.run imprime falha do programa sem relançar', async () => {
+  const values: string[] = [];
+  const agent = new Agent({
+    prompt: 'mensagem',
+    provider: new ExitProvider(7),
+    workspace: new Workspace({
+      type: 'unrestricted',
+      root: process.cwd(),
+    }),
+    interaction: {
+      ask: unusedAsk,
+      write: (value) => {
+        values.push(value);
+      },
+    },
+  });
+
+  await agent.run();
+
+  expect(values.join('')).toContain('terminou com código 7');
 });
 
 test('Agent espera a resposta e retoma a sessão após ask', async () => {
@@ -50,6 +136,7 @@ test('Agent espera a resposta e retoma a sessão após ask', async () => {
   }
 
   expect(events).toEqual([
+    { type: 'output', value: 'Qual é o seu nome?' },
     { type: 'ask', question: 'Qual é o seu nome?' },
     { type: 'output', value: 'Olá, dev' },
   ]);
@@ -74,6 +161,27 @@ class EchoProvider implements Provider<string, string> {
       if (channel === 'stdout') {
         yield { type: 'output', value: chunk };
       }
+    }
+  }
+}
+
+class ExitProvider implements Provider<string, string> {
+  public readonly id = 'exit';
+
+  public constructor(private readonly code: number) {}
+
+  public createCommand(): ProgramCommand {
+    return {
+      executable: process.execPath,
+      arguments: ['-e', `process.exit(${String(this.code)})`],
+    };
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    for await (const _value of output) {
+      // The process is expected to exit before producing output.
     }
   }
 }
@@ -106,4 +214,8 @@ class InteractiveProvider implements Provider<string, string> {
       }
     }
   }
+}
+
+async function unusedAsk(): Promise<string> {
+  throw new Error('não deveria perguntar');
 }

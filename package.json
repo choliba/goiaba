@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "arquiteto": "bun agents/arquiteto.ts",
+    "seguro": "bun agents/seguro.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },

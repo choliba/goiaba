@@ -1,7 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 
-import { OutputDispatcher } from '../output/index.js';
+import { logCommand } from '../log/index.js';
+import { OutputDispatcher, OutputStream } from '../output/index.js';
 import type {
   ProgramCommand,
   ProgramOutput,
@@ -51,13 +52,36 @@ export class Executor<TOutput = string> {
     sessionId?: string,
   ): Promise<void> {
     try {
-      const command = await workspace.prepare(
-        provider.createCommand(input, sessionId),
-      );
+      const inner = provider.createCommand(input, sessionId, workspace.root);
+      logCommand({
+        phase: 'inner',
+        executionId,
+        provider: provider.id,
+        executable: inner.executable,
+        arguments: inner.arguments,
+        cwd: inner.cwd ?? workspace.root,
+      });
+
+      const command = await workspace.prepare(inner);
+      logCommand({
+        phase: 'spawn',
+        executionId,
+        provider: provider.id,
+        executable: command.executable,
+        arguments: command.arguments,
+        cwd: command.cwd,
+      });
+
       const { process, output, completion } = this.start(command);
 
       if (process.stdin === null) {
         throw new Error('O processo não expôs entrada.');
+      }
+
+      try {
+        await workspace.sandbox.started?.(process);
+      } catch {
+        // Falha de inspect/debug não deve abortar a execução.
       }
 
       process.stdin.end(command.input);
@@ -67,6 +91,15 @@ export class Executor<TOutput = string> {
       }
 
       const status = await completion;
+      logCommand({
+        phase: 'exit',
+        executionId,
+        provider: provider.id,
+        executable: command.executable,
+        cwd: command.cwd,
+        code: status.code,
+        signal: status.signal,
+      });
 
       if (status.error !== undefined) {
         throw status.error;
@@ -146,9 +179,7 @@ async function* readProcessOutput(
   stdout.setEncoding('utf8');
   stderr.setEncoding('utf8');
 
-  const queue = new OutputDispatcher<ProgramOutput>();
-  const id = 'process-output';
-  const iterable = queue.open(id, id);
+  const output = new OutputStream<ProgramOutput>();
   let openStreams = 2;
   let ended = false;
 
@@ -157,18 +188,18 @@ async function* readProcessOutput(
 
     if (openStreams === 0 && !ended) {
       ended = true;
-      queue.close(id, id);
+      output.close();
     }
   };
 
   stdout.on('data', (chunk: string) => {
     if (!ended) {
-      queue.publish(id, id, { channel: 'stdout', chunk });
+      output.publish({ channel: 'stdout', chunk });
     }
   });
   stderr.on('data', (chunk: string) => {
     if (!ended) {
-      queue.publish(id, id, { channel: 'stderr', chunk });
+      output.publish({ channel: 'stderr', chunk });
     }
   });
   stdout.once('end', finish);
@@ -176,11 +207,11 @@ async function* readProcessOutput(
   process.once('error', (error) => {
     if (!ended) {
       ended = true;
-      queue.fail(id, id, error);
+      output.fail(error);
     }
   });
 
-  yield* iterable;
+  yield* output;
 }
 
 function waitForCompletion(process: ChildProcess): Promise<ProcessStatus> {

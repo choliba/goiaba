@@ -11,5 +11,10 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "agents/**/*.ts", "test/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "agents/**/*.ts",
+    "test/**/*.ts",
+    "goiaba.config.ts"
+  ]
 }
