@@ -1,5 +1,4 @@
 export type { Sandbox } from './types.js';
-export { UnrestrictedSandbox } from './unrestricted.js';
 export {
   DEFAULT_DOCKER_IMAGE,
   DockerSandbox,

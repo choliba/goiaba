@@ -60,7 +60,6 @@ export {
   DEFAULT_DOCKER_IMAGE,
   DockerSandbox,
   type Sandbox,
-  UnrestrictedSandbox,
 } from './workspace/sandbox/index.js';
 export {
   CodexProvider,

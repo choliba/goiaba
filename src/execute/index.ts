@@ -79,7 +79,12 @@ export class Executor<TOutput = string> {
 
       signal?.throwIfAborted();
       const { process, output, completion } = this.start(command);
-      stopOnAbort = () => terminate(process);
+      stopOnAbort = () => {
+        terminate(process);
+        // The CLI may run as a grandchild (nsenter -p forks); only tearing
+        // down the sandbox reaches it.
+        void workspace.close();
+      };
       signal?.addEventListener('abort', stopOnAbort, { once: true });
 
       if (process.stdin === null) {

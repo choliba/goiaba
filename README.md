@@ -31,7 +31,7 @@ await runScript(async () => {
     prompt: 'Analise o projeto.',
     provider: new ClaudeProvider({ model: 'claude-sonnet-5-5' }),
     workspace: new Workspace({
-      type: 'unrestricted',
+      type: 'bubblewrap',
       root: process.cwd(),
     }),
   });
@@ -68,7 +68,7 @@ await runScript(async () => {
     prompt: 'Analise o projeto.',
     provider: new ClaudeProvider({ model: 'claude-sonnet-5-5' }),
     workspace: new Workspace({
-      type: 'unrestricted',
+      type: 'bubblewrap',
       root: process.cwd(),
     }),
     output,
@@ -94,7 +94,7 @@ await runScript(async ({ signal }) => {
   const agent = new Agent({
     prompt: 'Analise o projeto.',
     provider: new ClaudeProvider({ model: 'claude-sonnet-5-5' }),
-    workspace: new Workspace({ type: 'unrestricted', root: process.cwd() }),
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
     // Para em 10 minutos ou no Ctrl+C, o que vier primeiro.
     signal: AbortSignal.any([signal, AbortSignal.timeout(10 * 60_000)]),
   });
@@ -301,30 +301,18 @@ Qualquer outra forma é recusada antes de iniciar o provider.
 ## Workspace
 
 O `Workspace` define onde o CLI do agente roda e o que ele enxerga do host. O
-`type` escolhe o isolamento; em todos, o `cwd` do CLI é o `root`.
+agente sempre roda isolado: não há modo sem sandbox. O `type` escolhe o
+isolamento; em todos, o `cwd` do CLI é o `root`.
 
-| Tipo | Isolamento | Aceita `permissions` | Campos |
-| --- | --- | --- | --- |
-| `unrestricted` | nenhum | não | `root` |
-| `bubblewrap` | jaula `bwrap` no host | sim | `root`, `writable?` |
-| `docker` | container como jaula | sim | `root`, `image`, `writable?` |
+| Tipo | Isolamento | Campos |
+| --- | --- | --- |
+| `bubblewrap` | jaula `bwrap` no host | `root`, `writable?` |
+| `docker` | container como jaula | `root`, `image`, `writable?` |
 
-Nos tipos com sandbox, o CLI continua sendo o do host, e ficam graváveis só o
+Nos dois, o CLI continua sendo o do host, e ficam graváveis só o
 `root`, o estado dos CLIs (`~/.config`, `~/.cache`, `~/.local/share`,
 `~/.cursor`, `~/.codex`, `~/.claude`, `~/.claude.json`) e os caminhos extras em
 `writable`. Caminhos de `writable` que não existem são ignorados.
-
-### `unrestricted`
-
-Executa o CLI direto no host; só troca o `cwd` para `root`. Não há isolamento,
-por isso um agente com `permissions` é recusado neste tipo.
-
-```ts
-new Workspace({
-  type: 'unrestricted',
-  root: process.cwd(),
-});
-```
 
 ### `bubblewrap`
 

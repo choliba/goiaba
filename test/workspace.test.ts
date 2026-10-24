@@ -39,7 +39,7 @@ describe('Workspace', () => {
     expect(
       () =>
         new Workspace({
-          type: 'unrestricted',
+          type: 'bubblewrap',
           root: '   ',
         }),
     ).toThrow('A raiz do workspace não pode estar vazia.');
@@ -61,18 +61,6 @@ describe('Workspace', () => {
         expect(error).toHaveProperty('message', message);
       }
     }
-  });
-
-  test('unrestricted devolve o comando com cwd na raiz', async () => {
-    const workspace = new Workspace({
-      type: 'unrestricted',
-      root,
-    });
-
-    expect(await workspace.prepare(command)).toEqual({
-      ...command,
-      cwd: root,
-    });
   });
 
   test('docker envolve o comando em docker run', async () => {

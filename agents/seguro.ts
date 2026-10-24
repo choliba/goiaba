@@ -46,8 +46,8 @@ await runScript(async () => {
       // Com permissions.execution o provider usa dontAsk: só roda o que está em allow.
     }),
     workspace: new Workspace({
-      type: 'unrestricted',
-      // image: 'from oven/bun:latest',
+      type: 'docker',
+      image: 'from oven/bun:latest',
       root: workpace,
       // Caches dos gerenciadores de pacote, para bun/npm install funcionarem.
       // writable: [

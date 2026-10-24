@@ -19,23 +19,6 @@ afterEach(() => {
   clearConfigCache();
 });
 
-test('Agent recusa permissões sem sandbox', () => {
-  expect(() => new Agent({
-    prompt: 'mensagem',
-    provider: new EchoProvider(),
-    workspace: new Workspace({ type: 'unrestricted', root: process.cwd() }),
-    permissions: {
-      default: 'deny',
-      allow: {
-        filesystem: [{
-          operations: ['read', 'write'],
-          paths: ['/workspace/**'],
-        }],
-      },
-    },
-  })).toThrow('Docker ou Bubblewrap');
-});
-
 test('Agent recusa categoria que o provider não aplica', () => {
   const root = mkdtempSync(join(tmpdir(), 'goiaba-agent-'));
 
@@ -62,7 +45,7 @@ test('Agent entrega a saída pelo interact', async () => {
     prompt: 'mensagem',
     provider: new EchoProvider(),
     workspace: new Workspace({
-      type: 'unrestricted',
+      type: 'bubblewrap',
       root: process.cwd(),
     }),
   });
@@ -81,7 +64,7 @@ test('Agent.run escreve output e ask pelos ports injetados', async () => {
     prompt: 'início',
     provider: new InteractiveProvider(),
     workspace: new Workspace({
-      type: 'unrestricted',
+      type: 'bubblewrap',
       root: process.cwd(),
     }),
     interaction: {
@@ -105,7 +88,7 @@ test('Agent.run encerra em silêncio quando o ask aborta', async () => {
     prompt: 'início',
     provider: new InteractiveProvider(),
     workspace: new Workspace({
-      type: 'unrestricted',
+      type: 'bubblewrap',
       root: process.cwd(),
     }),
     interaction: {
@@ -125,7 +108,7 @@ test('Agent.run imprime falha do programa sem relançar', async () => {
     prompt: 'mensagem',
     provider: new ExitProvider(7),
     workspace: new Workspace({
-      type: 'unrestricted',
+      type: 'bubblewrap',
       root: process.cwd(),
     }),
     interaction: {
@@ -147,7 +130,7 @@ test('Agent espera a resposta e retoma a sessão após ask', async () => {
     prompt: 'início',
     provider,
     workspace: new Workspace({
-      type: 'unrestricted',
+      type: 'bubblewrap',
       root: process.cwd(),
     }),
   });
@@ -170,7 +153,7 @@ test('Agent espera a resposta e retoma a sessão após ask', async () => {
 
 test('Agent.run para em silêncio quando o signal aborta e fecha o workspace', async () => {
   const values: string[] = [];
-  const workspace = new Workspace({ type: 'unrestricted', root: process.cwd() });
+  const workspace = new Workspace({ type: 'bubblewrap', root: process.cwd() });
   let closed = false;
   const close = workspace.close.bind(workspace);
   workspace.close = async () => {
@@ -196,7 +179,7 @@ test('Agent.run para enquanto espera a resposta de um ask', async () => {
   await new Agent({
     prompt: 'início',
     provider: new InteractiveProvider(),
-    workspace: new Workspace({ type: 'unrestricted', root: process.cwd() }),
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
     interaction: {
       ask: () => {
         setTimeout(() => controller.abort(), 10);

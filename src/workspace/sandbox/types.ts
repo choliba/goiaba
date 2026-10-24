@@ -8,7 +8,7 @@ import type { FilesystemAccess } from '../../policy/index.js';
  * Implementations may wrap it with Docker, Bubblewrap, or another runtime.
  */
 export interface Sandbox {
-  configureFilesystem?(access: FilesystemAccess): void;
+  configureFilesystem(access: FilesystemAccess): void;
   prepare(command: ProgramCommand): ProgramCommand | Promise<ProgramCommand>;
   started?(process: ChildProcess): void | Promise<void>;
   close?(): void | Promise<void>;

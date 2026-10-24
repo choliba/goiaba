@@ -1,4 +1,6 @@
-import { describe, expect, test } from 'bun:test';
+import { spawn, type SpawnOptions } from 'node:child_process';
+
+import { afterAll, describe, expect, test } from 'bun:test';
 
 import { Executor, ProgramExecutionError } from '../src/execute/index.js';
 import { OutputDispatcher } from '../src/output/index.js';
@@ -7,9 +9,11 @@ import { Workspace } from '../src/workspace/index.js';
 import type { ProgramCommand, ProgramOutput } from '../src/execute/types.js';
 
 const workspace = new Workspace({
-  type: 'unrestricted',
+  type: 'bubblewrap',
   root: process.cwd(),
 });
+
+afterAll(() => workspace.close());
 
 describe('Executor', () => {
   test('envia a entrada e encaminha stdout e stderr pelo provider', async () => {
@@ -97,11 +101,16 @@ describe('Executor', () => {
   });
 
   test('propaga falha ao iniciar o programa', async () => {
-    const provider = new TestProvider('', '/programa/inexistente');
+    const provider = new TestProvider('');
+    // Inside the jail a missing program is an exit 127; only spawn can fail to start.
+    const executor = new Executor<string>({
+      spawnProcess: ((_executable: string, _args: string[], options: SpawnOptions) =>
+        spawn('/programa/inexistente', [], options)) as unknown as typeof spawn,
+    });
     let failure: unknown;
 
     try {
-      await collect(new Executor<string>().run(provider, workspace, ''));
+      await collect(executor.run(provider, workspace, ''));
     } catch (error) {
       failure = error;
     }
@@ -128,13 +137,8 @@ describe('Executor', () => {
 
   test('executa o comando na raiz do workspace', async () => {
     const provider = new TestProvider('process.stdout.write(process.cwd());');
-    const selectedWorkspace = new Workspace({
-      type: 'unrestricted',
-      root: process.cwd(),
-    });
-
     const values = await collect(
-      new Executor<string>().run(provider, selectedWorkspace, ''),
+      new Executor<string>().run(provider, workspace, ''),
     );
 
     expect(values.map(readOutput)).toEqual([`stdout:${process.cwd()}`]);
@@ -144,14 +148,11 @@ describe('Executor', () => {
 class TestProvider implements Provider<string, string> {
   public readonly id = 'test-program';
 
-  public constructor(
-    private readonly script: string,
-    private readonly executable = process.execPath,
-  ) {}
+  public constructor(private readonly script: string) {}
 
   public createCommand(input: string): ProgramCommand {
     return {
-      executable: this.executable,
+      executable: process.execPath,
       arguments: ['-e', this.script],
       input,
     };

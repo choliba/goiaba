@@ -82,45 +82,6 @@ test('openLogger cria o diretório e o jsonl', async () => {
   }
 });
 
-test('debug registra o sandbox unrestricted', async () => {
-  const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
-
-  try {
-    writeFileSync(
-      join(cwd, 'goiaba.config.ts'),
-      `export default { logDir: 'logs', debug: true };\n`,
-    );
-    await loadConfig({ cwd });
-    openLogger();
-
-    await new Workspace({ type: 'unrestricted', root: cwd }).prepare({
-      executable: 'agent',
-      arguments: ['--print'],
-      cwd,
-    });
-
-    const records = readLogRecords(join(cwd, 'logs'));
-    expect(records).toEqual([
-      expect.objectContaining({
-        level: 'debug',
-        type: 'sandbox',
-        sandbox: 'unrestricted',
-        isolation: false,
-        network: { mode: 'host' },
-        mounts: [],
-        volumes: [],
-        command: {
-          executable: 'agent',
-          arguments: ['--print'],
-          cwd,
-        },
-      }),
-    ]);
-  } finally {
-    rmSync(cwd, { recursive: true, force: true });
-  }
-});
-
 test('debug registra montagens e rede do bubblewrap', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 
@@ -267,7 +228,7 @@ test('debug registra os comandos executados pelo agente', async () => {
       prompt: 'mensagem',
       provider: new EchoProvider(),
       workspace: new Workspace({
-        type: 'unrestricted',
+        type: 'bubblewrap',
         root: cwd,
       }),
       interaction: silentInteraction,
@@ -291,15 +252,19 @@ test('debug registra os comandos executados pelo agente', async () => {
         level: 'debug',
         type: 'command',
         phase: 'spawn',
-        executable: process.execPath,
-        arguments: ['-e', 'process.stdin.pipe(process.stdout)'],
+        executable: 'nsenter',
+        arguments: expect.arrayContaining([
+          process.execPath,
+          '-e',
+          'process.stdin.pipe(process.stdout)',
+        ]),
         cwd,
       }),
       expect.objectContaining({
         level: 'debug',
         type: 'command',
         phase: 'exit',
-        executable: process.execPath,
+        executable: 'nsenter',
         code: 0,
         signal: null,
       }),
@@ -320,7 +285,7 @@ test('Agent.run grava o transcript no logDir', async () => {
       prompt: 'mensagem',
       provider: new EchoProvider(),
       workspace: new Workspace({
-        type: 'unrestricted',
+        type: 'bubblewrap',
         root: cwd,
       }),
       interaction: silentInteraction,

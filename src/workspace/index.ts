@@ -5,15 +5,9 @@ import {
   BubblewrapSandbox,
   DockerSandbox,
   type Sandbox,
-  UnrestrictedSandbox,
 } from './sandbox/index.js';
 
-export type WorkspaceType = 'unrestricted' | 'docker' | 'bubblewrap';
-
-export interface UnrestrictedWorkspaceOptions {
-  readonly type: 'unrestricted';
-  readonly root: string;
-}
+export type WorkspaceType = 'docker' | 'bubblewrap';
 
 export interface DockerWorkspaceOptions {
   readonly type: 'docker';
@@ -29,7 +23,6 @@ export interface BubblewrapWorkspaceOptions {
 }
 
 export type WorkspaceOptions =
-  | UnrestrictedWorkspaceOptions
   | DockerWorkspaceOptions
   | BubblewrapWorkspaceOptions;
 
@@ -49,12 +42,6 @@ export class Workspace {
   }
 
   public applyPermissions(permissions: AgentPermissions): void {
-    if (this.type === 'unrestricted' || this.sandbox.configureFilesystem === undefined) {
-      throw new UsageError(
-        'Permissões exigem um workspace Docker ou Bubblewrap.',
-      );
-    }
-
     this.sandbox.configureFilesystem(
       compileFilesystemAccess(permissions, this.root),
     );
@@ -76,8 +63,6 @@ export class Workspace {
 
 function createSandbox(options: WorkspaceOptions): Sandbox {
   switch (options.type) {
-    case 'unrestricted':
-      return new UnrestrictedSandbox();
     case 'docker':
       return new DockerSandbox(options);
     case 'bubblewrap':

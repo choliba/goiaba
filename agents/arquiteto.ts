@@ -12,8 +12,7 @@ await runScript(async () => {
       model: 'gpt-6.1-sol',
     }),
     workspace: new Workspace({
-      type: 'unrestricted',
-      // image: 'from choliba-agent:latest',
+      type: 'bubblewrap',
       root: process.env?.workpace ?? process.cwd(),
     }),
   });
