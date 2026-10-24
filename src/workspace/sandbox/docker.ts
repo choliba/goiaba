@@ -112,6 +112,19 @@ export class DockerSandbox implements Sandbox {
     );
   }
 
+  /** Removes the last container; killing `docker run` does not always stop it. */
+  public async close(): Promise<void> {
+    const name = this.containerName;
+    this.containerName = undefined;
+
+    if (name === undefined) {
+      return;
+    }
+
+    await execFileAsync('docker', ['rm', '--force', name], { timeout: 10_000 })
+      .catch(() => undefined);
+  }
+
   public async started(process: ChildProcess): Promise<void> {
     if (!isDebug()) {
       return;

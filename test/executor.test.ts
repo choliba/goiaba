@@ -33,6 +33,20 @@ describe('Executor', () => {
     ]);
   });
 
+  test('o signal mata o processo e encerra com AbortError', async () => {
+    const provider = new TestProvider('setInterval(() => {}, 1000);');
+    const controller = new AbortController();
+    const started = Date.now();
+    setTimeout(() => controller.abort(), 100);
+
+    const values = collect(
+      new Executor<string>().run(provider, workspace, '', undefined, controller.signal),
+    );
+
+    await expect(values).rejects.toMatchObject({ name: 'AbortError' });
+    expect(Date.now() - started).toBeLessThan(1500);
+  });
+
   test('publica execuções simultâneas no fluxo global sem misturá-las', async () => {
     const output = new OutputDispatcher<ProviderEvent<string>>();
     let nextId = 0;

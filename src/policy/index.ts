@@ -75,7 +75,6 @@ export function compileFilesystemAccess(
 ): FilesystemAccess {
   const permissions = aliasWorkspaceRoot(rawPermissions, workspaceRoot);
   validatePermissions(permissions);
-  rejectUnsupportedCategories(permissions);
 
   if (permissions.default !== 'deny') {
     throw new UsageError(
@@ -259,18 +258,20 @@ function expandedOperations(
     : operations as readonly FilesystemOperation[];
 }
 
-function rejectUnsupportedCategories(permissions: AgentPermissions): void {
-  for (const source of ['allow', 'deny', 'requireApproval'] as const) {
-    const groups = permissions[source];
+export type DelegatedCategory = 'web' | 'execution' | 'communication';
 
-    for (const category of ['web', 'execution', 'communication'] as const) {
-      if ((groups?.[category]?.length ?? 0) > 0) {
-        throw new UsageError(
-          `A categoria ${category} ainda não possui enforcement seguro.`,
-        );
-      }
-    }
-  }
+/**
+ * Categories the sandbox cannot enforce. Each provider translates them into
+ * its CLI's own permission mechanism, or refuses them.
+ */
+export function delegatedCategories(
+  permissions: AgentPermissions,
+): readonly DelegatedCategory[] {
+  return (['web', 'execution', 'communication'] as const).filter((category) =>
+    (['allow', 'deny', 'requireApproval'] as const).some(
+      (source) => (permissions[source]?.[category]?.length ?? 0) > 0,
+    ),
+  );
 }
 
 function validatePermissions(permissions: AgentPermissions): void {
@@ -284,7 +285,11 @@ function validatePermissions(permissions: AgentPermissions): void {
 
     for (const category of ['filesystem', 'web', 'execution', 'communication'] as const) {
       for (const rule of groups[category] ?? []) {
-        if (rule.operations.length === 0) {
+        if (category === 'execution') {
+          if ((rule as ExecutionRule).commands.length === 0) {
+            throw new UsageError('Uma regra execution precisa ter commands.');
+          }
+        } else if ((rule as Exclude<Rule, ExecutionRule>).operations.length === 0) {
           throw new UsageError(`Uma regra ${category} precisa ter operações.`);
         }
 
@@ -299,16 +304,19 @@ function patternsOf(rule: Rule): readonly string[] {
   if ('domains' in rule) return [...rule.domains, ...(rule.ignores?.domains ?? [])];
   if ('channels' in rule) return [...rule.channels, ...(rule.ignores?.channels ?? [])];
   const execution = rule as ExecutionRule;
-  return [
-    ...(execution.commands ?? []),
-    ...(execution.environments ?? []),
-    ...(execution.ignores?.commands ?? []),
-    ...(execution.ignores?.environments ?? []),
-  ];
+  return [...execution.commands, ...(execution.ignores?.commands ?? [])];
 }
 
 function matchesRule(rule: Rule, action: PolicyAction): boolean {
-  if (!includesOperation(rule.operations, action.operation)) return false;
+  if (action.category === 'execution') {
+    if ('paths' in rule || 'domains' in rule || 'channels' in rule) return false;
+    const execution = rule as ExecutionRule;
+    return matchesAny(action.command, execution.commands) &&
+      !matchesAny(action.command, execution.ignores?.commands);
+  }
+
+  const { operations } = rule as Exclude<Rule, ExecutionRule>;
+  if (!includesOperation(operations, action.operation)) return false;
 
   switch (action.category) {
     case 'filesystem':
@@ -323,18 +331,6 @@ function matchesRule(rule: Rule, action: PolicyAction): boolean {
       return 'channels' in rule &&
         matchesAny(action.channel, rule.channels) &&
         !matchesAny(action.channel, rule.ignores?.channels);
-    case 'execution': {
-      if ('paths' in rule || 'domains' in rule || 'channels' in rule) return false;
-      const execution = rule as ExecutionRule;
-      const commandMatches = execution.commands === undefined ||
-        (action.command !== undefined && matchesAny(action.command, execution.commands));
-      const environmentMatches = execution.environments === undefined ||
-        (action.environment !== undefined && matchesAny(action.environment, execution.environments));
-      const ignored =
-        (action.command !== undefined && matchesAny(action.command, execution.ignores?.commands)) ||
-        (action.environment !== undefined && matchesAny(action.environment, execution.ignores?.environments));
-      return commandMatches && environmentMatches && !ignored;
-    }
   }
 }
 

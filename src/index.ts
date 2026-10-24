@@ -15,7 +15,7 @@ export type {
   ResolvedGoiabaConfig,
   ResolvedGoiabaEnv,
 } from './config/index.js';
-export { runScript, UsageError } from './usage.js';
+export { runScript, UsageError, type ScriptContext } from './usage.js';
 export type {
   AgentAsk,
   AgentOptions,
@@ -32,7 +32,6 @@ export type {
   ApprovalRequest,
   CommunicationOperation,
   CommunicationRule,
-  ExecutionOperation,
   ExecutionRule,
   FilesystemOperation,
   FilesystemRule,
@@ -71,3 +70,8 @@ export {
   CursorProvider,
   type CursorProviderOptions,
 } from './providers/cursor-provider.js';
+export {
+  ClaudeProvider,
+  type ClaudePermissionMode,
+  type ClaudeProviderOptions,
+} from './providers/claude-provider.js';

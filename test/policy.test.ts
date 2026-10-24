@@ -12,6 +12,7 @@ import { describe, expect, test } from 'bun:test';
 import { UsageError } from '../src/errors.js';
 import {
   compileFilesystemAccess,
+  delegatedCategories,
   PolicyEngine,
   wildmatch,
 } from '../src/policy/index.js';
@@ -77,13 +78,15 @@ describe('PolicyEngine', () => {
       default: 'deny',
       allow: {
         web: [{ operations: ['search'], domains: ['*.github.com'] }],
-        execution: [{ operations: ['lint'], environments: ['sandbox_*'] }],
+        execution: [{ commands: ['bun *'], ignores: { commands: ['bun publish*'] } }],
         communication: [{ operations: ['send_logs'], channels: ['internal_*'] }],
       },
     });
 
     expect(engine.check({ category: 'web', operation: 'search', domain: 'api.github.com' }).policy).toBe('allow');
-    expect(engine.check({ category: 'execution', operation: 'lint', environment: 'sandbox_docker' }).policy).toBe('allow');
+    expect(engine.check({ category: 'execution', command: 'bun test' }).policy).toBe('allow');
+    expect(engine.check({ category: 'execution', command: 'bun publish' }).policy).toBe('deny');
+    expect(engine.check({ category: 'execution', command: 'npm test' }).policy).toBe('deny');
     expect(engine.check({ category: 'communication', operation: 'send_logs', channel: 'internal_dev' }).policy).toBe('allow');
   });
 
@@ -168,7 +171,18 @@ describe('filesystem enforcement compiler', () => {
     }
   });
 
-  test('rejeita categoria, aprovação e padrão sem enforcement', () => {
+  test('delega ao provider as categorias que a sandbox não aplica', () => {
+    expect(delegatedCategories({
+      default: 'deny',
+      allow: {
+        filesystem: [rule('/workspace/**')],
+        web: [{ operations: ['search'], domains: ['*'] }],
+      },
+      deny: { execution: [{ commands: ['sudo *'] }] },
+    })).toEqual(['web', 'execution']);
+  });
+
+  test('rejeita aprovação e padrão sem enforcement', () => {
     const root = mkdtempSync(join(tmpdir(), 'goiaba-policy-'));
     const base: AgentPermissions = {
       default: 'deny',
@@ -176,10 +190,6 @@ describe('filesystem enforcement compiler', () => {
     };
 
     try {
-      expect(() => compileFilesystemAccess({
-        ...base,
-        allow: { ...base.allow, web: [{ operations: ['search'], domains: ['*'] }] },
-      }, root)).toThrow('web');
       expect(() => compileFilesystemAccess({
         ...base,
         requireApproval: { filesystem: [rule('/workspace/**')] },

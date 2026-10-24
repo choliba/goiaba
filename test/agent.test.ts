@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { Agent } from '../src/agent/agent.js';
@@ -30,6 +34,27 @@ test('Agent recusa permissões sem sandbox', () => {
       },
     },
   })).toThrow('Docker ou Bubblewrap');
+});
+
+test('Agent recusa categoria que o provider não aplica', () => {
+  const root = mkdtempSync(join(tmpdir(), 'goiaba-agent-'));
+
+  try {
+    expect(() => new Agent({
+      prompt: 'mensagem',
+      provider: new EchoProvider(),
+      workspace: new Workspace({ type: 'bubblewrap', root }),
+      permissions: {
+        default: 'deny',
+        allow: {
+          filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+          execution: [{ commands: ['bun *'] }],
+        },
+      },
+    })).toThrow('O provider echo não aplica a categoria execution.');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('Agent entrega a saída pelo interact', async () => {
@@ -142,6 +167,65 @@ test('Agent espera a resposta e retoma a sessão após ask', async () => {
   ]);
   expect(provider.sessions).toEqual([undefined, 'session-1']);
 });
+
+test('Agent.run para em silêncio quando o signal aborta e fecha o workspace', async () => {
+  const values: string[] = [];
+  const workspace = new Workspace({ type: 'unrestricted', root: process.cwd() });
+  let closed = false;
+  const close = workspace.close.bind(workspace);
+  workspace.close = async () => {
+    closed = true;
+    await close();
+  };
+
+  await new Agent({
+    prompt: 'mensagem',
+    provider: new HangingProvider(),
+    workspace,
+    interaction: { ask: unusedAsk, write: (value) => values.push(value) },
+    signal: AbortSignal.timeout(100),
+  }).run();
+
+  expect(values).toEqual(['\n']);
+  expect(closed).toBe(true);
+});
+
+test('Agent.run para enquanto espera a resposta de um ask', async () => {
+  const controller = new AbortController();
+
+  await new Agent({
+    prompt: 'início',
+    provider: new InteractiveProvider(),
+    workspace: new Workspace({ type: 'unrestricted', root: process.cwd() }),
+    interaction: {
+      ask: () => {
+        setTimeout(() => controller.abort(), 10);
+        return new Promise<string>(() => {});
+      },
+      write: () => {},
+    },
+    signal: controller.signal,
+  }).run();
+});
+
+class HangingProvider implements Provider<string, string> {
+  public readonly id = 'hanging';
+
+  public createCommand(): ProgramCommand {
+    return {
+      executable: process.execPath,
+      arguments: ['-e', 'setInterval(() => {}, 1000)'],
+    };
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    for await (const _value of output) {
+      // Never produces output; only the abort ends it.
+    }
+  }
+}
 
 class EchoProvider implements Provider<string, string> {
   public readonly id = 'echo';

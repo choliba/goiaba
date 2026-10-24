@@ -2,8 +2,10 @@ import type { AgentAsk, AgentOptions, AgentProvider } from './types.js';
 import { Executor, ProgramExecutionError } from '../execute/index.js';
 import { closeLogger, openLogger } from '../log/index.js';
 import type { AgentEvent } from '../providers/types.js';
+import { delegatedCategories, type AgentPermissions } from '../policy/index.js';
 import { UsageError } from '../errors.js';
 import { StandardOutput, type OutputAdapter } from '../output/index.js';
+import { scriptSignal } from '../usage.js';
 import type { Workspace } from '../workspace/index.js';
 
 export class Agent {
@@ -13,6 +15,7 @@ export class Agent {
   private readonly executor: Executor<string>;
   private readonly workspace: Workspace;
   private readonly output: OutputAdapter;
+  private readonly signal: AbortSignal | undefined;
 
   public constructor({
     prompt,
@@ -22,6 +25,7 @@ export class Agent {
     output,
     interaction = new StandardOutput(),
     permissions,
+    signal = scriptSignal(),
   }: AgentOptions) {
     if (prompt.trim().length === 0) {
       throw new Error('O prompt do agente não pode estar vazio.');
@@ -36,13 +40,17 @@ export class Agent {
     this.workspace = workspace;
     this.executor = executor ?? new Executor({ output });
     this.output = interaction;
-    if (permissions !== undefined) workspace.applyPermissions(permissions);
+    this.signal = signal;
+    if (permissions !== undefined) {
+      workspace.applyPermissions(permissions);
+      applyProviderPermissions(provider, permissions);
+    }
   }
 
   public async run(): Promise<void> {
     try {
       for await (const event of this.interact(this.prompt, (question) =>
-        this.output.ask(question),
+        this.output.ask(question, this.signal),
       )) {
         if (event.type === 'output') {
           this.output.write(event.value);
@@ -85,6 +93,7 @@ export class Agent {
           this.workspace,
           nextInput,
           sessionId,
+          this.signal,
         )) {
           if (event.type === 'session') {
             sessionId = event.id;
@@ -115,7 +124,7 @@ export class Agent {
           throw new Error('O provider não informou o identificador da sessão.');
         }
 
-        nextInput = await pendingAnswer;
+        nextInput = await abortable(pendingAnswer, this.signal);
         logger.log({ type: 'answer', value: nextInput });
       }
     } catch (error) {
@@ -134,13 +143,46 @@ export class Agent {
   }
 }
 
+/** Rejects as soon as the signal aborts, without waiting for the answer. */
+function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (signal === undefined) return promise;
+  signal.throwIfAborted();
+
+  return new Promise((resolve, reject) => {
+    const onAbort = (): void => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener('abort', onAbort);
+    });
+  });
+}
+
 function isAbortError(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) {
     return false;
   }
 
   return (
-    ('name' in error && error.name === 'AbortError') ||
+    ('name' in error &&
+      (error.name === 'AbortError' || error.name === 'TimeoutError')) ||
     ('code' in error && error.code === 'ABORT_ERR')
   );
+}
+
+function applyProviderPermissions(
+  provider: AgentProvider,
+  permissions: AgentPermissions,
+): void {
+  if (provider.applyPermissions !== undefined) {
+    provider.applyPermissions(permissions);
+    return;
+  }
+
+  const [category] = delegatedCategories(permissions);
+
+  if (category !== undefined) {
+    throw new UsageError(
+      `O provider ${provider.id} não aplica a categoria ${category}.`,
+    );
+  }
 }

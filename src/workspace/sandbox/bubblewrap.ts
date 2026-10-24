@@ -113,6 +113,11 @@ export class BubblewrapSandbox implements Sandbox {
       return this.jailPid;
     }
 
+    // spawn reports a missing cwd as ENOENT on the executable itself.
+    if (!existsSync(this.root)) {
+      throw new UsageError(`A raiz do workspace não existe: ${this.root}`);
+    }
+
     const writable = writableBinds(this.root, [
       ...hostStateDirs(this.env),
       ...this.writable,

@@ -1,12 +1,12 @@
 import { createInterface } from 'node:readline/promises';
 
 export interface OutputAdapter {
-  ask(question: string): Promise<string>;
+  ask(question: string, signal?: AbortSignal): Promise<string>;
   write(value: string): void;
 }
 
 export class StandardOutput implements OutputAdapter {
-  public async ask(_question: string): Promise<string> {
+  public async ask(_question: string, signal?: AbortSignal): Promise<string> {
     const input = createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -14,7 +14,7 @@ export class StandardOutput implements OutputAdapter {
     });
 
     try {
-      return await input.question('');
+      return await input.question('', signal === undefined ? {} : { signal });
     } finally {
       input.close();
     }

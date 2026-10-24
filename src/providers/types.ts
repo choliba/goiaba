@@ -2,6 +2,7 @@ import type {
   ProgramCommand,
   ProgramOutput,
 } from '../execute/types.js';
+import type { AgentPermissions } from '../policy/types.js';
 
 export type AgentEvent<TOutput> =
   | {
@@ -22,6 +23,13 @@ export type ProviderEvent<TOutput> =
 
 export interface Provider<TInput, TOutput> {
   readonly id: string;
+  /**
+   * Translates the categories the sandbox cannot enforce (web, execution,
+   * communication) into the CLI's own permission mechanism. Must throw a
+   * UsageError for anything it cannot apply exactly. Providers without it
+   * refuse those categories.
+   */
+  applyPermissions?(permissions: AgentPermissions): void;
   createCommand(
     input: TInput,
     sessionId?: string,

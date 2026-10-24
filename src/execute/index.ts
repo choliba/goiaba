@@ -36,11 +36,12 @@ export class Executor<TOutput = string> {
     workspace: Workspace,
     input: TInput,
     sessionId?: string,
+    signal?: AbortSignal,
   ): AsyncIterable<ProviderEvent<TOutput>> {
     const executionId = this.createExecutionId();
     const result = this.output.open(executionId, provider.id);
 
-    void this.execute(executionId, provider, workspace, input, sessionId);
+    void this.execute(executionId, provider, workspace, input, sessionId, signal);
     return result;
   }
 
@@ -50,8 +51,12 @@ export class Executor<TOutput = string> {
     workspace: Workspace,
     input: TInput,
     sessionId?: string,
+    signal?: AbortSignal,
   ): Promise<void> {
+    let stopOnAbort: (() => void) | undefined;
+
     try {
+      signal?.throwIfAborted();
       const inner = provider.createCommand(input, sessionId, workspace.root);
       logCommand({
         phase: 'inner',
@@ -72,7 +77,10 @@ export class Executor<TOutput = string> {
         cwd: command.cwd,
       });
 
+      signal?.throwIfAborted();
       const { process, output, completion } = this.start(command);
+      stopOnAbort = () => terminate(process);
+      signal?.addEventListener('abort', stopOnAbort, { once: true });
 
       if (process.stdin === null) {
         throw new Error('O processo não expôs entrada.');
@@ -91,6 +99,8 @@ export class Executor<TOutput = string> {
       }
 
       const status = await completion;
+      // A killed CLI exits with a signal; report the abort, not the exit.
+      signal?.throwIfAborted();
       logCommand({
         phase: 'exit',
         executionId,
@@ -115,7 +125,15 @@ export class Executor<TOutput = string> {
 
       this.output.close(executionId, provider.id);
     } catch (error) {
-      this.output.fail(executionId, provider.id, toError(error));
+      this.output.fail(
+        executionId,
+        provider.id,
+        toError(signal?.aborted ? signal.reason : error),
+      );
+    } finally {
+      if (stopOnAbort !== undefined) {
+        signal?.removeEventListener('abort', stopOnAbort);
+      }
     }
   }
 
@@ -221,6 +239,22 @@ function waitForCompletion(process: ChildProcess): Promise<ProcessStatus> {
     });
     process.once('close', (code, signal) => resolve({ code, signal }));
   });
+}
+
+const KILL_GRACE_MS = 2000;
+
+function terminate(process: ChildProcess): void {
+  if (process.exitCode !== null || process.signalCode !== null) {
+    return;
+  }
+
+  process.kill('SIGTERM');
+  const timer = setTimeout(() => {
+    if (process.exitCode === null && process.signalCode === null) {
+      process.kill('SIGKILL');
+    }
+  }, KILL_GRACE_MS);
+  timer.unref();
 }
 
 function toError(error: unknown): Error {

@@ -17,4 +17,6 @@ export interface AgentOptions {
   readonly output?: OutputDispatcher<ProviderEvent<string>>;
   readonly interaction?: OutputAdapter;
   readonly permissions?: AgentPermissions;
+  /** Stops the agent: kills the CLI and closes the workspace. Defaults to the runScript signal. */
+  readonly signal?: AbortSignal;
 }

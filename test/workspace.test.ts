@@ -275,6 +275,7 @@ describe('Workspace', () => {
     'bubblewrap esconde o diretório pai do root',
     async () => {
       const jailRoot = join(root, 'app');
+      mkdirSync(jailRoot, { recursive: true });
       const workspace = new Workspace({
         type: 'bubblewrap',
         root: jailRoot,

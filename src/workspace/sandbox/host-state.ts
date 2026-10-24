@@ -16,5 +16,7 @@ export function hostStateDirs(
     env.XDG_DATA_HOME || join(home, '.local/share'),
     join(home, '.cursor'),
     join(home, '.codex'),
+    join(home, '.claude'),
+    join(home, '.claude.json'),
   ];
 }
