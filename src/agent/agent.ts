@@ -1,7 +1,8 @@
-import type { AgentOptions, AgentProvider } from './types.js';
-import { type AgentIO, TerminalAgentIO } from './io.js';
+import { createInterface } from 'node:readline/promises';
+
+import type { AgentAsk, AgentOptions, AgentProvider } from './types.js';
 import { Executor } from '../execute/index.js';
-import type { AgentEvent, ProviderEvent } from '../providers/types.js';
+import type { AgentEvent } from '../providers/types.js';
 import type { Workspace } from '../workspace/index.js';
 
 export class Agent {
@@ -9,13 +10,13 @@ export class Agent {
   private readonly executor: Executor<string>;
   private readonly workspace: Workspace;
   private readonly prompt: string;
-  private readonly io: AgentIO;
+  private readonly ask: AgentAsk;
 
   public constructor({
     prompt,
     provider,
     workspace,
-    io = new TerminalAgentIO(),
+    ask = askFromTerminal,
     executor,
     output,
   }: AgentOptions) {
@@ -30,28 +31,25 @@ export class Agent {
     this.provider = provider;
     this.workspace = workspace;
     this.prompt = prompt;
-    this.io = io;
+    this.ask = ask;
     this.executor = executor ?? new Executor({ output });
   }
 
   public async run(): Promise<void> {
-    try {
-      for await (const event of this.interact(
-        this.prompt,
-        (question) => this.io.ask(question),
-      )) {
-        if (event.type === 'output') {
-          await this.io.write(event.value);
-        }
+    for await (const event of this.interact(this.prompt, this.ask)) {
+      if (event.type === 'output') {
+        writeLine(event.value);
       }
-    } finally {
-      await this.io.close();
+
+      if (event.type === 'ask') {
+        writeLine(event.question);
+      }
     }
   }
 
   public async *interact(
     input: string,
-    answer: (question: string) => Promise<string>,
+    answer: AgentAsk,
   ): AsyncIterable<AgentEvent<string>> {
     let nextInput = input;
     let sessionId: string | undefined;
@@ -87,5 +85,22 @@ export class Agent {
 
       nextInput = await pendingAnswer;
     }
+  }
+}
+
+function writeLine(value: string): void {
+  process.stdout.write(value.endsWith('\n') ? value : `${value}\n`);
+}
+
+async function askFromTerminal(_question: string): Promise<string> {
+  const terminal = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    return await terminal.question('> ');
+  } finally {
+    terminal.close();
   }
 }

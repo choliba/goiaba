@@ -1,7 +1,6 @@
 export { Agent } from './agent/agent.js';
-export { TerminalAgentIO } from './agent/io.js';
-export type { AgentIO } from './agent/io.js';
 export type {
+  AgentAsk,
   AgentOptions,
   AgentProvider,
 } from './agent/types.js';

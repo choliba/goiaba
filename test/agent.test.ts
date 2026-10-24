@@ -1,28 +1,33 @@
 import { expect, test } from 'bun:test';
 
 import { Agent } from '../src/agent/agent.js';
-import type { AgentIO } from '../src/agent/io.js';
 import type { ProgramCommand, ProgramOutput } from '../src/execute/types.js';
 import type { Provider } from '../src/providers/types.js';
 import type { ProviderEvent } from '../src/providers/types.js';
 import { Workspace } from '../src/workspace/index.js';
 
-test('Agent delega a execução e mantém o AsyncIterable público', async () => {
-  const io = new MemoryIO();
-  const agent = new Agent({
-    prompt: 'mensagem',
-    provider: new EchoProvider(),
-    workspace: new Workspace({
-      type: 'unrestricted',
-      root: process.cwd(),
-    }),
-    io,
-  });
+test('Agent escreve a saída ao executar', async () => {
+  const chunks: string[] = [];
+  const write = process.stdout.write;
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    chunks.push(String(chunk));
+    return true;
+  }) as typeof write;
 
-  await agent.run();
+  try {
+    await new Agent({
+      prompt: 'mensagem',
+      provider: new EchoProvider(),
+      workspace: new Workspace({
+        type: 'unrestricted',
+        root: process.cwd(),
+      }),
+    }).run();
+  } finally {
+    process.stdout.write = write;
+  }
 
-  expect(io.values).toEqual(['mensagem']);
-  expect(io.closed).toBe(true);
+  expect(chunks.join('')).toContain('mensagem');
 });
 
 test('Agent espera a resposta e retoma a sessão após ask', async () => {
@@ -50,23 +55,6 @@ test('Agent espera a resposta e retoma a sessão após ask', async () => {
   ]);
   expect(provider.sessions).toEqual([undefined, 'session-1']);
 });
-
-class MemoryIO implements AgentIO {
-  public readonly values: string[] = [];
-  public closed = false;
-
-  public write(value: string): void {
-    this.values.push(value);
-  }
-
-  public async ask(): Promise<string> {
-    return 'dev';
-  }
-
-  public close(): void {
-    this.closed = true;
-  }
-}
 
 class EchoProvider implements Provider<string, string> {
   public readonly id = 'echo';
