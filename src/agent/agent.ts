@@ -1,6 +1,12 @@
 import type { AgentAsk, AgentOptions, AgentProvider } from './types.js';
 import { Executor, ProgramExecutionError } from '../execute/index.js';
-import { closeLogger, openLogger } from '../log/index.js';
+import {
+  closeLogger,
+  getLogger,
+  isLoggerOpen,
+  logFailure,
+  openLogger,
+} from '../log/index.js';
 import type { AgentEvent } from '../providers/types.js';
 import { delegatedCategories, type AgentPermissions } from '../policy/index.js';
 import { UsageError } from '../errors.js';
@@ -12,7 +18,7 @@ export class Agent {
   public readonly prompt: string;
 
   private readonly provider: AgentProvider;
-  private readonly executor: Executor<string>;
+  private readonly executor: Executor;
   private readonly workspace: Workspace;
   private readonly output: OutputAdapter;
   private readonly signal: AbortSignal | undefined;
@@ -38,7 +44,8 @@ export class Agent {
     this.prompt = prompt;
     this.provider = provider;
     this.workspace = workspace;
-    this.executor = executor ?? new Executor({ output });
+    this.executor =
+      executor ?? new Executor(output === undefined ? {} : { output });
     this.output = interaction;
     this.signal = signal;
     if (permissions !== undefined) {
@@ -78,7 +85,9 @@ export class Agent {
     input: string,
     answer: AgentAsk,
   ): AsyncIterable<AgentEvent<string>> {
-    const logger = openLogger();
+    // runScript owns the log of the whole script; outside it, the agent does.
+    const ownsLogger = !isLoggerOpen();
+    const logger = ownsLogger ? openLogger() : getLogger();
     logger.log({ type: 'input', value: input });
 
     let nextInput = input;
@@ -129,22 +138,23 @@ export class Agent {
       }
     } catch (error) {
       if (!isAbortError(error)) {
-        logger.log({
-          type: 'error',
-          message: error instanceof Error ? error.message : String(error),
-        });
+        logFailure(error);
       }
 
       throw error;
     } finally {
-      closeLogger();
+      if (ownsLogger) closeLogger();
+      await this.provider.close?.();
       await this.workspace.close();
     }
   }
 }
 
 /** Rejects as soon as the signal aborts, without waiting for the answer. */
-function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+function abortable<T>(
+  promise: Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T> {
   if (signal === undefined) return promise;
   signal.throwIfAborted();
 

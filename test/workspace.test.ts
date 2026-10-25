@@ -49,17 +49,11 @@ describe('Workspace', () => {
     const message = `A imagem do workspace Docker deve ser FROM <imagem>. Exemplo:\n\n  ${DEFAULT_DOCKER_IMAGE}`;
 
     for (const image of ['', 'oven/bun:latest']) {
-      try {
-        new Workspace({
-          type: 'docker',
-          root,
-          image,
-        });
-        throw new Error('deveria ter falhado');
-      } catch (error) {
-        expect(error).toBeInstanceOf(UsageError);
-        expect(error).toHaveProperty('message', message);
-      }
+      const create = (): Workspace =>
+        new Workspace({ type: 'docker', root, image });
+
+      expect(create).toThrow(UsageError);
+      expect(create).toThrow(message);
     }
   });
 
@@ -170,16 +164,20 @@ describe('Workspace', () => {
       workspace.applyPermissions({
         default: 'deny',
         allow: {
-          filesystem: [{
-            operations: ['read', 'write'],
-            paths: ['/workspace/**'],
-          }],
+          filesystem: [
+            {
+              operations: ['read', 'write'],
+              paths: ['/workspace/**'],
+            },
+          ],
         },
         deny: {
-          filesystem: [{
-            operations: ['read', 'write'],
-            paths: ['/workspace/.env'],
-          }],
+          filesystem: [
+            {
+              operations: ['read', 'write'],
+              paths: ['/workspace/.env'],
+            },
+          ],
         },
       });
 
@@ -244,7 +242,10 @@ describe('Workspace', () => {
           { encoding: 'utf8' },
         );
 
-        expect(entered.status).toBe(0);
+        expect({ status: entered.status, stderr: entered.stderr }).toEqual({
+          status: 0,
+          stderr: '',
+        });
       } finally {
         await workspace.close();
       }
@@ -411,16 +412,20 @@ describe('Workspace', () => {
         workspace.applyPermissions({
           default: 'deny',
           allow: {
-            filesystem: [{
-              operations: ['read', 'write'],
-              paths: ['/workspace/**'],
-            }],
+            filesystem: [
+              {
+                operations: ['read', 'write'],
+                paths: ['/workspace/**'],
+              },
+            ],
           },
           deny: {
-            filesystem: [{
-              operations: ['read', 'write'],
-              paths: ['/workspace/.env'],
-            }],
+            filesystem: [
+              {
+                operations: ['read', 'write'],
+                paths: ['/workspace/.env'],
+              },
+            ],
           },
         });
 
@@ -463,10 +468,10 @@ describe('Workspace', () => {
       try {
         const prepared = await sandbox.prepare({ ...command, cwd: root });
         const pid = nsenterTarget(prepared.arguments ?? []);
-        const cmdline = readFileSync(`/proc/${String(pid)}/cmdline`, 'utf8').replaceAll(
-          '\0',
-          ' ',
-        );
+        const cmdline = readFileSync(
+          `/proc/${String(pid)}/cmdline`,
+          'utf8',
+        ).replaceAll('\0', ' ');
 
         expect(cmdline).toContain(cursor);
         expect(cmdline).toContain(config);

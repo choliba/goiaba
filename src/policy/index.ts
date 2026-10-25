@@ -34,9 +34,10 @@ export class PolicyEngine {
 
     for (const [source, policy] of SOURCES) {
       const rules = this.permissions[source]?.[action.category] as
-        | readonly Rule[]
-        | undefined;
-      const rule = rules?.findLast((candidate) => matchesRule(candidate, action));
+        readonly Rule[] | undefined;
+      const rule = rules?.findLast((candidate) =>
+        matchesRule(candidate, action),
+      );
 
       if (rule !== undefined) {
         decision = {
@@ -48,11 +49,13 @@ export class PolicyEngine {
       }
     }
 
-    return decision ?? {
-      policy: this.permissions.default,
-      source: 'default',
-      reason: 'Nenhuma regra corresponde à ação.',
-    };
+    return (
+      decision ?? {
+        policy: this.permissions.default,
+        source: 'default',
+        reason: 'Nenhuma regra corresponde à ação.',
+      }
+    );
   }
 
   public async authorize(
@@ -77,9 +80,7 @@ export function compileFilesystemAccess(
   validatePermissions(permissions);
 
   if (permissions.default !== 'deny') {
-    throw new UsageError(
-      'O enforcement de filesystem exige default deny.',
-    );
+    throw new UsageError('O enforcement de filesystem exige default deny.');
   }
 
   if ((permissions.requireApproval?.filesystem?.length ?? 0) > 0) {
@@ -104,9 +105,7 @@ export function compileFilesystemAccess(
   const rootWrite = permitsWorkspaceTree(allow, 'write');
 
   if (!rootRead) {
-    throw new UsageError(
-      'A sandbox exige allow de read para /workspace/**.',
-    );
+    throw new UsageError('A sandbox exige allow de read para /workspace/**.');
   }
 
   const masks = new Map<string, 'readonly' | 'hidden'>();
@@ -150,27 +149,30 @@ function aliasWorkspaceRoot(
       ? `/workspace${pattern.slice(root.length)}`
       : pattern;
   const aliasRules = (
-    rules: readonly FilesystemRule[] | undefined,
-  ): readonly FilesystemRule[] | undefined =>
-    rules?.map((rule) => ({
+    rules: readonly FilesystemRule[],
+  ): readonly FilesystemRule[] =>
+    rules.map((rule) => ({
       ...rule,
       paths: rule.paths.map(alias),
       ...(rule.ignores?.paths === undefined
         ? {}
-        : { ignores: { ...rule.ignores, paths: rule.ignores.paths.map(alias) } }),
+        : {
+            ignores: { ...rule.ignores, paths: rule.ignores.paths.map(alias) },
+          }),
     }));
-  const aliasGroups = (
-    groups: PermissionGroups | undefined,
-  ): PermissionGroups | undefined =>
-    groups?.filesystem === undefined
+  const aliasGroups = (groups: PermissionGroups): PermissionGroups =>
+    groups.filesystem === undefined
       ? groups
       : { ...groups, filesystem: aliasRules(groups.filesystem) };
+  const { allow, requireApproval, deny } = permissions;
 
   return {
     ...permissions,
-    allow: aliasGroups(permissions.allow),
-    requireApproval: aliasGroups(permissions.requireApproval),
-    deny: aliasGroups(permissions.deny),
+    ...(allow === undefined ? {} : { allow: aliasGroups(allow) }),
+    ...(requireApproval === undefined
+      ? {}
+      : { requireApproval: aliasGroups(requireApproval) }),
+    ...(deny === undefined ? {} : { deny: aliasGroups(deny) }),
   };
 }
 
@@ -204,7 +206,11 @@ function compileMaskPath(pattern: string, root: string): string {
   const target = resolve(root, relativePath);
   const fromRoot = relative(root, target);
 
-  if (fromRoot.startsWith(`..${sep}`) || fromRoot === '..' || isAbsolute(fromRoot)) {
+  if (
+    fromRoot.startsWith(`..${sep}`) ||
+    fromRoot === '..' ||
+    isAbsolute(fromRoot)
+  ) {
     throw new UsageError(`O caminho escapa do workspace: ${pattern}`);
   }
 
@@ -218,8 +224,14 @@ function compileMaskPath(pattern: string, root: string): string {
   const realTarget = realpathSync(target);
   const realRelative = relative(realRoot, realTarget);
 
-  if (realRelative.startsWith(`..${sep}`) || realRelative === '..' || isAbsolute(realRelative)) {
-    throw new UsageError(`O caminho protegido é um symlink externo: ${pattern}`);
+  if (
+    realRelative.startsWith(`..${sep}`) ||
+    realRelative === '..' ||
+    isAbsolute(realRelative)
+  ) {
+    throw new UsageError(
+      `O caminho protegido é um symlink externo: ${pattern}`,
+    );
   }
 
   return normalize(target);
@@ -247,7 +259,10 @@ function addMask(
   operation: FilesystemOperation,
 ): void {
   const current = masks.get(path);
-  masks.set(path, operation === 'read' || current === 'hidden' ? 'hidden' : 'readonly');
+  masks.set(
+    path,
+    operation === 'read' || current === 'hidden' ? 'hidden' : 'readonly',
+  );
 }
 
 function expandedOperations(
@@ -255,7 +270,9 @@ function expandedOperations(
 ): readonly FilesystemOperation[] {
   return operations.includes('*')
     ? ['read', 'write']
-    : operations as readonly FilesystemOperation[];
+    : operations.filter(
+        (operation): operation is FilesystemOperation => operation !== '*',
+      );
 }
 
 export type DelegatedCategory = 'web' | 'execution' | 'communication';
@@ -276,20 +293,27 @@ export function delegatedCategories(
 
 function validatePermissions(permissions: AgentPermissions): void {
   if (!['allow', 'deny', 'require_approval'].includes(permissions.default)) {
-    throw new UsageError(`Política padrão inválida: ${permissions.default as string}`);
+    throw new UsageError(
+      `Política padrão inválida: ${permissions.default as string}`,
+    );
   }
 
   for (const [source] of SOURCES) {
     const groups = permissions[source];
     if (groups === undefined) continue;
 
-    for (const category of ['filesystem', 'web', 'execution', 'communication'] as const) {
+    for (const category of [
+      'filesystem',
+      'web',
+      'execution',
+      'communication',
+    ] as const) {
       for (const rule of groups[category] ?? []) {
-        if (category === 'execution') {
-          if ((rule as ExecutionRule).commands.length === 0) {
+        if (isExecutionRule(rule)) {
+          if (rule.commands.length === 0) {
             throw new UsageError('Uma regra execution precisa ter commands.');
           }
-        } else if ((rule as Exclude<Rule, ExecutionRule>).operations.length === 0) {
+        } else if (rule.operations.length === 0) {
           throw new UsageError(`Uma regra ${category} precisa ter operações.`);
         }
 
@@ -301,37 +325,54 @@ function validatePermissions(permissions: AgentPermissions): void {
 
 function patternsOf(rule: Rule): readonly string[] {
   if ('paths' in rule) return [...rule.paths, ...(rule.ignores?.paths ?? [])];
-  if ('domains' in rule) return [...rule.domains, ...(rule.ignores?.domains ?? [])];
-  if ('channels' in rule) return [...rule.channels, ...(rule.ignores?.channels ?? [])];
-  const execution = rule as ExecutionRule;
-  return [...execution.commands, ...(execution.ignores?.commands ?? [])];
+  if ('domains' in rule)
+    return [...rule.domains, ...(rule.ignores?.domains ?? [])];
+  if ('channels' in rule)
+    return [...rule.channels, ...(rule.ignores?.channels ?? [])];
+  return [...rule.commands, ...(rule.ignores?.commands ?? [])];
+}
+
+function isExecutionRule(rule: Rule): rule is ExecutionRule {
+  return 'commands' in rule;
 }
 
 function matchesRule(rule: Rule, action: PolicyAction): boolean {
-  if (action.category === 'execution') {
-    if ('paths' in rule || 'domains' in rule || 'channels' in rule) return false;
-    const execution = rule as ExecutionRule;
-    return matchesAny(action.command, execution.commands) &&
-      !matchesAny(action.command, execution.ignores?.commands);
+  if (isExecutionRule(rule)) {
+    return (
+      action.category === 'execution' &&
+      matchesAny(action.command, rule.commands) &&
+      !matchesAny(action.command, rule.ignores?.commands)
+    );
   }
 
-  const { operations } = rule as Exclude<Rule, ExecutionRule>;
-  if (!includesOperation(operations, action.operation)) return false;
-
-  switch (action.category) {
-    case 'filesystem':
-      return 'paths' in rule &&
-        matchesAny(action.path, rule.paths) &&
-        !matchesAny(action.path, rule.ignores?.paths);
-    case 'web':
-      return 'domains' in rule &&
-        matchesAny(action.domain, rule.domains) &&
-        !matchesAny(action.domain, rule.ignores?.domains);
-    case 'communication':
-      return 'channels' in rule &&
-        matchesAny(action.channel, rule.channels) &&
-        !matchesAny(action.channel, rule.ignores?.channels);
+  if (
+    action.category === 'execution' ||
+    !includesOperation(rule.operations, action.operation)
+  ) {
+    return false;
   }
+
+  if (action.category === 'filesystem') {
+    return (
+      'paths' in rule &&
+      matchesAny(action.path, rule.paths) &&
+      !matchesAny(action.path, rule.ignores?.paths)
+    );
+  }
+
+  if (action.category === 'web') {
+    return (
+      'domains' in rule &&
+      matchesAny(action.domain, rule.domains) &&
+      !matchesAny(action.domain, rule.ignores?.domains)
+    );
+  }
+
+  return (
+    'channels' in rule &&
+    matchesAny(action.channel, rule.channels) &&
+    !matchesAny(action.channel, rule.ignores?.channels)
+  );
 }
 
 function includesOperation(
@@ -341,6 +382,9 @@ function includesOperation(
   return operations.includes('*') || operations.includes(operation);
 }
 
-function matchesAny(value: string, patterns: readonly string[] | undefined): boolean {
+function matchesAny(
+  value: string,
+  patterns: readonly string[] | undefined,
+): boolean {
   return patterns?.some((pattern) => wildmatch(value, pattern)) ?? false;
 }

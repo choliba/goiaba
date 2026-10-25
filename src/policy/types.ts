@@ -1,8 +1,10 @@
 export type ActionPolicy = 'allow' | 'deny' | 'require_approval';
 
 export type FilesystemOperation = 'read' | 'write';
-export type WebOperation = 'search' | 'read_text' | 'interact' | 'form_submit' | 'login' | 'browse';
-export type CommunicationOperation = 'send_email' | 'post_social_media' | 'send_logs';
+export type WebOperation =
+  'search' | 'read_text' | 'interact' | 'form_submit' | 'login' | 'browse';
+export type CommunicationOperation =
+  'send_email' | 'post_social_media' | 'send_logs';
 
 export interface FilesystemRule {
   readonly operations: readonly (FilesystemOperation | '*')[];
@@ -43,10 +45,22 @@ export interface AgentPermissions {
 }
 
 export type PolicyAction =
-  | { readonly category: 'filesystem'; readonly operation: FilesystemOperation; readonly path: string }
-  | { readonly category: 'web'; readonly operation: WebOperation; readonly domain: string }
+  | {
+      readonly category: 'filesystem';
+      readonly operation: FilesystemOperation;
+      readonly path: string;
+    }
+  | {
+      readonly category: 'web';
+      readonly operation: WebOperation;
+      readonly domain: string;
+    }
   | { readonly category: 'execution'; readonly command: string }
-  | { readonly category: 'communication'; readonly operation: CommunicationOperation; readonly channel: string };
+  | {
+      readonly category: 'communication';
+      readonly operation: CommunicationOperation;
+      readonly channel: string;
+    };
 
 export interface PolicyDecision {
   readonly policy: ActionPolicy;

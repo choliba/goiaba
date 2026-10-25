@@ -1,9 +1,4 @@
-import {
-  Agent,
-  CodexProvider,
-  runScript,
-  Workspace,
-} from '../src/index.js';
+import { Agent, CodexProvider, runScript, Workspace } from '../src/index.js';
 
 await runScript(async () => {
   const arquiteto = new Agent({
@@ -13,7 +8,7 @@ await runScript(async () => {
     }),
     workspace: new Workspace({
       type: 'bubblewrap',
-      root: process.env?.workpace ?? process.cwd(),
+      root: process.env['workpace'] ?? process.cwd(),
     }),
   });
 

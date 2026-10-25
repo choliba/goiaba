@@ -32,8 +32,7 @@ export interface LoadConfigOptions {
 }
 
 export type GoiabaConfigFactory =
-  | GoiabaConfig
-  | (() => GoiabaConfig | Promise<GoiabaConfig>);
+  GoiabaConfig | (() => GoiabaConfig | Promise<GoiabaConfig>);
 
 const CONFIG_FILES = [
   'goiaba.config.ts',
@@ -63,9 +62,7 @@ export function getEnv(): ResolvedGoiabaEnv {
   const env = getConfig().env;
 
   if (env === undefined) {
-    throw new UsageError(
-      'Nenhum env ativo. Defina envs em goiaba.config.ts.',
-    );
+    throw new UsageError('Nenhum env ativo. Defina envs em goiaba.config.ts.');
   }
 
   return env;
@@ -118,13 +115,11 @@ async function readConfig(
   try {
     const { mtimeMs } = statSync(configPath);
     const href = `${pathToFileURL(configPath).href}?t=${mtimeMs}`;
-    const module = (await import(href)) as { default?: unknown };
-    source = module.default;
+    const module: unknown = await import(href);
+    source = isRecord(module) ? module['default'] : undefined;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new UsageError(
-      `Não foi possível carregar ${configPath}: ${reason}`,
-    );
+    throw new UsageError(`Não foi possível carregar ${configPath}: ${reason}`);
   }
 
   const file = await normalizeConfig(source, configPath);
@@ -157,9 +152,10 @@ async function normalizeConfig(
   source: unknown,
   configPath: string,
 ): Promise<GoiabaConfig> {
-  const value =
+  // A factory is untrusted user code: its result is validated below.
+  const value: unknown =
     typeof source === 'function'
-      ? await (source as () => GoiabaConfig | Promise<GoiabaConfig>)()
+      ? await Promise.resolve(Reflect.apply(source, undefined, []))
       : source;
 
   if (!isRecord(value)) {
@@ -168,18 +164,18 @@ async function normalizeConfig(
     );
   }
 
-  if (value.logDir !== undefined && typeof value.logDir !== 'string') {
+  if (value['logDir'] !== undefined && typeof value['logDir'] !== 'string') {
     throw new UsageError(`logDir em ${configPath} deve ser uma string.`);
   }
 
-  if (value.debug !== undefined && typeof value.debug !== 'boolean') {
+  if (value['debug'] !== undefined && typeof value['debug'] !== 'boolean') {
     throw new UsageError(`debug em ${configPath} deve ser um boolean.`);
   }
 
   return {
-    ...(value.logDir === undefined ? {} : { logDir: value.logDir }),
-    ...(value.debug === undefined ? {} : { debug: value.debug }),
-    envs: normalizeEnvs(value.envs, configPath),
+    ...(value['logDir'] === undefined ? {} : { logDir: value['logDir'] }),
+    ...(value['debug'] === undefined ? {} : { debug: value['debug'] }),
+    envs: normalizeEnvs(value['envs'], configPath),
   };
 }
 
@@ -252,9 +248,7 @@ function resolveEnvEntry(entry: GoiabaEnv): ResolvedGoiabaEnv {
 
 function applyEnvVars(vars: Readonly<Record<string, string>>): void {
   for (const [key, value] of Object.entries(vars)) {
-    if (process.env[key] === undefined) {
-      process.env[key] = value;
-    }
+    process.env[key] ??= value;
   }
 }
 
@@ -262,8 +256,8 @@ function readEnvOverrides(): {
   readonly debug?: boolean;
   readonly logDir?: string;
 } {
-  const debug = parseFlag(process.env.GOIABA_DEBUG);
-  const logDir = process.env.GOIABA_LOG_DIR?.trim();
+  const debug = parseFlag(process.env['GOIABA_DEBUG']);
+  const logDir = process.env['GOIABA_LOG_DIR']?.trim();
 
   return {
     ...(debug === undefined ? {} : { debug }),

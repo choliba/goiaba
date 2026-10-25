@@ -1,11 +1,21 @@
-import { loadConfig } from './config/index.js';
+import { loadConfig, type LoadConfigOptions } from './config/index.js';
 import { UsageError } from './errors.js';
+import { listenForInterrupt } from './execute/interrupt.js';
+import { closeLogger, logFailure, openLogger } from './log/index.js';
+import { StandardOutput, type OutputAdapter } from './output/index.js';
 
 export { UsageError };
 
 export interface ScriptContext {
   /** Aborted on the first Ctrl+C; agents created in the script use it by default. */
   readonly signal: AbortSignal;
+}
+
+export interface RunScriptOptions {
+  /** Where usage errors are shown; defaults to stdout. */
+  readonly output?: OutputAdapter;
+  /** Which goiaba.config to load; defaults to the one found from the cwd. */
+  readonly config?: LoadConfigOptions;
 }
 
 let current: AbortSignal | undefined;
@@ -17,34 +27,28 @@ export function scriptSignal(): AbortSignal | undefined {
 
 export async function runScript(
   start: (context: ScriptContext) => Promise<void>,
+  { output = new StandardOutput(), config = {} }: RunScriptOptions = {},
 ): Promise<void> {
-  const controller = new AbortController();
-  // First Ctrl+C stops the agent and lets it clean up; the second one forces exit.
-  const onInterrupt = (): void => {
-    if (controller.signal.aborted) {
-      process.exit(130);
-    }
-
-    controller.abort();
-  };
-
-  current = controller.signal;
-  process.on('SIGINT', onInterrupt);
+  const interrupt = listenForInterrupt();
+  current = interrupt.signal;
 
   try {
-    await loadConfig();
-    await start({ signal: controller.signal });
+    await loadConfig(config);
+    // One log for the whole script, shared by every agent it runs.
+    openLogger();
+    await start({ signal: interrupt.signal });
   } catch (error) {
+    logFailure(error);
+
     if (error instanceof UsageError) {
-      process.stdout.write(
-        error.message.endsWith('\n') ? error.message : `${error.message}\n`,
-      );
+      output.write(error.message);
       return;
     }
 
     throw error;
   } finally {
-    process.off('SIGINT', onInterrupt);
+    closeLogger();
+    interrupt.dispose();
     current = undefined;
   }
 }

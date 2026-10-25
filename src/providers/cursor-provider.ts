@@ -1,39 +1,20 @@
-import type {
-  ProgramCommand,
-  ProgramOutput,
-} from '../execute/types.js';
+import type { ProgramCommand, ProgramOutput } from '../execute/types.js';
 import { debug } from '../log/index.js';
-import type { Provider, ProviderEvent } from './types.js';
-
-export interface CursorProviderOptions {
-  readonly executable?: string;
-  readonly model: string;
-  readonly force?: boolean;
-  readonly trust?: boolean;
-}
+import type { Provider, ProviderEvent, ProviderOptions } from './types.js';
 
 export class CursorProvider implements Provider<string, string> {
   public readonly id = 'cursor';
 
   private readonly executable: string;
   private readonly model: string;
-  private readonly force: boolean;
-  private readonly trust: boolean;
 
-  public constructor({
-    executable = 'agent',
-    model,
-    force = false,
-    trust = true,
-  }: CursorProviderOptions) {
+  public constructor({ executable = 'agent', model }: ProviderOptions) {
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
     }
 
     this.executable = executable;
     this.model = model;
-    this.force = force;
-    this.trust = trust;
   }
 
   public createCommand(
@@ -49,11 +30,10 @@ export class CursorProvider implements Provider<string, string> {
         'stream-json',
         '--model',
         this.model,
-        ...(workspaceRoot === undefined
-          ? []
-          : ['--workspace', workspaceRoot]),
-        ...(this.trust ? ['--trust'] : []),
-        ...(this.force ? ['--force'] : []),
+        ...(workspaceRoot === undefined ? [] : ['--workspace', workspaceRoot]),
+        // --print has nobody to approve commands; the sandbox is the limit.
+        '--trust',
+        '--force',
         ...(sessionId === undefined ? [] : ['--resume', sessionId]),
       ],
       input: appendInteractionProtocol(input),
@@ -78,7 +58,10 @@ export class CursorProvider implements Provider<string, string> {
       stdout = lines.pop() ?? '';
 
       for (const line of lines) {
-        for (const event of readEvents(line, { sawAssistant, sessionEmitted })) {
+        for (const event of readEvents(line, {
+          sawAssistant,
+          sessionEmitted,
+        })) {
           if (event.value.type === 'session') {
             sessionEmitted = true;
           } else if (event.source === 'assistant') {
@@ -91,7 +74,10 @@ export class CursorProvider implements Provider<string, string> {
     }
 
     if (stdout.length > 0) {
-      for (const event of readEvents(stdout, { sawAssistant, sessionEmitted })) {
+      for (const event of readEvents(stdout, {
+        sawAssistant,
+        sessionEmitted,
+      })) {
         yield event.value;
       }
     }
@@ -127,18 +113,18 @@ function readEvents(
 
     if (
       !sessionEmitted &&
-      typeof event.session_id === 'string' &&
-      event.session_id.length > 0
+      typeof event['session_id'] === 'string' &&
+      event['session_id'].length > 0
     ) {
-      events.push({ value: { type: 'session', id: event.session_id } });
+      events.push({ value: { type: 'session', id: event['session_id'] } });
     }
 
-    if (event.type === 'tool_call') {
+    if (event['type'] === 'tool_call') {
       logToolCall(event);
     }
 
-    if (event.type === 'assistant') {
-      const text = readAssistantText(event.message);
+    if (event['type'] === 'assistant') {
+      const text = readAssistantText(event['message']);
 
       if (text !== undefined) {
         events.push({ value: createEvent(text), source: 'assistant' });
@@ -148,11 +134,11 @@ function readEvents(
     }
 
     if (
-      event.type === 'result' &&
+      event['type'] === 'result' &&
       !sawAssistant &&
-      typeof event.result === 'string'
+      typeof event['result'] === 'string'
     ) {
-      events.push({ value: createEvent(event.result) });
+      events.push({ value: createEvent(event['result']) });
     }
 
     return events;
@@ -162,19 +148,19 @@ function readEvents(
 }
 
 function readAssistantText(message: unknown): string | undefined {
-  if (!isRecord(message) || !Array.isArray(message.content)) {
+  if (!isRecord(message) || !Array.isArray(message['content'])) {
     return undefined;
   }
 
   const parts: string[] = [];
 
-  for (const block of message.content) {
+  for (const block of message['content']) {
     if (
       isRecord(block) &&
-      block.type === 'text' &&
-      typeof block.text === 'string'
+      block['type'] === 'text' &&
+      typeof block['text'] === 'string'
     ) {
-      parts.push(block.text);
+      parts.push(block['text']);
     }
   }
 
@@ -196,6 +182,7 @@ function createEvent(text: string): ProviderEvent<string> {
 function appendInteractionProtocol(input: string): string {
   return `${input}\n\n${[
     'Regra de interação:',
+    '- Nunca chame a ferramenta request_user_input.',
     '- Se precisar de uma informação do usuário, faça somente uma pergunta direta.',
     '- A pergunta deve terminar com "?".',
     '- Encerre o turno imediatamente após a pergunta e não continue a tarefa.',
@@ -204,11 +191,11 @@ function appendInteractionProtocol(input: string): string {
 }
 
 function logToolCall(event: Record<string, unknown>): void {
-  if (!isRecord(event.tool_call)) {
+  if (!isRecord(event['tool_call'])) {
     return;
   }
 
-  const entry = Object.entries(event.tool_call)[0];
+  const entry = Object.entries(event['tool_call'])[0];
 
   if (entry === undefined) {
     return;
@@ -219,11 +206,11 @@ function logToolCall(event: Record<string, unknown>): void {
 
   debug({
     type: 'tool',
-    subtype: event.subtype,
-    call_id: event.call_id,
+    subtype: event['subtype'],
+    call_id: event['call_id'],
     tool: rawName.replace(/ToolCall$/, ''),
-    args: sanitizeToolValue(body.args),
-    result: sanitizeToolResult(body.result),
+    args: sanitizeToolValue(body['args']),
+    result: sanitizeToolResult(body['result']),
   });
 }
 

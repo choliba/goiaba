@@ -122,7 +122,8 @@ export class OutputDispatcher<T> {
 }
 
 function createQueue<T>(): OutputQueue<T> {
-  const values: T[] = [];
+  // Boxed so a queued `undefined` is not mistaken for an empty queue.
+  const values: { readonly value: T }[] = [];
   let ended = false;
   let failure: Error | undefined;
   let waiting: (() => void) | undefined;
@@ -136,7 +137,7 @@ function createQueue<T>(): OutputQueue<T> {
   return {
     push(value): void {
       if (!ended) {
-        values.push(value);
+        values.push({ value });
         wake();
       }
     },
@@ -155,15 +156,18 @@ function createQueue<T>(): OutputQueue<T> {
     },
     async *read(onReturn): AsyncGenerator<T> {
       try {
-        while (values.length > 0 || !ended) {
-          if (values.length === 0) {
+        for (;;) {
+          const next = values.shift();
+
+          if (next !== undefined) {
+            yield next.value;
+          } else if (ended) {
+            break;
+          } else {
             await new Promise<void>((resolve) => {
               waiting = resolve;
             });
-            continue;
           }
-
-          yield values.shift() as T;
         }
 
         if (failure !== undefined) {

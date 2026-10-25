@@ -5,12 +5,21 @@
   "scripts": {
     "arquiteto": "bun agents/arquiteto.ts",
     "seguro": "bun agents/seguro.ts",
-    "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "test": "bun test test/",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --type-aware",
+    "lint:fix": "oxlint --type-aware --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun run test"
   },
   "devDependencies": {
+    "@tsconfig/strictest": "2.0.8",
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.5",
+    "oxlint": "1.89.0",
+    "oxlint-tsgolint": "7.0.2005",
+    "prettier": "3.9.10",
     "typescript": "^7.0.2"
   }
 }

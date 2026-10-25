@@ -1,6 +1,9 @@
 import type { ProgramCommand } from '../execute/types.js';
 import { UsageError } from '../errors.js';
-import { compileFilesystemAccess, type AgentPermissions } from '../policy/index.js';
+import {
+  compileFilesystemAccess,
+  type AgentPermissions,
+} from '../policy/index.js';
 import {
   BubblewrapSandbox,
   DockerSandbox,
@@ -23,8 +26,7 @@ export interface BubblewrapWorkspaceOptions {
 }
 
 export type WorkspaceOptions =
-  | DockerWorkspaceOptions
-  | BubblewrapWorkspaceOptions;
+  DockerWorkspaceOptions | BubblewrapWorkspaceOptions;
 
 export class Workspace {
   public readonly type: WorkspaceType;
@@ -62,10 +64,7 @@ export class Workspace {
 }
 
 function createSandbox(options: WorkspaceOptions): Sandbox {
-  switch (options.type) {
-    case 'docker':
-      return new DockerSandbox(options);
-    case 'bubblewrap':
-      return new BubblewrapSandbox(options);
-  }
+  return options.type === 'docker'
+    ? new DockerSandbox(options)
+    : new BubblewrapSandbox(options);
 }

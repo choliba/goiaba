@@ -1,14 +1,8 @@
-import type {
-  ProgramCommand,
-  ProgramOutput,
-} from '../execute/types.js';
+import type { ProgramCommand, ProgramOutput } from '../execute/types.js';
 import { UsageError } from '../errors.js';
-import { debug } from '../log/index.js';
-import {
-  delegatedCategories,
-  type AgentPermissions,
-} from '../policy/index.js';
-import type { Provider, ProviderEvent } from './types.js';
+import { debug, logError, truncateError } from '../log/index.js';
+import { delegatedCategories, type AgentPermissions } from '../policy/index.js';
+import type { Provider, ProviderEvent, ProviderOptions } from './types.js';
 
 // Tools that touch files; the sandbox decides which paths they reach.
 const FILE_TOOLS = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'NotebookEdit'];
@@ -20,44 +14,24 @@ interface ClaudeSettings {
   };
 }
 
-export type ClaudePermissionMode =
-  | 'acceptEdits'
-  | 'auto'
-  | 'bypassPermissions'
-  | 'manual'
-  | 'dontAsk'
-  | 'plan';
-
-export interface ClaudeProviderOptions {
-  readonly executable?: string;
-  readonly model: string;
-  readonly permissionMode?: ClaudePermissionMode;
-}
-
 export class ClaudeProvider implements Provider<string, string> {
   public readonly id = 'claude';
 
   private readonly executable: string;
   private readonly model: string;
-  private readonly permissionMode: ClaudePermissionMode | undefined;
   private settings: ClaudeSettings | undefined;
 
-  public constructor({
-    executable = 'claude',
-    model,
-    permissionMode,
-  }: ClaudeProviderOptions) {
+  public constructor({ executable = 'claude', model }: ProviderOptions) {
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
     }
 
     this.executable = executable;
     this.model = model;
-    this.permissionMode = permissionMode;
   }
 
   public applyPermissions(permissions: AgentPermissions): void {
-    const [unsupported] = delegatedCategories(permissions).filter(
+    const unsupported = delegatedCategories(permissions).find(
       (category) => category !== 'execution',
     );
 
@@ -78,12 +52,8 @@ export class ClaudeProvider implements Provider<string, string> {
     }
 
     if (permissions.default !== 'deny') {
-      throw new UsageError('permissions.execution no claude exige default deny.');
-    }
-
-    if (this.permissionMode !== undefined && this.permissionMode !== 'dontAsk') {
       throw new UsageError(
-        `permissionMode ${this.permissionMode} conflita com permissions.execution; o provider claude usa dontAsk.`,
+        'permissions.execution no claude exige default deny.',
       );
     }
 
@@ -105,7 +75,9 @@ export class ClaudeProvider implements Provider<string, string> {
         ],
         // ignores become deny: never broader than the policy, possibly stricter.
         deny: [
-          ...allow.flatMap((rule) => (rule.ignores?.commands ?? []).map(bashRule)),
+          ...allow.flatMap((rule) =>
+            (rule.ignores?.commands ?? []).map(bashRule),
+          ),
           ...deny.flatMap((rule) => rule.commands.map(bashRule)),
         ],
       },
@@ -113,9 +85,10 @@ export class ClaudeProvider implements Provider<string, string> {
   }
 
   public createCommand(input: string, sessionId?: string): ProgramCommand {
-    const permissionMode = this.settings === undefined
-      ? this.permissionMode
-      : 'dontAsk';
+    // --print has nobody to approve tools: with execution rules only what they
+    // allow runs; otherwise the sandbox is the limit.
+    const permissionMode =
+      this.settings === undefined ? 'bypassPermissions' : 'dontAsk';
 
     return {
       executable: this.executable,
@@ -126,9 +99,8 @@ export class ClaudeProvider implements Provider<string, string> {
         '--verbose',
         '--model',
         this.model,
-        ...(permissionMode === undefined
-          ? []
-          : ['--permission-mode', permissionMode]),
+        '--permission-mode',
+        permissionMode,
         // User/project settings could allow more than the policy (or hook it).
         ...(this.settings === undefined
           ? []
@@ -150,6 +122,7 @@ export class ClaudeProvider implements Provider<string, string> {
     let stdout = '';
     let sawAssistant = false;
     let sessionEmitted = false;
+    const tools = new Map<string, ToolCall>();
 
     for await (const { channel, chunk } of output) {
       if (channel === 'stderr') {
@@ -162,7 +135,11 @@ export class ClaudeProvider implements Provider<string, string> {
       stdout = lines.pop() ?? '';
 
       for (const line of lines) {
-        for (const event of readEvents(line, { sawAssistant, sessionEmitted })) {
+        for (const event of readEvents(line, {
+          sawAssistant,
+          sessionEmitted,
+          tools,
+        })) {
           if (event.value.type === 'session') {
             sessionEmitted = true;
           } else if (event.source === 'assistant') {
@@ -175,7 +152,11 @@ export class ClaudeProvider implements Provider<string, string> {
     }
 
     if (stdout.length > 0) {
-      for (const event of readEvents(stdout, { sawAssistant, sessionEmitted })) {
+      for (const event of readEvents(stdout, {
+        sawAssistant,
+        sessionEmitted,
+        tools,
+      })) {
         yield event.value;
       }
     }
@@ -185,6 +166,13 @@ export class ClaudeProvider implements Provider<string, string> {
 interface ParseState {
   readonly sawAssistant: boolean;
   readonly sessionEmitted: boolean;
+  /** tool_use by id, to name the tool when its result arrives. */
+  readonly tools: Map<string, ToolCall>;
+}
+
+interface ToolCall {
+  readonly tool: unknown;
+  readonly args: unknown;
 }
 
 interface ParsedEvent {
@@ -194,7 +182,7 @@ interface ParsedEvent {
 
 function readEvents(
   line: string,
-  { sawAssistant, sessionEmitted }: ParseState,
+  { sawAssistant, sessionEmitted, tools }: ParseState,
 ): readonly ParsedEvent[] {
   if (line.trim().length === 0) {
     return [];
@@ -211,15 +199,20 @@ function readEvents(
 
     if (
       !sessionEmitted &&
-      typeof event.session_id === 'string' &&
-      event.session_id.length > 0
+      typeof event['session_id'] === 'string' &&
+      event['session_id'].length > 0
     ) {
-      events.push({ value: { type: 'session', id: event.session_id } });
+      events.push({ value: { type: 'session', id: event['session_id'] } });
     }
 
-    if (event.type === 'assistant') {
-      logToolUses(event.message);
-      const text = readAssistantText(event.message);
+    if (event['type'] === 'user') {
+      logToolResults(event['message'], tools);
+      return events;
+    }
+
+    if (event['type'] === 'assistant') {
+      logToolUses(event['message'], tools);
+      const text = readAssistantText(event['message']);
 
       if (text !== undefined) {
         events.push({ value: createEvent(text), source: 'assistant' });
@@ -229,11 +222,11 @@ function readEvents(
     }
 
     if (
-      event.type === 'result' &&
+      event['type'] === 'result' &&
       !sawAssistant &&
-      typeof event.result === 'string'
+      typeof event['result'] === 'string'
     ) {
-      events.push({ value: createEvent(event.result) });
+      events.push({ value: createEvent(event['result']) });
     }
 
     return events;
@@ -258,17 +251,18 @@ function bashRule(pattern: string): string {
 }
 
 function contentBlocks(message: unknown): readonly Record<string, unknown>[] {
-  if (!isRecord(message) || !Array.isArray(message.content)) {
+  if (!isRecord(message) || !Array.isArray(message['content'])) {
     return [];
   }
 
-  return message.content.filter(isRecord);
+  return message['content'].filter(isRecord);
 }
 
 function readAssistantText(message: unknown): string | undefined {
-  const parts = contentBlocks(message)
-    .filter((block) => block.type === 'text' && typeof block.text === 'string')
-    .map((block) => block.text as string);
+  const parts = contentBlocks(message).flatMap((block) => {
+    const text = block['text'];
+    return block['type'] === 'text' && typeof text === 'string' ? [text] : [];
+  });
 
   if (parts.length === 0) {
     return undefined;
@@ -277,19 +271,72 @@ function readAssistantText(message: unknown): string | undefined {
   return parts.join('');
 }
 
-function logToolUses(message: unknown): void {
+function logToolUses(message: unknown, tools: Map<string, ToolCall>): void {
   for (const block of contentBlocks(message)) {
-    if (block.type !== 'tool_use') {
+    if (block['type'] !== 'tool_use') {
       continue;
     }
 
-    debug({
-      type: 'tool',
-      call_id: block.id,
-      tool: block.name,
-      args: sanitizeToolValue(block.input),
-    });
+    const call = {
+      tool: block['name'],
+      args: sanitizeToolValue(block['input']),
+    };
+    const id = block['id'];
+
+    if (typeof id === 'string') {
+      tools.set(id, call);
+    }
+
+    debug({ type: 'tool', call_id: id, ...call });
   }
+}
+
+function logToolResults(message: unknown, tools: Map<string, ToolCall>): void {
+  for (const block of contentBlocks(message)) {
+    if (block['type'] !== 'tool_result') {
+      continue;
+    }
+
+    const id = block['tool_use_id'];
+    const call = typeof id === 'string' ? tools.get(id) : undefined;
+    const text = toolResultText(block['content']);
+
+    if (block['is_error'] === true) {
+      logError({
+        type: 'tool_error',
+        provider: 'claude',
+        call_id: id,
+        ...call,
+        message: truncateError(text),
+      });
+    } else {
+      debug({
+        type: 'tool_result',
+        call_id: id,
+        tool: call?.tool,
+        bytes: text.length,
+      });
+    }
+  }
+}
+
+/** tool_result content is a string or a list of text blocks. */
+function toolResultText(content: unknown): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return '';
+  }
+
+  return content
+    .flatMap((block) =>
+      isRecord(block) && typeof block['text'] === 'string'
+        ? [block['text']]
+        : [],
+    )
+    .join('\n');
 }
 
 function sanitizeToolValue(value: unknown): unknown {
@@ -305,9 +352,7 @@ function sanitizeToolValue(value: unknown): unknown {
 
   for (const [key, nested] of Object.entries(value)) {
     if (
-      (key === 'content' ||
-        key === 'old_string' ||
-        key === 'new_string') &&
+      (key === 'content' || key === 'old_string' || key === 'new_string') &&
       typeof nested === 'string'
     ) {
       sanitized[key] = { bytes: nested.length };
@@ -331,6 +376,7 @@ function createEvent(text: string): ProviderEvent<string> {
 function appendInteractionProtocol(input: string): string {
   return `${input}\n\n${[
     'Regra de interação:',
+    '- Nunca chame a ferramenta request_user_input.',
     '- Se precisar de uma informação do usuário, faça somente uma pergunta direta.',
     '- A pergunta deve terminar com "?".',
     '- Encerre o turno imediatamente após a pergunta e não continue a tarefa.',

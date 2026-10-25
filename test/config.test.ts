@@ -16,9 +16,9 @@ const defineConfigHref = pathToFileURL(
   resolve(import.meta.dir, '../src/config/index.ts'),
 ).href;
 
-const originalDebug = process.env.GOIABA_DEBUG;
-const originalLogDir = process.env.GOIABA_LOG_DIR;
-const originalEnv = process.env.GOIABA_ENV;
+const originalDebug = process.env['GOIABA_DEBUG'];
+const originalLogDir = process.env['GOIABA_LOG_DIR'];
+const originalEnv = process.env['GOIABA_ENV'];
 
 function readEnv(name: string): string | undefined {
   return process.env[name];
@@ -26,30 +26,30 @@ function readEnv(name: string): string | undefined {
 
 beforeEach(() => {
   clearConfigCache();
-  delete process.env.GOIABA_DEBUG;
-  delete process.env.GOIABA_LOG_DIR;
-  delete process.env.GOIABA_ENV;
+  delete process.env['GOIABA_DEBUG'];
+  delete process.env['GOIABA_LOG_DIR'];
+  delete process.env['GOIABA_ENV'];
 });
 
 afterEach(() => {
   clearConfigCache();
 
   if (originalDebug === undefined) {
-    delete process.env.GOIABA_DEBUG;
+    delete process.env['GOIABA_DEBUG'];
   } else {
-    process.env.GOIABA_DEBUG = originalDebug;
+    process.env['GOIABA_DEBUG'] = originalDebug;
   }
 
   if (originalLogDir === undefined) {
-    delete process.env.GOIABA_LOG_DIR;
+    delete process.env['GOIABA_LOG_DIR'];
   } else {
-    process.env.GOIABA_LOG_DIR = originalLogDir;
+    process.env['GOIABA_LOG_DIR'] = originalLogDir;
   }
 
   if (originalEnv === undefined) {
-    delete process.env.GOIABA_ENV;
+    delete process.env['GOIABA_ENV'];
   } else {
-    process.env.GOIABA_ENV = originalEnv;
+    process.env['GOIABA_ENV'] = originalEnv;
   }
 });
 
@@ -158,8 +158,8 @@ test('variáveis GOIABA_* têm prioridade sobre o arquivo', async () => {
       `export default { debug: false, logDir: 'file-logs' };
 `,
     );
-    process.env.GOIABA_DEBUG = 'true';
-    process.env.GOIABA_LOG_DIR = '/tmp/goiaba-env-logs';
+    process.env['GOIABA_DEBUG'] = 'true';
+    process.env['GOIABA_LOG_DIR'] = '/tmp/goiaba-env-logs';
 
     const config = await loadConfig({ cwd });
 
@@ -196,10 +196,10 @@ test('loadConfig usa o primeiro env', async () => {
 
 test('loadConfig guarda variáveis livres no env', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
-  const originalKey = process.env.GOIABA_TEST_FREE_VAR;
+  const originalKey = process.env['GOIABA_TEST_FREE_VAR'];
 
   try {
-    delete process.env.GOIABA_TEST_FREE_VAR;
+    delete process.env['GOIABA_TEST_FREE_VAR'];
     writeFileSync(
       join(cwd, 'goiaba.config.ts'),
       `export default {
@@ -227,19 +227,19 @@ test('loadConfig guarda variáveis livres no env', async () => {
     rmSync(cwd, { recursive: true, force: true });
 
     if (originalKey === undefined) {
-      delete process.env.GOIABA_TEST_FREE_VAR;
+      delete process.env['GOIABA_TEST_FREE_VAR'];
     } else {
-      process.env.GOIABA_TEST_FREE_VAR = originalKey;
+      process.env['GOIABA_TEST_FREE_VAR'] = originalKey;
     }
   }
 });
 
 test('loadConfig não sobrescreve process.env já definido', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
-  const originalKey = process.env.GOIABA_TEST_FREE_VAR;
+  const originalKey = process.env['GOIABA_TEST_FREE_VAR'];
 
   try {
-    process.env.GOIABA_TEST_FREE_VAR = 'host';
+    process.env['GOIABA_TEST_FREE_VAR'] = 'host';
     writeFileSync(
       join(cwd, 'goiaba.config.ts'),
       `export default {
@@ -256,9 +256,9 @@ test('loadConfig não sobrescreve process.env já definido', async () => {
     rmSync(cwd, { recursive: true, force: true });
 
     if (originalKey === undefined) {
-      delete process.env.GOIABA_TEST_FREE_VAR;
+      delete process.env['GOIABA_TEST_FREE_VAR'];
     } else {
-      process.env.GOIABA_TEST_FREE_VAR = originalKey;
+      process.env['GOIABA_TEST_FREE_VAR'] = originalKey;
     }
   }
 });

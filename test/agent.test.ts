@@ -23,18 +23,21 @@ test('Agent recusa categoria que o provider não aplica', () => {
   const root = mkdtempSync(join(tmpdir(), 'goiaba-agent-'));
 
   try {
-    expect(() => new Agent({
-      prompt: 'mensagem',
-      provider: new EchoProvider(),
-      workspace: new Workspace({ type: 'bubblewrap', root }),
-      permissions: {
-        default: 'deny',
-        allow: {
-          filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
-          execution: [{ commands: ['bun *'] }],
-        },
-      },
-    })).toThrow('O provider echo não aplica a categoria execution.');
+    expect(
+      () =>
+        new Agent({
+          prompt: 'mensagem',
+          provider: new EchoProvider(),
+          workspace: new Workspace({ type: 'bubblewrap', root }),
+          permissions: {
+            default: 'deny',
+            allow: {
+              filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+              execution: [{ commands: ['bun *'] }],
+            },
+          },
+        }),
+    ).toThrow('O provider echo não aplica a categoria execution.');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -204,8 +207,10 @@ class HangingProvider implements Provider<string, string> {
   public async *parseOutput(
     output: AsyncIterable<ProgramOutput>,
   ): AsyncIterable<ProviderEvent<string>> {
-    for await (const _value of output) {
-      // Never produces output; only the abort ends it.
+    for await (const { channel, chunk } of output) {
+      if (channel === 'stdout') {
+        yield { type: 'output', value: chunk };
+      }
     }
   }
 }
@@ -247,8 +252,10 @@ class ExitProvider implements Provider<string, string> {
   public async *parseOutput(
     output: AsyncIterable<ProgramOutput>,
   ): AsyncIterable<ProviderEvent<string>> {
-    for await (const _value of output) {
-      // The process is expected to exit before producing output.
+    for await (const { channel, chunk } of output) {
+      if (channel === 'stdout') {
+        yield { type: 'output', value: chunk };
+      }
     }
   }
 }

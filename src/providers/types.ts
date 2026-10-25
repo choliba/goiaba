@@ -1,7 +1,4 @@
-import type {
-  ProgramCommand,
-  ProgramOutput,
-} from '../execute/types.js';
+import type { ProgramCommand, ProgramOutput } from '../execute/types.js';
 import type { AgentPermissions } from '../policy/types.js';
 
 export type AgentEvent<TOutput> =
@@ -21,6 +18,16 @@ export type ProviderEvent<TOutput> =
       readonly id: string;
     };
 
+/**
+ * Every provider takes the same options: an agent is configured the same way
+ * whatever the CLI. CLI-specific behavior is derived from what is common (the
+ * sandbox, `permissions`), never configured per provider.
+ */
+export interface ProviderOptions {
+  readonly model: string;
+  readonly executable?: string;
+}
+
 export interface Provider<TInput, TOutput> {
   readonly id: string;
   /**
@@ -30,6 +37,7 @@ export interface Provider<TInput, TOutput> {
    * refuse those categories.
    */
   applyPermissions?(permissions: AgentPermissions): void;
+  close?(): void | Promise<void>;
   createCommand(
     input: TInput,
     sessionId?: string,

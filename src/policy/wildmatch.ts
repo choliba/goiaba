@@ -26,7 +26,7 @@ function compileWildmatch(pattern: string): RegExp {
   let source = '^';
 
   for (let index = 0; index < pattern.length; index += 1) {
-    const character = pattern[index] as string;
+    const character = pattern.charAt(index);
 
     if (character === '\\') {
       const escaped = pattern[index + 1];

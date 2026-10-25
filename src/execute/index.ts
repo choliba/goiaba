@@ -1,30 +1,42 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import {
+  spawn,
+  type ChildProcess,
+  type ChildProcessByStdio,
+  type SpawnOptionsWithStdioTuple,
+  type StdioPipe,
+} from 'node:child_process';
+import type { Readable, Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 
 import { logCommand } from '../log/index.js';
 import { OutputDispatcher, OutputStream } from '../output/index.js';
-import type {
-  ProgramCommand,
-  ProgramOutput,
-} from './types.js';
+import type { ProgramCommand, ProgramOutput } from './types.js';
 import type { Provider, ProviderEvent } from '../providers/types.js';
 import type { Workspace } from '../workspace/index.js';
+
+/** Starts a process with piped stdio; injectable for tests. */
+export type SpawnProcess = (
+  executable: string,
+  args: readonly string[],
+  options: SpawnOptionsWithStdioTuple<StdioPipe, StdioPipe, StdioPipe>,
+) => ChildProcessByStdio<Writable, Readable, Readable>;
 
 export interface ExecutorOptions<TOutput> {
   readonly output?: OutputDispatcher<ProviderEvent<TOutput>>;
   readonly createExecutionId?: () => string;
-  readonly spawnProcess?: typeof spawn;
+  readonly spawnProcess?: SpawnProcess;
 }
 
 export class Executor<TOutput = string> {
   private readonly output: OutputDispatcher<ProviderEvent<TOutput>>;
   private readonly createExecutionId: () => string;
-  private readonly spawnProcess: typeof spawn;
+  private readonly spawnProcess: SpawnProcess;
 
   public constructor({
     output = new OutputDispatcher<ProviderEvent<TOutput>>(),
     createExecutionId = randomUUID,
-    spawnProcess = spawn,
+    spawnProcess = (executable, args, options) =>
+      spawn(executable, args, options),
   }: ExecutorOptions<TOutput> = {}) {
     this.output = output;
     this.createExecutionId = createExecutionId;
@@ -41,7 +53,14 @@ export class Executor<TOutput = string> {
     const executionId = this.createExecutionId();
     const result = this.output.open(executionId, provider.id);
 
-    void this.execute(executionId, provider, workspace, input, sessionId, signal);
+    void this.execute(
+      executionId,
+      provider,
+      workspace,
+      input,
+      sessionId,
+      signal,
+    );
     return result;
   }
 
@@ -133,7 +152,7 @@ export class Executor<TOutput = string> {
       this.output.fail(
         executionId,
         provider.id,
-        toError(signal?.aborted ? signal.reason : error),
+        toError(signal?.aborted === true ? signal.reason : error),
       );
     } finally {
       if (stopOnAbort !== undefined) {
@@ -147,15 +166,11 @@ export class Executor<TOutput = string> {
       command.executable,
       [...(command.arguments ?? [])],
       {
-        cwd: command.cwd,
+        ...(command.cwd === undefined ? {} : { cwd: command.cwd }),
         shell: false,
         stdio: ['pipe', 'pipe', 'pipe'],
       },
     );
-
-    if (process.stdout === null || process.stderr === null) {
-      throw new Error('O processo não expôs os canais de saída esperados.');
-    }
 
     return {
       process,
@@ -171,7 +186,8 @@ export class ProgramExecutionError extends Error {
     public readonly code: number | null,
     public readonly signal: NodeJS.Signals | null,
   ) {
-    const reason = signal === null ? `código ${String(code)}` : `sinal ${signal}`;
+    const reason =
+      signal === null ? `código ${String(code)}` : `sinal ${signal}`;
     super(`O programa ${executable} terminou com ${reason}.`);
     this.name = 'ProgramExecutionError';
   }

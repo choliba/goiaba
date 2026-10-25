@@ -105,17 +105,61 @@ await runScript(async ({ signal }) => {
 
 ## Providers
 
-| Provider | CLI | Opções |
-| --- | --- | --- |
-| `ClaudeProvider` | `claude` | `model`, `permissionMode?` (`'acceptEdits' \| 'auto' \| 'bypassPermissions' \| 'manual' \| 'dontAsk' \| 'plan'`), `executable?` |
-| `CodexProvider` | `codex` | `model`, `skipGitRepositoryCheck?`, `executable?` |
-| `CursorProvider` | `agent` | `model`, `force?`, `trust?` (padrão `true`), `executable?` |
+Todo provider recebe **as mesmas opções**: o agente é configurado igual para
+qualquer CLI, e o que muda é só qual provider você escolhe.
 
-Todos rodam o CLI do host em modo não interativo. Quando a resposta do agente
-termina em `?`, ela vira uma pergunta (`ask`) e a resposta do usuário retoma a
-mesma sessão. No `ClaudeProvider`, sem `permissionMode` não há ninguém para
-aprovar as ferramentas; dentro de uma sandbox, `bypassPermissions` deixa a
-sandbox como limite.
+```ts
+new ClaudeProvider({ model: 'claude-sonnet-5-5' });
+new CodexProvider({ model: 'gpt-6.1-sol' });
+new CursorProvider({ model: 'Auto' });
+```
+
+| Opção        | Tipo     | Obrigatória | Descrição                                            |
+| ------------ | -------- | ----------- | ---------------------------------------------------- |
+| `model`      | `string` | sim         | Modelo, no nome que o CLI entende.                   |
+| `executable` | `string` | não         | Binário do CLI (padrão: `claude`, `codex`, `agent`). |
+
+O que é específico de cada CLI o provider decide sozinho, a partir do que é
+comum a todos: a sandbox (que sempre existe) e as `permissions`. Em modo não
+interativo não há ninguém para aprovar ferramentas, então a sandbox é o
+limite:
+
+| Provider         | CLI      | Como roda                                                                                                                             |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `ClaudeProvider` | `claude` | `--permission-mode bypassPermissions`; com `permissions.execution`, `dontAsk` + as regras traduzidas (veja [Permissões](#permissões)) |
+| `CodexProvider`  | `codex`  | `--sandbox danger-full-access --skip-git-repo-check` (o isolamento externo do `Workspace` é a fronteira de segurança)                 |
+| `CursorProvider` | `agent`  | `--trust --force`                                                                                                                     |
+
+Quando a resposta do agente termina em `?`, ela vira uma pergunta (`ask`) e a
+resposta do usuário retoma a mesma sessão.
+
+### Modelos locais com Ollama
+
+O `OllamaProvider` roda o Claude Code ou o Codex contra um modelo do
+[Ollama](https://ollama.com). Ele reaproveita o provider do CLI escolhido
+(montagem do comando, leitura da saída e permissões) e só aponta o CLI para o
+servidor do Ollama por variáveis de ambiente.
+
+```ts
+new OllamaProvider({
+  cli: 'claude', // ou 'codex'
+  model: 'qwen3.5:4b',
+  baseUrl: 'http://127.0.0.1:11434', // opcional; este é o padrão
+});
+```
+
+| `cli`    | Como aponta para o Ollama                                                                                                               | Permissões                                |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `claude` | `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN=ollama` e os modelos auxiliares (`ANTHROPIC_DEFAULT_*_MODEL`) apontando para o mesmo modelo | `execution` via permissões do Claude Code |
+| `codex`  | `codex exec --oss --local-provider ollama` com `CODEX_OSS_BASE_URL`; desliga `apps` e `goals`; a sandbox pertence ao `Workspace`        | `execution` via exec policy isolada Codex |
+
+- O modelo precisa estar baixado (`ollama pull <modelo>`) e suportar
+  ferramentas (`ollama show <modelo>` lista `tools`). Para o Claude Code, use
+  contexto de pelo menos 64k.
+- No `codex`, os conectores do ChatGPT (`apps`) e `goals` ficam desligados:
+  com eles, modelos locais pequenos não enxergam a ferramenta de shell.
+- O Cursor CLI não tem suporte: ele envia as requisições de modelo pelo
+  backend da Cursor, que não alcança um servidor local.
 
 ## Permissões
 
@@ -152,29 +196,39 @@ const agent = new Agent({
     default: 'deny',
 
     allow: {
-      filesystem: [{
-        operations: ['read', 'write'], // ou ['*']
-        paths: ['/workspace/**'],
-        ignores: { paths: ['/workspace/.git/**'] },
-      }],
-      web: [{
-        operations: ['search', 'read_text', 'browse'],
-        domains: ['docs.github.com', '*.mozilla.org'],
-        ignores: { domains: ['ads.mozilla.org'] },
-      }],
-      execution: [{
-        commands: ['bun *', 'npm *'],
-        ignores: { commands: ['npm publish*'] },
-      }],
-      communication: [{
-        operations: ['send_logs'],
-        channels: ['slack:#builds'],
-        ignores: { channels: ['slack:#geral'] },
-      }],
+      filesystem: [
+        {
+          operations: ['read', 'write'], // ou ['*']
+          paths: ['/workspace/**'],
+          ignores: { paths: ['/workspace/.git/**'] },
+        },
+      ],
+      web: [
+        {
+          operations: ['search', 'read_text', 'browse'],
+          domains: ['docs.github.com', '*.mozilla.org'],
+          ignores: { domains: ['ads.mozilla.org'] },
+        },
+      ],
+      execution: [
+        {
+          commands: ['bun *', 'npm *'],
+          ignores: { commands: ['npm publish*'] },
+        },
+      ],
+      communication: [
+        {
+          operations: ['send_logs'],
+          channels: ['slack:#builds'],
+          ignores: { channels: ['slack:#geral'] },
+        },
+      ],
     },
 
     requireApproval: {
-      filesystem: [{ operations: ['write'], paths: ['/workspace/package.json'] }],
+      filesystem: [
+        { operations: ['write'], paths: ['/workspace/package.json'] },
+      ],
       web: [{ operations: ['interact', 'form_submit'], domains: ['*'] }],
       execution: [{ commands: ['*'] }],
       communication: [{ operations: ['send_email'], channels: ['email:*'] }],
@@ -194,23 +248,23 @@ const agent = new Agent({
 
 **`AgentPermissions`**
 
-| Campo | Tipo | Obrigatório | Descrição |
-| --- | --- | --- | --- |
-| `default` | `ActionPolicy` | sim | Política usada quando nenhuma regra corresponde. |
-| `allow` | `PermissionGroups` | não | Regras que liberam a ação. |
-| `requireApproval` | `PermissionGroups` | não | Regras que exigem aprovação antes da ação. |
-| `deny` | `PermissionGroups` | não | Regras que bloqueiam a ação. |
+| Campo             | Tipo               | Obrigatório | Descrição                                        |
+| ----------------- | ------------------ | ----------- | ------------------------------------------------ |
+| `default`         | `ActionPolicy`     | sim         | Política usada quando nenhuma regra corresponde. |
+| `allow`           | `PermissionGroups` | não         | Regras que liberam a ação.                       |
+| `requireApproval` | `PermissionGroups` | não         | Regras que exigem aprovação antes da ação.       |
+| `deny`            | `PermissionGroups` | não         | Regras que bloqueiam a ação.                     |
 
 **`ActionPolicy`**: `'allow' | 'deny' | 'require_approval'`
 
 **`PermissionGroups`**
 
-| Campo | Tipo | Obrigatório |
-| --- | --- | --- |
-| `filesystem` | `FilesystemRule[]` | não |
-| `web` | `WebRule[]` | não |
-| `execution` | `ExecutionRule[]` | não |
-| `communication` | `CommunicationRule[]` | não |
+| Campo           | Tipo                  | Obrigatório |
+| --------------- | --------------------- | ----------- |
+| `filesystem`    | `FilesystemRule[]`    | não         |
+| `web`           | `WebRule[]`           | não         |
+| `execution`     | `ExecutionRule[]`     | não         |
+| `communication` | `CommunicationRule[]` | não         |
 
 **Regras**
 
@@ -220,27 +274,27 @@ Em `filesystem`, `web` e `communication`, `operations` não pode ser vazio, e
 lint...), só o comando em si, então a regra é só `commands`, que não pode ser
 vazio.
 
-| Regra | Campo | Tipo | Obrigatório |
-| --- | --- | --- | --- |
-| `FilesystemRule` | `operations` | `(FilesystemOperation \| '*')[]` | sim |
-| | `paths` | `string[]` | sim |
-| | `ignores.paths` | `string[]` | não |
-| `WebRule` | `operations` | `(WebOperation \| '*')[]` | sim |
-| | `domains` | `string[]` | sim |
-| | `ignores.domains` | `string[]` | não |
-| `ExecutionRule` | `commands` | `string[]` | sim |
-| | `ignores.commands` | `string[]` | não |
-| `CommunicationRule` | `operations` | `(CommunicationOperation \| '*')[]` | sim |
-| | `channels` | `string[]` | sim |
-| | `ignores.channels` | `string[]` | não |
+| Regra               | Campo              | Tipo                                | Obrigatório |
+| ------------------- | ------------------ | ----------------------------------- | ----------- |
+| `FilesystemRule`    | `operations`       | `(FilesystemOperation \| '*')[]`    | sim         |
+|                     | `paths`            | `string[]`                          | sim         |
+|                     | `ignores.paths`    | `string[]`                          | não         |
+| `WebRule`           | `operations`       | `(WebOperation \| '*')[]`           | sim         |
+|                     | `domains`          | `string[]`                          | sim         |
+|                     | `ignores.domains`  | `string[]`                          | não         |
+| `ExecutionRule`     | `commands`         | `string[]`                          | sim         |
+|                     | `ignores.commands` | `string[]`                          | não         |
+| `CommunicationRule` | `operations`       | `(CommunicationOperation \| '*')[]` | sim         |
+|                     | `channels`         | `string[]`                          | sim         |
+|                     | `ignores.channels` | `string[]`                          | não         |
 
 **Operações**
 
-| Tipo | Valores |
-| --- | --- |
-| `FilesystemOperation` | `'read'`, `'write'` |
-| `WebOperation` | `'search'`, `'read_text'`, `'interact'`, `'form_submit'`, `'login'`, `'browse'` |
-| `CommunicationOperation` | `'send_email'`, `'post_social_media'`, `'send_logs'` |
+| Tipo                     | Valores                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `FilesystemOperation`    | `'read'`, `'write'`                                                             |
+| `WebOperation`           | `'search'`, `'read_text'`, `'interact'`, `'form_submit'`, `'login'`, `'browse'` |
+| `CommunicationOperation` | `'send_email'`, `'post_social_media'`, `'send_logs'`                            |
 
 ### Como as regras são avaliadas
 
@@ -260,13 +314,14 @@ a raiz real do `Workspace`; o caminho real do `root` também é aceito
 
 ### O que já é aplicado
 
-| Categoria | Quem aplica | `allow` | `deny` | `requireApproval` |
-| --- | --- | --- | --- | --- |
-| `filesystem` | sandbox (`docker`, `bubblewrap`) | sim | sim (sem `ignores`) | recusado |
-| `execution` | `ClaudeProvider` | sim | sim (sem `ignores`) | recusado |
-| `execution` | `CodexProvider`, `CursorProvider` | recusado | recusado | recusado |
-| `web` | nenhum provider ainda | recusado | recusado | recusado |
-| `communication` | nenhum provider ainda | recusado | recusado | recusado |
+| Categoria       | Quem aplica                       | `allow`  | `deny`              | `requireApproval` |
+| --------------- | --------------------------------- | -------- | ------------------- | ----------------- |
+| `filesystem`    | sandbox (`docker`, `bubblewrap`)  | sim      | sim (sem `ignores`) | recusado          |
+| `execution`     | `ClaudeProvider`                  | sim      | sim (sem `ignores`) | recusado          |
+| `execution`     | `OllamaProvider` (`cli: 'codex'`) | sim      | sim                 | recusado          |
+| `execution`     | `CodexProvider`, `CursorProvider` | recusado | recusado            | recusado          |
+| `web`           | nenhum provider ainda             | recusado | recusado            | recusado          |
+| `communication` | nenhum provider ainda             | recusado | recusado            | recusado          |
 
 Uma categoria sem nenhuma regra não é controlada: sem `execution`, o agente
 roda qualquer comando, preso só à sandbox.
@@ -285,8 +340,7 @@ roda qualquer comando, preso só à sandbox.
 que não estiver em `allow`) e `--setting-sources ""` (as configurações do
 usuário e do projeto não podem liberar mais nada). Por isso:
 
-- `default` precisa ser `'deny'`, e `permissionMode` precisa ficar ausente ou
-  ser `'dontAsk'`;
+- `default` precisa ser `'deny'`;
 - `ignores` de um `allow` vira `deny`: nunca libera mais que a política, mas
   pode bloquear um comando que outra regra `allow` liberaria;
 - `?`, `[]`, `\` e parênteses em `commands` não têm equivalente e são
@@ -298,16 +352,27 @@ usuário e do projeto não podem liberar mais nada). Por isso:
 
 Qualquer outra forma é recusada antes de iniciar o provider.
 
+**Execution no `OllamaProvider` com `cli: 'codex'`.** As regras são gravadas
+em um `CODEX_HOME` temporário e isolado como exec policies nativas do Codex.
+Um hook `PreToolUse` aplica a decisão antes de cada comando e bloqueia tudo que
+não tenha uma regra `allow` explícita. O diretório é removido quando o agente
+termina. `default` precisa ser `'deny'`, e `requireApproval.execution` é
+recusado no modo não interativo.
+
+Por segurança, são aceitos comandos literais (`npm publish`) e prefixos com
+`*` ou `**` apenas como último token (`npm *`). Outros curingas ou operadores
+de shell são recusados, pois não têm tradução exata para `prefix_rule`.
+
 ## Workspace
 
 O `Workspace` define onde o CLI do agente roda e o que ele enxerga do host. O
 agente sempre roda isolado: não há modo sem sandbox. O `type` escolhe o
 isolamento; em todos, o `cwd` do CLI é o `root`.
 
-| Tipo | Isolamento | Campos |
-| --- | --- | --- |
-| `bubblewrap` | jaula `bwrap` no host | `root`, `writable?` |
-| `docker` | container como jaula | `root`, `image`, `writable?` |
+| Tipo         | Isolamento            | Campos                       |
+| ------------ | --------------------- | ---------------------------- |
+| `bubblewrap` | jaula `bwrap` no host | `root`, `writable?`          |
+| `docker`     | container como jaula  | `root`, `image`, `writable?` |
 
 Nos dois, o CLI continua sendo o do host, e ficam graváveis só o
 `root`, o estado dos CLIs (`~/.config`, `~/.cache`, `~/.local/share`,
@@ -336,10 +401,7 @@ new Workspace({
   type: 'bubblewrap',
   root: '/home/dev/dev/goiaba/app',
   // Ex.: caches para bun/npm install funcionarem dentro da jaula.
-  writable: [
-    join(homedir(), '.bun/install/cache'),
-    join(homedir(), '.npm'),
-  ],
+  writable: [join(homedir(), '.bun/install/cache'), join(homedir(), '.npm')],
 });
 ```
 
@@ -361,6 +423,28 @@ new Workspace({
   image: 'FROM oven/bun:latest',
 });
 ```
+
+## Desenvolvimento
+
+```bash
+bun run check   # typecheck + lint + formatação + testes
+bun run lint    # oxlint com regras que usam tipos
+bun run format  # prettier --write
+```
+
+- **Tipos:** o `tsconfig.json` estende o `@tsconfig/strictest`
+  (`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
+  `noPropertyAccessFromIndexSignature`, etc.).
+- **Lint:** [Oxlint](https://oxc.rs) com `oxlint-tsgolint`, que roda as regras
+  do typescript-eslint que dependem de tipos direto sobre o TypeScript 7 (o
+  typescript-eslint ainda não suporta o TS 7). Configuração em `.oxlintrc.json`.
+  Duas exceções deliberadas:
+  - `no-await-in-loop` desligada: turnos do agente e esperas são sequenciais
+    por natureza;
+  - nos testes, `await-thenable` e `no-unsafe-argument`/`-assignment`
+    desligadas: os tipos do `bun:test` declaram `.rejects` como não-Promise e
+    os matchers (`expect.objectContaining`...) como `any`.
+- **Formatação:** Prettier com os padrões da v3 e aspas simples.
 
 ## Configuração
 

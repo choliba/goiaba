@@ -56,13 +56,15 @@ export class DockerSandbox implements Sandbox {
   public prepare(command: ProgramCommand): ProgramCommand {
     const envNames = Object.keys(this.env)
       .filter((name) => this.env[name] !== undefined)
-      .sort();
+      .toSorted();
     const envArgs = envNames.flatMap((name) => ['-e', name]);
     const innerRoot = `${HOST_ROOT}${this.root}`;
-    const mounts = describeMounts(this.root, innerRoot, [
-      ...hostStateDirs(this.env),
-      ...this.writable,
-    ], this.filesystem);
+    const mounts = describeMounts(
+      this.root,
+      innerRoot,
+      [...hostStateDirs(this.env), ...this.writable],
+      this.filesystem,
+    );
     const containerName = `goiaba-${randomUUID().slice(0, 8)}`;
     this.containerName = containerName;
     const uid = process.getuid?.();
@@ -77,7 +79,10 @@ export class DockerSandbox implements Sandbox {
       mounts,
       volumes: mounts
         .filter((mount) => mount.type === 'bind')
-        .map((mount) => `${mount.source}:${mount.destination}:${mount.mode ?? 'rw'}`),
+        .map(
+          (mount) =>
+            `${mount.source}:${mount.destination}:${mount.mode ?? 'rw'}`,
+        ),
       capabilities: ['SYS_CHROOT'],
       user: { uid, gid },
       env: envNames,
@@ -121,8 +126,9 @@ export class DockerSandbox implements Sandbox {
       return;
     }
 
-    await execFileAsync('docker', ['rm', '--force', name], { timeout: 10_000 })
-      .catch(() => undefined);
+    await execFileAsync('docker', ['rm', '--force', name], {
+      timeout: 10_000,
+    }).catch(() => undefined);
   }
 
   public async started(process: ChildProcess): Promise<void> {
@@ -149,9 +155,7 @@ export class DockerSandbox implements Sandbox {
       sandbox: 'docker',
       phase: 'inspect',
       container: { name: this.containerName },
-      ...(inspect === undefined
-        ? { error: 'container não encontrado' }
-        : inspect),
+      ...(inspect ?? { error: 'container não encontrado' }),
     });
   }
 }
@@ -300,63 +304,65 @@ function readInspect(value: unknown): Record<string, unknown> | undefined {
     return undefined;
   }
 
-  const state = isRecord(value.State) ? value.State : {};
-  const host = isRecord(value.HostConfig) ? value.HostConfig : {};
-  const config = isRecord(value.Config) ? value.Config : {};
-  const net = isRecord(value.NetworkSettings) ? value.NetworkSettings : {};
-  const networks = isRecord(net.Networks) ? net.Networks : {};
+  const state = isRecord(value['State']) ? value['State'] : {};
+  const host = isRecord(value['HostConfig']) ? value['HostConfig'] : {};
+  const config = isRecord(value['Config']) ? value['Config'] : {};
+  const net = isRecord(value['NetworkSettings'])
+    ? value['NetworkSettings']
+    : {};
+  const networks = isRecord(net['Networks']) ? net['Networks'] : {};
 
   return {
-    id: value.Id,
-    name: value.Name,
-    created: value.Created,
-    image: value.Image,
-    platform: value.Platform,
-    driver: value.Driver,
-    path: value.Path,
-    args: value.Args,
+    id: value['Id'],
+    name: value['Name'],
+    created: value['Created'],
+    image: value['Image'],
+    platform: value['Platform'],
+    driver: value['Driver'],
+    path: value['Path'],
+    args: value['Args'],
     state: {
-      status: state.Status,
-      running: state.Running,
-      pid: state.Pid,
-      error: state.Error,
-      startedAt: state.StartedAt,
+      status: state['Status'],
+      running: state['Running'],
+      pid: state['Pid'],
+      error: state['Error'],
+      startedAt: state['StartedAt'],
     },
     config: {
-      hostname: config.Hostname,
-      user: config.User,
-      image: config.Image,
-      workingDir: config.WorkingDir,
+      hostname: config['Hostname'],
+      user: config['User'],
+      image: config['Image'],
+      workingDir: config['WorkingDir'],
     },
     host: {
-      networkMode: host.NetworkMode,
-      binds: host.Binds,
-      capAdd: host.CapAdd,
-      privileged: host.Privileged,
-      autoRemove: host.AutoRemove,
-      tmpfs: host.Tmpfs,
-      runtime: host.Runtime,
-      pidMode: host.PidMode,
-      ipcMode: host.IpcMode,
+      networkMode: host['NetworkMode'],
+      binds: host['Binds'],
+      capAdd: host['CapAdd'],
+      privileged: host['Privileged'],
+      autoRemove: host['AutoRemove'],
+      tmpfs: host['Tmpfs'],
+      runtime: host['Runtime'],
+      pidMode: host['PidMode'],
+      ipcMode: host['IpcMode'],
     },
-    mounts: Array.isArray(value.Mounts)
-      ? value.Mounts.map(readMount)
+    mounts: Array.isArray(value['Mounts'])
+      ? value['Mounts'].map(readMount)
       : [],
     network: {
-      mode: host.NetworkMode,
-      sandboxId: net.SandboxID,
-      ipAddress: net.IPAddress,
-      gateway: net.Gateway,
-      macAddress: net.MacAddress,
+      mode: host['NetworkMode'],
+      sandboxId: net['SandboxID'],
+      ipAddress: net['IPAddress'],
+      gateway: net['Gateway'],
+      macAddress: net['MacAddress'],
       networks: Object.fromEntries(
         Object.entries(networks).map(([networkName, network]) => [
           networkName,
           isRecord(network)
             ? {
-                networkId: network.NetworkID,
-                ipAddress: network.IPAddress,
-                gateway: network.Gateway,
-                macAddress: network.MacAddress,
+                networkId: network['NetworkID'],
+                ipAddress: network['IPAddress'],
+                gateway: network['Gateway'],
+                macAddress: network['MacAddress'],
               }
             : {},
         ]),
@@ -371,14 +377,14 @@ function readMount(value: unknown): Record<string, unknown> {
   }
 
   return {
-    type: value.Type,
-    name: value.Name,
-    source: value.Source,
-    destination: value.Destination,
-    driver: value.Driver,
-    mode: value.Mode,
-    rw: value.RW,
-    propagation: value.Propagation,
+    type: value['Type'],
+    name: value['Name'],
+    source: value['Source'],
+    destination: value['Destination'],
+    driver: value['Driver'],
+    mode: value['Mode'],
+    rw: value['RW'],
+    propagation: value['Propagation'],
   };
 }
 

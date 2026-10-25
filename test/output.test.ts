@@ -57,7 +57,7 @@ describe('OutputDispatcher', () => {
 
     expect(failedValues).toEqual(['antes da falha']);
     expect(failure).toBeInstanceOf(Error);
-    expect((failure as Error).message).toBe('falhou');
+    expect(failure).toHaveProperty('message', 'falhou');
     expect(await collect(successful)).toEqual(['continua']);
   });
 });

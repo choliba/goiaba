@@ -1,9 +1,4 @@
-import {
-  mkdtempSync,
-  mkdirSync,
-  rmSync,
-  symlinkSync,
-} from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -22,7 +17,9 @@ describe('Git wildmatch', () => {
   test('distingue estrela simples de globstar', () => {
     expect(wildmatch('/workspace/src/index.ts', '/workspace/*')).toBe(false);
     expect(wildmatch('/workspace/src/index.ts', '/workspace/**')).toBe(true);
-    expect(wildmatch('/workspace/index.ts', '/workspace/**/index.ts')).toBe(true);
+    expect(wildmatch('/workspace/index.ts', '/workspace/**/index.ts')).toBe(
+      true,
+    );
   });
 
   test('suporta ?, classes, escape e case-sensitive', () => {
@@ -78,16 +75,38 @@ describe('PolicyEngine', () => {
       default: 'deny',
       allow: {
         web: [{ operations: ['search'], domains: ['*.github.com'] }],
-        execution: [{ commands: ['bun *'], ignores: { commands: ['bun publish*'] } }],
-        communication: [{ operations: ['send_logs'], channels: ['internal_*'] }],
+        execution: [
+          { commands: ['bun *'], ignores: { commands: ['bun publish*'] } },
+        ],
+        communication: [
+          { operations: ['send_logs'], channels: ['internal_*'] },
+        ],
       },
     });
 
-    expect(engine.check({ category: 'web', operation: 'search', domain: 'api.github.com' }).policy).toBe('allow');
-    expect(engine.check({ category: 'execution', command: 'bun test' }).policy).toBe('allow');
-    expect(engine.check({ category: 'execution', command: 'bun publish' }).policy).toBe('deny');
-    expect(engine.check({ category: 'execution', command: 'npm test' }).policy).toBe('deny');
-    expect(engine.check({ category: 'communication', operation: 'send_logs', channel: 'internal_dev' }).policy).toBe('allow');
+    expect(
+      engine.check({
+        category: 'web',
+        operation: 'search',
+        domain: 'api.github.com',
+      }).policy,
+    ).toBe('allow');
+    expect(
+      engine.check({ category: 'execution', command: 'bun test' }).policy,
+    ).toBe('allow');
+    expect(
+      engine.check({ category: 'execution', command: 'bun publish' }).policy,
+    ).toBe('deny');
+    expect(
+      engine.check({ category: 'execution', command: 'npm test' }).policy,
+    ).toBe('deny');
+    expect(
+      engine.check({
+        category: 'communication',
+        operation: 'send_logs',
+        channel: 'internal_dev',
+      }).policy,
+    ).toBe('allow');
   });
 
   test('solicita aprovação uma vez para a ação atual', async () => {
@@ -117,18 +136,21 @@ describe('filesystem enforcement compiler', () => {
     mkdirSync(modules);
 
     try {
-      const access = compileFilesystemAccess({
-        default: 'deny',
-        allow: {
-          filesystem: [
-            {
-              operations: ['read', 'write'],
-              paths: ['/workspace/**'],
-              ignores: { paths: ['/workspace/node_modules/**'] },
-            },
-          ],
+      const access = compileFilesystemAccess(
+        {
+          default: 'deny',
+          allow: {
+            filesystem: [
+              {
+                operations: ['read', 'write'],
+                paths: ['/workspace/**'],
+                ignores: { paths: ['/workspace/node_modules/**'] },
+              },
+            ],
+          },
         },
-      }, root);
+        root,
+      );
 
       expect(access).toEqual({
         workspaceAccess: 'readwrite',
@@ -145,41 +167,51 @@ describe('filesystem enforcement compiler', () => {
     mkdirSync(git);
 
     try {
-      const access = compileFilesystemAccess({
-        default: 'deny',
-        allow: {
-          filesystem: [
-            {
-              operations: ['read', 'write'],
-              paths: [`${root}/**`],
-              ignores: { paths: [`${root}/.git/**`] },
-            },
-          ],
+      const access = compileFilesystemAccess(
+        {
+          default: 'deny',
+          allow: {
+            filesystem: [
+              {
+                operations: ['read', 'write'],
+                paths: [`${root}/**`],
+                ignores: { paths: [`${root}/.git/**`] },
+              },
+            ],
+          },
         },
-      }, root);
+        root,
+      );
 
       expect(access).toEqual({
         workspaceAccess: 'readwrite',
         masks: [{ path: git, access: 'hidden' }],
       });
-      expect(() => compileFilesystemAccess({
-        default: 'deny',
-        allow: { filesystem: [rule(`${root}-outro/**`)] },
-      }, root)).toThrow('não pode ser compilado');
+      expect(() =>
+        compileFilesystemAccess(
+          {
+            default: 'deny',
+            allow: { filesystem: [rule(`${root}-outro/**`)] },
+          },
+          root,
+        ),
+      ).toThrow('não pode ser compilado');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
   test('delega ao provider as categorias que a sandbox não aplica', () => {
-    expect(delegatedCategories({
-      default: 'deny',
-      allow: {
-        filesystem: [rule('/workspace/**')],
-        web: [{ operations: ['search'], domains: ['*'] }],
-      },
-      deny: { execution: [{ commands: ['sudo *'] }] },
-    })).toEqual(['web', 'execution']);
+    expect(
+      delegatedCategories({
+        default: 'deny',
+        allow: {
+          filesystem: [rule('/workspace/**')],
+          web: [{ operations: ['search'], domains: ['*'] }],
+        },
+        deny: { execution: [{ commands: ['sudo *'] }] },
+      }),
+    ).toEqual(['web', 'execution']);
   });
 
   test('rejeita aprovação e padrão sem enforcement', () => {
@@ -190,18 +222,33 @@ describe('filesystem enforcement compiler', () => {
     };
 
     try {
-      expect(() => compileFilesystemAccess({
-        ...base,
-        requireApproval: { filesystem: [rule('/workspace/**')] },
-      }, root)).toThrow('Aprovação');
-      expect(() => compileFilesystemAccess({
-        ...base,
-        deny: { filesystem: [rule('/workspace/*/secret')] },
-      }, root)).toThrow('não pode ser compilado');
-      expect(() => compileFilesystemAccess({
-        ...base,
-        default: 'require_approval',
-      }, root)).toThrow('default deny');
+      expect(() =>
+        compileFilesystemAccess(
+          {
+            ...base,
+            requireApproval: { filesystem: [rule('/workspace/**')] },
+          },
+          root,
+        ),
+      ).toThrow('Aprovação');
+      expect(() =>
+        compileFilesystemAccess(
+          {
+            ...base,
+            deny: { filesystem: [rule('/workspace/*/secret')] },
+          },
+          root,
+        ),
+      ).toThrow('não pode ser compilado');
+      expect(() =>
+        compileFilesystemAccess(
+          {
+            ...base,
+            default: 'require_approval',
+          },
+          root,
+        ),
+      ).toThrow('default deny');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -213,11 +260,16 @@ describe('filesystem enforcement compiler', () => {
     symlinkSync(outside, join(root, 'escape'));
 
     try {
-      expect(() => compileFilesystemAccess({
-        default: 'deny',
-        allow: { filesystem: [rule('/workspace/**')] },
-        deny: { filesystem: [rule('/workspace/escape/**')] },
-      }, root)).toThrow('symlink externo');
+      expect(() =>
+        compileFilesystemAccess(
+          {
+            default: 'deny',
+            allow: { filesystem: [rule('/workspace/**')] },
+            deny: { filesystem: [rule('/workspace/escape/**')] },
+          },
+          root,
+        ),
+      ).toThrow('symlink externo');
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(outside, { recursive: true, force: true });
@@ -230,5 +282,6 @@ function rule(path: string) {
 }
 
 function checkPath(engine: PolicyEngine, path: string) {
-  return engine.check({ category: 'filesystem', operation: 'read', path }).policy;
+  return engine.check({ category: 'filesystem', operation: 'read', path })
+    .policy;
 }

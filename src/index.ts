@@ -15,14 +15,15 @@ export type {
   ResolvedGoiabaConfig,
   ResolvedGoiabaEnv,
 } from './config/index.js';
-export { runScript, UsageError, type ScriptContext } from './usage.js';
-export type {
-  AgentAsk,
-  AgentOptions,
-  AgentProvider,
-} from './agent/types.js';
+export {
+  runScript,
+  UsageError,
+  type RunScriptOptions,
+  type ScriptContext,
+} from './usage.js';
+export type { AgentAsk, AgentOptions, AgentProvider } from './agent/types.js';
 export { Executor, ProgramExecutionError } from './execute/index.js';
-export type { ExecutorOptions } from './execute/index.js';
+export type { ExecutorOptions, SpawnProcess } from './execute/index.js';
 export type { ProgramCommand, ProgramOutput } from './execute/types.js';
 export { PolicyEngine, wildmatch } from './policy/index.js';
 export type {
@@ -51,6 +52,7 @@ export type {
   AgentEvent,
   Provider,
   ProviderEvent,
+  ProviderOptions,
 } from './providers/types.js';
 export { Workspace } from './workspace/index.js';
 export type { WorkspaceOptions, WorkspaceType } from './workspace/index.js';
@@ -61,16 +63,11 @@ export {
   DockerSandbox,
   type Sandbox,
 } from './workspace/sandbox/index.js';
+export { CodexProvider } from './providers/codex-provider.js';
+export { CursorProvider } from './providers/cursor-provider.js';
 export {
-  CodexProvider,
-  type CodexProviderOptions,
-} from './providers/codex-provider.js';
-export {
-  CursorProvider,
-  type CursorProviderOptions,
-} from './providers/cursor-provider.js';
-export {
-  ClaudeProvider,
-  type ClaudePermissionMode,
-  type ClaudeProviderOptions,
-} from './providers/claude-provider.js';
+  OllamaProvider,
+  type OllamaCli,
+  type OllamaProviderOptions,
+} from './providers/ollama-provider.js';
+export { ClaudeProvider } from './providers/claude-provider.js';

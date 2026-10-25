@@ -1,10 +1,4 @@
-import {
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,6 +8,7 @@ import { clearConfigCache, loadConfig } from '../src/config/index.js';
 import { closeLogger, openLogger } from '../src/log/index.js';
 import type { ProgramOutput } from '../src/execute/types.js';
 import { CursorProvider } from '../src/providers/cursor-provider.js';
+import { readLogRecords } from './support/log-records.js';
 
 beforeEach(() => {
   clearConfigCache();
@@ -42,6 +37,7 @@ describe('CursorProvider', () => {
         '--model',
         'modelo',
         '--trust',
+        '--force',
       ],
     });
     expect(command.input).toStartWith('pergunta\n\nRegra de interação:');
@@ -56,7 +52,8 @@ describe('CursorProvider', () => {
       },
       {
         channel: 'stdout',
-        chunk: '{"type":"assistant","message":{"content":[{"type":"text","text":"res',
+        chunk:
+          '{"type":"assistant","message":{"content":[{"type":"text","text":"res',
       },
       { channel: 'stdout', chunk: 'posta"}]}}\n' },
       { channel: 'stderr', chunk: 'diagnóstico' },
@@ -116,15 +113,6 @@ describe('CursorProvider', () => {
     ]);
   });
 
-  test('permite forçar comandos quando configurado', () => {
-    const provider = new CursorProvider({
-      model: 'modelo',
-      force: true,
-    });
-
-    expect(provider.createCommand('pergunta').arguments).toContain('--force');
-  });
-
   test('cria um comando para retomar uma sessão', () => {
     const provider = new CursorProvider({ model: 'modelo' });
     const command = provider.createCommand('dev', 'chat-123');
@@ -136,6 +124,7 @@ describe('CursorProvider', () => {
       '--model',
       'modelo',
       '--trust',
+      '--force',
       '--resume',
       'chat-123',
     ]);
@@ -183,13 +172,7 @@ describe('CursorProvider', () => {
         ),
       );
 
-      const files = readdirSync(join(cwd, 'logs')).filter((name) =>
-        name.endsWith('.jsonl'),
-      );
-      const records = readFileSync(join(cwd, 'logs', files[0] ?? ''), 'utf8')
-        .trim()
-        .split('\n')
-        .map((line) => JSON.parse(line) as Record<string, unknown>);
+      const records = readLogRecords(join(cwd, 'logs'));
 
       expect(records).toEqual([
         expect.objectContaining({
@@ -227,6 +210,7 @@ describe('CursorProvider', () => {
       '--workspace',
       '/home/dev/dev/sandbox-teste',
       '--trust',
+      '--force',
     ]);
   });
 });

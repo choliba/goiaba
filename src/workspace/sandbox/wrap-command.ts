@@ -7,8 +7,12 @@ export function wrapCommand(
 ): ProgramCommand {
   return {
     executable: wrapper,
-    arguments: [...wrapperArgs, command.executable, ...(command.arguments ?? [])],
-    cwd: command.cwd,
-    input: command.input,
+    arguments: [
+      ...wrapperArgs,
+      command.executable,
+      ...(command.arguments ?? []),
+    ],
+    ...(command.cwd === undefined ? {} : { cwd: command.cwd }),
+    ...(command.input === undefined ? {} : { input: command.input }),
   };
 }

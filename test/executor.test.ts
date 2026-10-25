@@ -1,4 +1,4 @@
-import { spawn, type SpawnOptions } from 'node:child_process';
+import { spawn } from 'node:child_process';
 
 import { afterAll, describe, expect, test } from 'bun:test';
 
@@ -28,10 +28,10 @@ describe('Executor', () => {
     `);
 
     const values = await collect(
-      new Executor<string>().run(provider, workspace, 'comando'),
+      new Executor().run(provider, workspace, 'comando'),
     );
 
-    expect(values.map(readOutput).sort()).toEqual([
+    expect(values.map(readOutput).toSorted()).toEqual([
       'stderr:err:comando',
       'stdout:out:comando',
     ]);
@@ -44,7 +44,7 @@ describe('Executor', () => {
     setTimeout(() => controller.abort(), 100);
 
     const values = collect(
-      new Executor<string>().run(provider, workspace, '', undefined, controller.signal),
+      new Executor().run(provider, workspace, '', undefined, controller.signal),
     );
 
     await expect(values).rejects.toMatchObject({ name: 'AbortError' });
@@ -54,7 +54,7 @@ describe('Executor', () => {
   test('publica execuções simultâneas no fluxo global sem misturá-las', async () => {
     const output = new OutputDispatcher<ProviderEvent<string>>();
     let nextId = 0;
-    const executor = new Executor<string>({
+    const executor = new Executor({
       output,
       createExecutionId: () => `execution-${++nextId}`,
     });
@@ -70,9 +70,13 @@ describe('Executor', () => {
 
     expect((await first).map(readOutput)).toEqual(['stdout:primeiro']);
     expect((await second).map(readOutput)).toEqual(['stdout:segundo']);
-    expect(new Set(events.map(({ value }) => value?.executionId))).toEqual(
-      new Set(['execution-1', 'execution-2']),
-    );
+    expect(
+      new Set(
+        events.map((event) =>
+          event.done === true ? undefined : event.value.executionId,
+        ),
+      ),
+    ).toEqual(new Set(['execution-1', 'execution-2']));
     await subscription.return?.();
   });
 
@@ -84,11 +88,7 @@ describe('Executor', () => {
     let failure: unknown;
 
     try {
-      for await (const value of new Executor<string>().run(
-        provider,
-        workspace,
-        '',
-      )) {
+      for await (const value of new Executor().run(provider, workspace, '')) {
         values.push(value);
       }
     } catch (error) {
@@ -97,15 +97,15 @@ describe('Executor', () => {
 
     expect(values.map(readOutput)).toEqual(['stdout:resultado']);
     expect(failure).toBeInstanceOf(ProgramExecutionError);
-    expect((failure as ProgramExecutionError).code).toBe(7);
+    expect(failure).toHaveProperty('code', 7);
   });
 
   test('propaga falha ao iniciar o programa', async () => {
     const provider = new TestProvider('');
     // Inside the jail a missing program is an exit 127; only spawn can fail to start.
-    const executor = new Executor<string>({
-      spawnProcess: ((_executable: string, _args: string[], options: SpawnOptions) =>
-        spawn('/programa/inexistente', [], options)) as unknown as typeof spawn,
+    const executor = new Executor({
+      spawnProcess: (_executable, _args, options) =>
+        spawn('/programa/inexistente', [], options),
     });
     let failure: unknown;
 
@@ -120,26 +120,22 @@ describe('Executor', () => {
   });
 
   test('informa quando o programa termina por sinal', async () => {
-    const provider = new TestProvider(
-      `process.kill(process.pid, 'SIGTERM');`,
-    );
+    const provider = new TestProvider(`process.kill(process.pid, 'SIGTERM');`);
     let failure: unknown;
 
     try {
-      await collect(new Executor<string>().run(provider, workspace, ''));
+      await collect(new Executor().run(provider, workspace, ''));
     } catch (error) {
       failure = error;
     }
 
     expect(failure).toBeInstanceOf(ProgramExecutionError);
-    expect((failure as ProgramExecutionError).signal).toBe('SIGTERM');
+    expect(failure).toHaveProperty('signal', 'SIGTERM');
   });
 
   test('executa o comando na raiz do workspace', async () => {
     const provider = new TestProvider('process.stdout.write(process.cwd());');
-    const values = await collect(
-      new Executor<string>().run(provider, workspace, ''),
-    );
+    const values = await collect(new Executor().run(provider, workspace, ''));
 
     expect(values.map(readOutput)).toEqual([`stdout:${process.cwd()}`]);
   });

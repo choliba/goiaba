@@ -1,10 +1,4 @@
-import {
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,6 +8,7 @@ import { clearConfigCache, loadConfig } from '../src/config/index.js';
 import { closeLogger, openLogger } from '../src/log/index.js';
 import type { ProgramOutput } from '../src/execute/types.js';
 import { ClaudeProvider } from '../src/providers/claude-provider.js';
+import { readLogRecords } from './support/log-records.js';
 
 beforeEach(() => {
   clearConfigCache();
@@ -42,16 +37,15 @@ describe('ClaudeProvider', () => {
         '--verbose',
         '--model',
         'modelo',
+        '--permission-mode',
+        'bypassPermissions',
       ],
     });
     expect(command.input).toStartWith('pergunta\n\nRegra de interação:');
   });
 
-  test('cria um comando para retomar uma sessão com modo de permissão', () => {
-    const provider = new ClaudeProvider({
-      model: 'modelo',
-      permissionMode: 'bypassPermissions',
-    });
+  test('sem permissões de execution deixa a sandbox como limite', () => {
+    const provider = new ClaudeProvider({ model: 'modelo' });
 
     expect(provider.createCommand('dev', 'sessao-1').arguments).toEqual([
       '--print',
@@ -72,11 +66,15 @@ describe('ClaudeProvider', () => {
     provider.applyPermissions({
       default: 'deny',
       allow: {
-        filesystem: [{ operations: ['read', 'write'], paths: ['/workspace/**'] }],
-        execution: [{
-          commands: ['bun *', 'git status'],
-          ignores: { commands: ['bun publish**'] },
-        }],
+        filesystem: [
+          { operations: ['read', 'write'], paths: ['/workspace/**'] },
+        ],
+        execution: [
+          {
+            commands: ['bun *', 'git status'],
+            ignores: { commands: ['bun publish**'] },
+          },
+        ],
       },
       deny: { execution: [{ commands: ['sudo *'] }] },
     });
@@ -92,8 +90,14 @@ describe('ClaudeProvider', () => {
     expect(JSON.parse(args[args.indexOf('--settings') + 1] ?? '')).toEqual({
       permissions: {
         allow: [
-          'Read', 'Edit', 'Write', 'Glob', 'Grep', 'NotebookEdit',
-          'Bash(bun *)', 'Bash(git status)',
+          'Read',
+          'Edit',
+          'Write',
+          'Glob',
+          'Grep',
+          'NotebookEdit',
+          'Bash(bun *)',
+          'Bash(git status)',
         ],
         deny: ['Bash(bun publish*)', 'Bash(sudo *)'],
       },
@@ -101,46 +105,53 @@ describe('ClaudeProvider', () => {
   });
 
   test('sem execution não altera o comando', () => {
-    const provider = new ClaudeProvider({
-      model: 'modelo',
-      permissionMode: 'bypassPermissions',
-    });
+    const provider = new ClaudeProvider({ model: 'modelo' });
     provider.applyPermissions({
       default: 'deny',
-      allow: { filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }] },
+      allow: {
+        filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+      },
     });
 
-    expect(provider.createCommand('pergunta').arguments).not.toContain('--settings');
-    expect(provider.createCommand('pergunta').arguments).toContain('bypassPermissions');
+    expect(provider.createCommand('pergunta').arguments).not.toContain(
+      '--settings',
+    );
+    expect(provider.createCommand('pergunta').arguments).toContain(
+      'bypassPermissions',
+    );
   });
 
   test('recusa o que não tem tradução exata', () => {
     const execution = { commands: ['bun *'] };
-    const apply = (
-      permissions: Parameters<ClaudeProvider['applyPermissions']>[0],
-      options: Partial<ConstructorParameters<typeof ClaudeProvider>[0]> = {},
-    ) => () => new ClaudeProvider({ model: 'modelo', ...options }).applyPermissions(permissions);
 
-    expect(apply({
-      default: 'deny',
-      allow: { web: [{ operations: ['search'], domains: ['*'] }] },
-    })).toThrow('categoria web');
-    expect(apply({
-      default: 'deny',
-      requireApproval: { execution: [execution] },
-    })).toThrow('aprovação');
-    expect(apply(
-      { default: 'deny', allow: { execution: [execution] } },
-      { permissionMode: 'bypassPermissions' },
-    )).toThrow('conflita');
-    expect(apply({
-      default: 'deny',
-      allow: { execution: [{ commands: ['bun [a-z]*'] }] },
-    })).toThrow('não tem equivalente');
-    expect(apply({
-      default: 'deny',
-      deny: { execution: [{ commands: ['rm *'], ignores: { commands: ['rm tmp'] } }] },
-    })).toThrow('ignores');
+    expect(
+      apply({
+        default: 'deny',
+        allow: { web: [{ operations: ['search'], domains: ['*'] }] },
+      }),
+    ).toThrow('categoria web');
+    expect(
+      apply({
+        default: 'deny',
+        requireApproval: { execution: [execution] },
+      }),
+    ).toThrow('aprovação');
+    expect(
+      apply({
+        default: 'deny',
+        allow: { execution: [{ commands: ['bun [a-z]*'] }] },
+      }),
+    ).toThrow('não tem equivalente');
+    expect(
+      apply({
+        default: 'deny',
+        deny: {
+          execution: [
+            { commands: ['rm *'], ignores: { commands: ['rm tmp'] } },
+          ],
+        },
+      }),
+    ).toThrow('ignores');
   });
 
   test('interpreta mensagens JSON fragmentadas do Claude', async () => {
@@ -152,12 +163,14 @@ describe('ClaudeProvider', () => {
       },
       {
         channel: 'stdout',
-        chunk: '{"type":"assistant","session_id":"sessao-1","message":{"content":[{"type":"text","text":"res',
+        chunk:
+          '{"type":"assistant","session_id":"sessao-1","message":{"content":[{"type":"text","text":"res',
       },
       { channel: 'stdout', chunk: 'posta"}]}}\n' },
       {
         channel: 'stdout',
-        chunk: '{"type":"result","session_id":"sessao-1","result":"resposta"}\n',
+        chunk:
+          '{"type":"result","session_id":"sessao-1","result":"resposta"}\n',
       },
       { channel: 'stderr', chunk: 'diagnóstico' },
     ]);
@@ -199,6 +212,77 @@ describe('ClaudeProvider', () => {
     ]);
   });
 
+  test('registra o erro de uma ferramenta em logDir/erros, mesmo sem debug', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
+
+    try {
+      writeFileSync(
+        join(cwd, 'goiaba.config.ts'),
+        `export default { logDir: 'logs', debug: false };\n`,
+      );
+      await loadConfig({ cwd });
+      openLogger();
+
+      const provider = new ClaudeProvider({ model: 'modelo' });
+      await collect(
+        provider.parseOutput(
+          source([
+            {
+              channel: 'stdout',
+              chunk: `${JSON.stringify({
+                type: 'assistant',
+                message: {
+                  content: [
+                    {
+                      type: 'tool_use',
+                      id: 'tool-1',
+                      name: 'Bash',
+                      input: { command: 'npm create vite@latest' },
+                    },
+                  ],
+                },
+              })}\n${JSON.stringify({
+                type: 'user',
+                message: {
+                  content: [
+                    {
+                      type: 'tool_result',
+                      tool_use_id: 'tool-1',
+                      is_error: true,
+                      content: [
+                        { type: 'text', text: 'EROFS: read-only file system' },
+                      ],
+                    },
+                  ],
+                },
+              })}\n`,
+            },
+          ]),
+        ),
+      );
+
+      const error = {
+        level: 'error',
+        type: 'tool_error',
+        provider: 'claude',
+        call_id: 'tool-1',
+        tool: 'Bash',
+        args: { command: 'npm create vite@latest' },
+        message: 'EROFS: read-only file system',
+      };
+
+      // debug: false drops the tool_use record but keeps the error.
+      expect(readLogRecords(join(cwd, 'logs'))).toEqual([
+        expect.objectContaining(error),
+      ]);
+      expect(readLogRecords(join(cwd, 'logs', 'erros'))).toEqual([
+        expect.objectContaining(error),
+      ]);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   test('debug registra tool_use sem o conteúdo dos arquivos', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 
@@ -224,7 +308,10 @@ describe('ClaudeProvider', () => {
                       type: 'tool_use',
                       id: 'tool-1',
                       name: 'Write',
-                      input: { file_path: '/tmp/a.txt', content: 'secret-content' },
+                      input: {
+                        file_path: '/tmp/a.txt',
+                        content: 'secret-content',
+                      },
                     },
                   ],
                 },
@@ -234,13 +321,7 @@ describe('ClaudeProvider', () => {
         ),
       );
 
-      const files = readdirSync(join(cwd, 'logs')).filter((name) =>
-        name.endsWith('.jsonl'),
-      );
-      const records = readFileSync(join(cwd, 'logs', files[0] ?? ''), 'utf8')
-        .trim()
-        .split('\n')
-        .map((line) => JSON.parse(line) as Record<string, unknown>);
+      const records = readLogRecords(join(cwd, 'logs'));
 
       expect(records).toEqual([
         expect.objectContaining({
@@ -257,6 +338,14 @@ describe('ClaudeProvider', () => {
     }
   });
 });
+
+function apply(
+  permissions: Parameters<ClaudeProvider['applyPermissions']>[0],
+): () => void {
+  return () => {
+    new ClaudeProvider({ model: 'modelo' }).applyPermissions(permissions);
+  };
+}
 
 async function* source(
   values: readonly ProgramOutput[],

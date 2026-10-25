@@ -2,7 +2,6 @@ import {
   existsSync,
   mkdtempSync,
   readdirSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -18,6 +17,7 @@ import { DockerSandbox } from '../src/workspace/sandbox/docker.js';
 import type { ProgramCommand, ProgramOutput } from '../src/execute/types.js';
 import type { Provider, ProviderEvent } from '../src/providers/types.js';
 import { Workspace } from '../src/workspace/index.js';
+import { readLogRecords } from './support/log-records.js';
 
 beforeEach(() => {
   clearConfigCache();
@@ -60,21 +60,19 @@ test('openLogger cria o diretório e o jsonl', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 
   try {
-    writeFileSync(join(cwd, 'goiaba.config.ts'), `export default { logDir: 'logs' };\n`);
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { logDir: 'logs' };\n`,
+    );
     await loadConfig({ cwd });
 
     openLogger().log({ type: 'input', value: 'olá' });
 
     const logDir = join(cwd, 'logs');
-    const files = readdirSync(logDir).filter((name) => name.endsWith('.jsonl'));
-    expect(files).toHaveLength(1);
-
-    const lines = readFileSync(join(logDir, files[0] ?? ''), 'utf8')
-      .trim()
-      .split('\n')
-      .map((line) => JSON.parse(line) as { type: string; value?: string });
-
-    expect(lines).toEqual([
+    expect(
+      readdirSync(logDir).filter((name) => name.endsWith('.jsonl')),
+    ).toHaveLength(1);
+    expect(readLogRecords(logDir)).toEqual([
       expect.objectContaining({ type: 'input', value: 'olá' }),
     ]);
   } finally {
@@ -114,14 +112,14 @@ test('debug registra montagens e rede do bubblewrap', async () => {
         workingDir: cwd,
       }),
     );
-    expect(record?.mounts).toEqual(
+    expect(record?.['mounts']).toEqual(
       expect.arrayContaining([
         { type: 'bind', source: '/usr', destination: '/usr', mode: 'ro' },
         { type: 'bind', source: cwd, destination: cwd, mode: 'rw' },
         { type: 'tmpfs', destination: '/tmp' },
       ]),
     );
-    expect(record?.mounts).not.toEqual(
+    expect(record?.['mounts']).not.toEqual(
       expect.arrayContaining([
         { type: 'bind', source: '/', destination: '/', mode: 'ro' },
       ]),
@@ -166,17 +164,17 @@ test('debug registra imagem, volumes e rede do docker', async () => {
       }),
     );
     expect(JSON.stringify(record)).not.toContain('secret');
-    expect(record?.volumes).toEqual(
+    expect(record?.['volumes']).toEqual(
       expect.arrayContaining([`/:/host:ro`, `${cwd}:/host${cwd}:rw`]),
     );
-    expect(record?.mounts).toEqual(
+    expect(record?.['mounts']).toEqual(
       expect.arrayContaining([
         { type: 'bind', source: '/', destination: '/host', mode: 'ro' },
         { type: 'bind', source: cwd, destination: `/host${cwd}`, mode: 'rw' },
         { type: 'tmpfs', destination: '/host/tmp' },
       ]),
     );
-    expect(record?.container).toEqual(
+    expect(record?.['container']).toEqual(
       expect.objectContaining({
         autoRemove: true,
         interactive: true,
@@ -203,12 +201,7 @@ test('openLogger omite debug quando debug é false', async () => {
     logger.log({ type: 'command', level: 'debug', executable: 'agent' });
 
     const logDir = join(cwd, 'logs');
-    const files = readdirSync(logDir).filter((name) => name.endsWith('.jsonl'));
-    const lines = readFileSync(join(logDir, files[0] ?? ''), 'utf8')
-      .trim()
-      .split('\n');
-
-    expect(lines).toHaveLength(1);
+    expect(readLogRecords(logDir)).toHaveLength(1);
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
@@ -237,7 +230,7 @@ test('debug registra os comandos executados pelo agente', async () => {
     await agent.run();
 
     const records = readLogRecords(join(cwd, 'logs'));
-    const commands = records.filter((record) => record.type === 'command');
+    const commands = records.filter((record) => record['type'] === 'command');
 
     expect(commands).toEqual([
       expect.objectContaining({
@@ -278,7 +271,10 @@ test('Agent.run grava o transcript no logDir', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 
   try {
-    writeFileSync(join(cwd, 'goiaba.config.ts'), `export default { logDir: 'logs' };\n`);
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { logDir: 'logs' };\n`,
+    );
     await loadConfig({ cwd });
 
     const agent = new Agent({
@@ -293,17 +289,10 @@ test('Agent.run grava o transcript no logDir', async () => {
 
     await agent.run();
 
-    const files = readdirSync(join(cwd, 'logs')).filter((name) =>
-      name.endsWith('.jsonl'),
-    );
-    expect(files).toHaveLength(1);
-
-    const records = readFileSync(join(cwd, 'logs', files[0] ?? ''), 'utf8')
-      .trim()
-      .split('\n')
-      .map((line) => JSON.parse(line) as { type: string; value?: string });
-
-    expect(records).toEqual([
+    expect(
+      readdirSync(join(cwd, 'logs')).filter((name) => name.endsWith('.jsonl')),
+    ).toHaveLength(1);
+    expect(readLogRecords(join(cwd, 'logs'))).toEqual([
       expect.objectContaining({ type: 'input', value: 'mensagem' }),
       expect.objectContaining({ type: 'output', value: 'mensagem' }),
     ]);
@@ -311,23 +300,6 @@ test('Agent.run grava o transcript no logDir', async () => {
     rmSync(cwd, { recursive: true, force: true });
   }
 });
-
-function readLogRecords(logDir: string): Array<Record<string, unknown>> {
-  const files = readdirSync(logDir).filter((name) => name.endsWith('.jsonl'));
-  const file = files[0];
-
-  if (file === undefined) {
-    return [];
-  }
-
-  const text = readFileSync(join(logDir, file), 'utf8').trim();
-
-  if (text.length === 0) {
-    return [];
-  }
-
-  return text.split('\n').map((line) => JSON.parse(line) as Record<string, unknown>);
-}
 
 class EchoProvider implements Provider<string, string> {
   public readonly id = 'echo';
