@@ -22,6 +22,7 @@ describe('OllamaProvider', () => {
       'ANTHROPIC_DEFAULT_SONNET_MODEL=qwen3.5:4b',
       'ANTHROPIC_DEFAULT_OPUS_MODEL=qwen3.5:4b',
       'CLAUDE_CODE_SUBAGENT_MODEL=qwen3.5:4b',
+      'ENABLE_TOOL_SEARCH=false',
       'CLAUDE_CODE_MAX_CONTEXT_TOKENS=32768',
       'CLAUDE_CODE_AUTO_COMPACT_WINDOW=32768',
       'env',
@@ -183,21 +184,32 @@ describe('OllamaProvider', () => {
     }
   });
 
-  test('o codex no Ollama recusa a busca hospedada', () => {
+  test('o codex no Ollama aceita regras de web e desliga a busca hospedada', () => {
     const provider = new OllamaProvider({
       cli: 'codex',
       model: 'qwen3.5:4b',
     });
 
-    expect(() =>
-      provider.applyPermissions(
-        {
-          default: 'deny',
-          allow: { web: [{ operations: ['*'], domains: ['*'] }] },
-        },
-        undefined,
-      ),
-    ).toThrow('O Ollama não oferece a ferramenta web_search hospedada');
+    provider.applyPermissions(
+      {
+        default: 'deny',
+        allow: { web: [{ operations: ['*'], domains: ['*'] }] },
+      },
+      undefined,
+    );
+
+    expect(provider.createCommand('pergunta').arguments).toContain(
+      'tools.web_search={mode="disabled"}',
+    );
+  });
+
+  test('a rede vai só ao Ollama; a nuvem da CLI fica bloqueada', () => {
+    const codex = new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' });
+    const claude = new OllamaProvider({ cli: 'claude', model: 'qwen3.5:4b' });
+
+    expect(codex.networkEndpoints()).toEqual(['127.0.0.1:11434']);
+    expect(codex.networkBlocked()).toContain('chatgpt.com:443');
+    expect(claude.networkBlocked()).toContain('api.anthropic.com:443');
   });
 
   test('tira da saída os avisos que só existem por causa do Ollama', async () => {

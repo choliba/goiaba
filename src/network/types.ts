@@ -22,7 +22,7 @@ export type NetworkApprover = (
 
 /**
  * `provider`: an address the agent's own CLI needs (its model API), allowed
- * whatever the policy says. `default`: no rule matched and the default
+ * whatever the policy says, or one it must not reach, denied the same way. `default`: no rule matched and the default
  * denied (an approval can change that).
  */
 export type NetworkDecisionSource =

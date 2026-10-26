@@ -69,6 +69,11 @@ export interface Provider<TInput, TOutput> {
    */
   networkEndpoints?(): readonly string[];
   /**
+   * `host:port` its CLI tries to reach but must not (e.g. the cloud API when
+   * the model is local). Denied without asking: nobody should approve them.
+   */
+  networkBlocked?(): readonly string[];
+  /**
    * Applies the categories the sandbox cannot enforce (web, execution,
    * communication) through the CLI. `gate` is given when there are execution
    * rules. Returns CLI files that must stay read-only in the sandbox (e.g. its

@@ -15,6 +15,11 @@ export interface Provider<TInput, TOutput, TPermissions> {
    * Goiaba lets them through whatever the policy says.
    */
   networkEndpoints?(): readonly string[];
+  /**
+   * `host:port` its CLI tries to reach but must not (e.g. the cloud API when
+   * the model is local). Denied without asking: nobody should approve them.
+   */
+  networkBlocked?(): readonly string[];
 
   /**
    * The policy in this provider's own language (CLI settings, flags, rules

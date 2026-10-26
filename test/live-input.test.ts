@@ -74,3 +74,19 @@ test('sem nada digitado, o fim do turno não tem entrada', async () => {
 
   expect(typed?.submitted()).toBeUndefined();
 });
+
+test('Ctrl+A continua funcionando depois de uma mensagem digitada', async () => {
+  const opened: string[] = [];
+  const { listen, reads } = terminal(['use curl', ':approvals', 'e depois']);
+  const typed = listenInput(listen, undefined, (input) => {
+    if (input === ':approvals') opened.push(input);
+    return map(input);
+  });
+  await settle();
+
+  expect(opened).toEqual([':approvals']);
+  // Still reading after all of it.
+  expect(reads()).toBe(4);
+  // The messages go together, in order, as the next input.
+  expect(await typed?.submitted()).toBe('use curl\n\ne depois');
+});

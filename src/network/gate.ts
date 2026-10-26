@@ -21,6 +21,8 @@ export interface NetworkGateOptions {
    * allowed: denying them would only stop the agent from talking at all.
    */
   readonly endpoints?: readonly string[];
+  /** `host:port` the CLI must not reach: denied without asking or recording. */
+  readonly blocked?: readonly string[];
   readonly audit?: NetworkAudit;
 }
 
@@ -55,6 +57,18 @@ export class NetworkGate {
       // Not stored: it is the CLI talking to its model, not the agent.
       return Promise.resolve(
         this.audited(request, 'allow', 'provider', 'Endereço do provider.'),
+      );
+    }
+
+    if (this.options.blocked?.includes(destination) === true) {
+      // Not stored either: the CLI's own background traffic, nobody's request.
+      return Promise.resolve(
+        this.audited(
+          request,
+          'deny',
+          'provider',
+          'Bloqueado pelo provider: a CLI não precisa deste endereço.',
+        ),
       );
     }
 

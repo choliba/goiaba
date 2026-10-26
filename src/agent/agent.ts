@@ -726,10 +726,12 @@ interface PendingInput {
 }
 
 /**
- * Reads the terminal while the provider works and remembers the first
- * message. `map` returns `undefined` for input handled locally: then it reads
- * again. Approvals given before anyone awaits the input do not end the
- * reading either; whoever awaits it later gets them first.
+ * Reads the terminal for the whole turn, while the provider works. `map`
+ * returns `undefined` for input handled locally (Ctrl+A with nothing
+ * approved): then it reads again. Ctrl+A keeps working after a message was
+ * typed; messages typed during the turn are kept and go together, in order,
+ * as the next input. Approvals given before anyone awaits the input do not
+ * end the reading either; whoever awaits it later gets them first.
  */
 export function listenInput(
   listen: ((signal?: AbortSignal) => Promise<string>) | undefined,
@@ -741,13 +743,21 @@ export function listenInput(
 
   const controller = new AbortController();
   const combined = anySignal(signal, controller.signal);
-  let received: string | undefined;
+  /** Messages typed while nobody waited for them yet. */
+  const messages: string[] = [];
   /** Approvals given while nobody waited for this input yet. */
   let approved = false;
-  /** Someone awaits the input (a question, the end of the turn). */
-  let claimed = false;
+  /** Who awaits the input (a question, the end of the turn), if anyone. */
+  let waiter: ((value: string) => void) | undefined;
+  let failed: ((error: unknown) => void) | undefined;
+  let taken: Promise<string> | undefined;
 
-  const read = async (): Promise<string> => {
+  const deliver = (value: string): void => {
+    controller.abort();
+    waiter?.(value);
+  };
+
+  const read = async (): Promise<void> => {
     for (;;) {
       const input = await listen(combined);
       // A bare Enter says nothing (e.g. one left in the terminal by the
@@ -755,33 +765,43 @@ export function listenInput(
       if (input.trim().length === 0) continue;
       const mapped = await map(input);
       if (mapped === undefined) continue;
-      // Approved while the CLI still works: keep reading the terminal
-      // (Ctrl+A again, a message); the end of the turn goes on with them.
-      if (mapped === APPROVALS_FINISHED && !claimed) {
-        approved = true;
-        continue;
+      if (waiter !== undefined) {
+        deliver(mapped);
+        return;
       }
-      received = input;
-      return mapped;
+      // Nobody waits yet: keep reading (Ctrl+A again, more messages); the
+      // end of the turn goes on with what was typed or approved.
+      if (mapped === APPROVALS_FINISHED) approved = true;
+      else messages.push(mapped);
     }
   };
-  const reading = read();
-  void reading.catch(() => undefined);
+  void read().catch((error: unknown) => {
+    failed?.(error);
+  });
 
   const take = (): Promise<string> => {
-    claimed = true;
-    if (approved && received === undefined) {
-      controller.abort();
-      return Promise.resolve(APPROVALS_FINISHED);
-    }
-    return reading;
+    taken ??= ((): Promise<string> => {
+      if (messages.length > 0) {
+        controller.abort();
+        return Promise.resolve(messages.join('\n\n'));
+      }
+      if (approved) {
+        controller.abort();
+        return Promise.resolve(APPROVALS_FINISHED);
+      }
+      return new Promise<string>((resolve, reject) => {
+        waiter = resolve;
+        failed = reject;
+      });
+    })();
+    return taken;
   };
 
   return {
     get promise() {
       return take();
     },
-    submitted: () => (received !== undefined || approved ? take() : undefined),
+    submitted: () => (messages.length > 0 || approved ? take() : undefined),
     cancel: () => controller.abort(),
   };
 }
@@ -1000,6 +1020,7 @@ function configureNetwork({
     provider: provider.id,
     ...(store === undefined ? {} : { store }),
     endpoints: provider.networkEndpoints?.() ?? [],
+    blocked: provider.networkBlocked?.() ?? [],
     approve: (request) => approveNetwork(approve, request, provider.id),
     audit: (event) => reportDebug({ type: 'network_decision', ...event }),
   });

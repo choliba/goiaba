@@ -116,6 +116,26 @@ describe('NetworkGate', () => {
     ).toThrow('Host inválido em allow.network: https://duckduckgo.com/');
   });
 
+  test('nega sem perguntar o que o provider bloqueia', async () => {
+    const store = Store.memory();
+    const gate = new NetworkGate({
+      ...where,
+      store,
+      permissions: {
+        default: 'deny',
+        requireApproval: {
+          network: [{ operations: ['connect'], hosts: ['*'] }],
+        },
+      },
+      blocked: ['chatgpt.com:443'],
+      approve: () => Promise.reject(new Error('não deveria perguntar')),
+    });
+
+    expect((await gate.decide(request('chatgpt.com'))).decision).toBe('deny');
+    // Nem vira pedido pendente.
+    expect(store.deniedDecisions('/w')).toEqual([]);
+  });
+
   test('libera os endereços do provider mesmo com a política negando', async () => {
     const events: NetworkDecisionEvent[] = [];
     const gate = new NetworkGate({

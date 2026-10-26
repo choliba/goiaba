@@ -99,19 +99,27 @@ export class OllamaProvider implements Provider<string, string> {
     return [this.endpoint];
   }
 
+  /**
+   * The CLI's own cloud (model lists, plugins, account), which it still
+   * tries with a local model: never needed here.
+   */
+  public networkBlocked(): readonly string[] {
+    return this.inner
+      .networkEndpoints()
+      .filter((endpoint) => endpoint !== this.endpoint);
+  }
+
   /** Same policy enforcement as the CLI's own provider (execution gate). */
   public applyPermissions(
     permissions: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[] {
-    if (this.inner instanceof CodexProvider && hasWebPermissions(permissions)) {
-      throw new UsageError(
-        'O Ollama não oferece a ferramenta web_search hospedada do Codex; ' +
-          'use uma ferramenta local sujeita a permissions.execution.',
-      );
-    }
-
-    return this.inner.applyPermissions(permissions, gate);
+    // Codex's web_search is hosted by OpenAI: through Ollama there is none.
+    // No web at all is stricter than any web rule, so it is turned off
+    // instead of refusing the policy.
+    return this.inner instanceof CodexProvider
+      ? this.inner.applyPermissions(withoutWeb(permissions), gate)
+      : this.inner.applyPermissions(permissions, gate);
   }
 
   public createCommand(input: string, sessionId?: string): ProgramCommand {
@@ -133,12 +141,17 @@ export class OllamaProvider implements Provider<string, string> {
   }
 }
 
-function hasWebPermissions(permissions: AgentPolicy): boolean {
-  return (
-    (permissions.allow?.web?.length ?? 0) > 0 ||
-    (permissions.deny?.web?.length ?? 0) > 0 ||
-    (permissions.requireApproval?.web?.length ?? 0) > 0
-  );
+/** The same policy with every web operation denied (web_search off). */
+function withoutWeb(permissions: AgentPolicy): AgentPolicy {
+  return {
+    ...permissions,
+    allow: { ...permissions.allow, web: [] },
+    requireApproval: { ...permissions.requireApproval, web: [] },
+    deny: {
+      ...permissions.deny,
+      web: [{ operations: ['*'], domains: ['*'] }],
+    },
+  };
 }
 
 function endpointOf(baseUrl: string): string {
@@ -171,6 +184,9 @@ function claudeEnv(
     `ANTHROPIC_DEFAULT_SONNET_MODEL=${model}`,
     `ANTHROPIC_DEFAULT_OPUS_MODEL=${model}`,
     `CLAUDE_CODE_SUBAGENT_MODEL=${model}`,
+    // Small local models do not load deferred tools with ToolSearch first:
+    // they call WebFetch without its schema and miss required parameters.
+    'ENABLE_TOOL_SEARCH=false',
     // An unknown model gets a guessed window and the history is never
     // compacted: the real one, enforced.
     `CLAUDE_CODE_MAX_CONTEXT_TOKENS=${String(contextWindow)}`,

@@ -5,15 +5,14 @@ import {
   ensureDirectory,
   humanApprover,
   OllamaProvider,
-  pathExists,
   runScript,
   StandardOutput,
   Workspace,
-  type AgentPolicy,
   type OutputAdapter,
   join,
 } from '../src/index';
 import { centerListener } from './center.listener';
+import { todasAsPermissoes } from './permissions';
 
 /**
  * The app agent on a local Ollama model through the Claude CLI, with every
@@ -53,7 +52,7 @@ await runScript(async ({ signal }) => {
   await new Agent({
     name: 'dev',
     prompt: 'vamos conversar',
-    provider: new OllamaProvider({ cli: 'claude', model: 'qwen3.5:4b' }),
+    provider: new OllamaProvider({ cli: 'claude', model: 'qwen2.5-coder:7b' }),
     workspace: new Workspace({
       type: 'docker',
       image: 'from choliba-agent:latest',
@@ -64,7 +63,7 @@ await runScript(async ({ signal }) => {
         join(homedir(), '.npm'),
       ],
     }),
-    permissions: appPermissions(root),
+    permissions: todasAsPermissoes,
     interaction,
     // Out 2: one or more functions that receive everything.
     subscribe: [centerListener],
@@ -76,62 +75,3 @@ await runScript(async ({ signal }) => {
     conversation: true,
   }).run();
 });
-
-/** filesystem is enforced by the sandbox; execution by Goiaba's gate. */
-function appPermissions(root: string): AgentPolicy {
-  // `ignores` and `deny` on filesystem only take paths that exist.
-  const hasGit = pathExists(join(root, '.git'));
-  const hasEnv = pathExists(join(root, '.env'));
-
-  return {
-    default: 'deny',
-    allow: {
-      web: [
-        {
-          domains: ['*'],
-          operations: ['*'],
-          ignores: {
-            domains: ['google.com', '*.google.com'],
-          },
-        },
-      ],
-
-      execution: [
-        {
-          commands: [
-            'bun *',
-            'npm *',
-            'npx *',
-            'bunx *',
-            'mkdir *',
-            'ls **',
-            'cat **',
-            'find **',
-            'pwd',
-          ],
-          ignores: { commands: ['npm publish', 'npm publish *'] },
-        },
-      ],
-      filesystem: [
-        {
-          operations: ['*'],
-          paths: ['/workspace/**'],
-          ...(hasGit
-            ? {
-                ignores: {
-                  paths: ['/workspace/.git/**', '/workspace/logs/**'],
-                },
-              }
-            : {}),
-        },
-      ],
-    },
-    ...(hasEnv
-      ? {
-          deny: {
-            filesystem: [{ operations: ['*'], paths: ['/workspace/.env'] }],
-          },
-        }
-      : {}),
-  };
-}
