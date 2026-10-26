@@ -390,6 +390,47 @@ test('continua sozinho a tarefa interrompida, com o que foi aprovado', async () 
   ]);
 });
 
+test('o aviso de uma aprovação por padrão manda repetir o comando negado, não o padrão', async () => {
+  const store = Store.memory();
+  const root = process.cwd();
+  store.recordSession({
+    id: 'sessao-antiga',
+    provider: 'recorder',
+    root,
+    prompt: 'crie o site',
+  });
+  const denied = store.recordDecision({
+    session: 'sessao-antiga',
+    provider: 'recorder',
+    root,
+    command: 'curl -I http://localhost:5173/',
+    decision: 'deny',
+    source: 'default',
+    reason: 'x',
+  });
+  store.saveApproval({
+    root,
+    pattern: 'curl *',
+    kind: 'workspace',
+    session: 'sessao-antiga',
+    decisionId: denied,
+  });
+  const provider = new RecordingProvider();
+
+  await new Agent({
+    name: 'teste',
+    prompt: 'crie o site',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root }),
+    interaction: { ask: unusedAsk, write: () => {} },
+    store,
+  }).run();
+
+  expect(provider.calls.at(0)?.input).toContain(
+    '- (neste workspace) curl -I http://localhost:5173/ — liberado pelo padrão `curl *`',
+  );
+});
+
 test('tarefa que terminou ou prompt novo começam uma sessão nova', async () => {
   const store = Store.memory();
   const root = process.cwd();
@@ -728,9 +769,32 @@ class SlowProvider implements Provider<string, string> {
   }
 }
 
+test('Agent aceita regras de rede no docker', () => {
+  expect(
+    () =>
+      new Agent({
+        name: 'teste',
+        prompt: 'início',
+        provider: new EchoProvider(),
+        workspace: new Workspace({
+          type: 'docker',
+          root: process.cwd(),
+          image: 'FROM imagem',
+        }),
+        interaction: { ask: unusedAsk, write: () => undefined },
+        permissions: {
+          default: 'deny',
+          allow: {
+            filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+            network: [{ operations: ['connect'], hosts: ['github.com'] }],
+          },
+        },
+      }),
+  ).not.toThrow();
+});
+
 test('Agent recusa regras de categorias que o Goiaba ainda não aplica', () => {
   for (const policy of [
-    { network: [{ operations: ['connect' as const], hosts: ['github.com'] }] },
     { tools: [{ operations: ['call' as const], tools: ['github/*'] }] },
     { agents: [{ operations: ['spawn' as const], agents: ['revisor'] }] },
     { secrets: [{ operations: ['read' as const], secrets: ['*_TOKEN'] }] },

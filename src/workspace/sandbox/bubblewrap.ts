@@ -21,7 +21,7 @@ import { isDebug } from '../../logger/index';
 import { reportDebug } from '../../output/activity';
 import { logSandbox } from './debug';
 import { hostStateDirs } from './host-state';
-import type { Sandbox } from './types';
+import type { NetworkExit, Sandbox } from './types';
 import { wrapCommand } from './wrap-command';
 import type { FilesystemAccess, FilesystemMask } from '../../policy/index';
 import { protectedMasks } from './protect';
@@ -57,6 +57,7 @@ export class BubblewrapSandbox implements Sandbox {
   private starting: Promise<number> | undefined;
   private filesystem: FilesystemAccess | undefined;
   private protectedPaths: readonly string[] = [];
+  private network: NetworkExit | undefined;
 
   public constructor({
     root,
@@ -88,13 +89,24 @@ export class BubblewrapSandbox implements Sandbox {
     this.protectedPaths = [...this.protectedPaths, ...paths];
   }
 
+  public isolateNetwork(exit: NetworkExit): void {
+    if (this.keeper !== undefined) {
+      throw new UsageError('A rede deve ser configurada antes da execução.');
+    }
+
+    this.network = exit;
+  }
+
   public async prepare(command: ProgramCommand): Promise<ProgramCommand> {
     const pid = await this.ensureJail();
+    const network = this.network;
 
     return wrapCommand(
       'nsenter',
-      bubblewrapNsenterArgs(pid, this.root),
-      command,
+      bubblewrapNsenterArgs(pid, this.root, network !== undefined),
+      network === undefined
+        ? command
+        : wrapCommand('env', network.environment(), command),
     );
   }
 
@@ -149,7 +161,12 @@ export class BubblewrapSandbox implements Sandbox {
       ...(this.filesystem?.workspaceAccess === 'readonly' ? [this.root] : []),
     ];
     const jailArgs = [
-      ...bubblewrapJailArgs(this.root, writable, readonly),
+      ...bubblewrapJailArgs(
+        this.root,
+        writable,
+        readonly,
+        this.network === undefined,
+      ),
       ...bubblewrapMaskArgs([
         ...(this.filesystem?.masks ?? []),
         ...protectedMasks(this.protectedPaths),
@@ -161,7 +178,10 @@ export class BubblewrapSandbox implements Sandbox {
       { executable: 'bwrap', arguments: jailArgs },
       {
         isolation: true,
-        network: { unshare: 'all', share: ['net'] },
+        network:
+          this.network === undefined
+            ? { unshare: 'all', share: ['net'] }
+            : { unshare: 'all', exit: 'proxy' },
         workingDir: this.root,
         mounts: [
           ...readonly.map((path) => ({
@@ -212,6 +232,15 @@ export class BubblewrapSandbox implements Sandbox {
     if (pid === undefined) {
       await this.close();
       throw new UsageError('Não foi possível entrar na jaula bubblewrap.');
+    }
+
+    try {
+      await this.network?.attach((command) =>
+        wrapCommand('nsenter', bubblewrapNetworkArgs(pid), command),
+      );
+    } catch (error) {
+      await this.close();
+      throw error;
     }
 
     this.jailPid = pid;
@@ -280,11 +309,13 @@ export function bubblewrapJailArgs(
   root: string,
   writable: readonly string[],
   readonlyBinds: readonly string[] = bubblewrapReadonlyBinds(),
+  shareNet = true,
 ): string[] {
   return [
     '--die-with-parent',
     '--unshare-all',
-    '--share-net',
+    // Without it, the jail has only its own loopback.
+    ...(shareNet ? ['--share-net'] : []),
     ...readonlyBinds.flatMap((path) => ['--ro-bind', path, path]),
     ...rootSymlinkArgs(),
     '--dev',
@@ -331,7 +362,11 @@ function coveredBy(path: string, mounts: readonly string[]): boolean {
   return mounts.some((mount) => path === mount || path.startsWith(`${mount}/`));
 }
 
-export function bubblewrapNsenterArgs(pid: number, root: string): string[] {
+export function bubblewrapNsenterArgs(
+  pid: number,
+  root: string,
+  ownNetwork = false,
+): string[] {
   return [
     '--preserve-credentials',
     '-t',
@@ -341,9 +376,20 @@ export function bubblewrapNsenterArgs(pid: number, root: string): string[] {
     '-i',
     '-u',
     '-p',
+    // A jail sharing the host's network has none to enter.
+    ...(ownNetwork ? ['-n'] : []),
     `--wdns=${root}`,
     '--',
   ];
+}
+
+/**
+ * Only the jail's network (and its user namespace, which owns it): the
+ * program still sees the host's files, e.g. the network bridge reaching
+ * Goiaba's proxy socket.
+ */
+export function bubblewrapNetworkArgs(pid: number): string[] {
+  return ['--preserve-credentials', '-t', String(pid), '-U', '-n', '--'];
 }
 
 /**

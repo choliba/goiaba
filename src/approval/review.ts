@@ -184,7 +184,7 @@ export class ApprovalReview {
         this.output.write(
           line(
             cells(number, decision, selected.has(decision.id)),
-            summarize(decision.command, commandWidth, decision.attempts),
+            summarize(subjectOf(decision), commandWidth, decision.attempts),
           ),
         );
       }
@@ -220,7 +220,7 @@ export class ApprovalReview {
       for (const decision of toApprove) {
         this.store.dismissDecision(decision.id);
         this.output.write(
-          `✖ Descartado (#${String(decision.id)}): ${firstLine(decision.command)}`,
+          `✖ Descartado (#${String(decision.id)}): ${firstLine(subjectOf(decision))}`,
         );
       }
       this.output.write(
@@ -230,19 +230,23 @@ export class ApprovalReview {
     }
 
     for (const decision of toApprove) {
+      // A destination is approved as is; a command, by its pattern.
       const pattern =
-        kind === 'workspace'
+        kind === 'workspace' && decision.category === 'execution'
           ? suggestPattern(decision.command)
           : decision.command;
       this.store.saveApproval({
         root: decision.root,
         pattern,
         kind,
+        category: decision.category,
         session: decision.session,
         decisionId: decision.id,
       });
       this.output.write(
-        `✔ Aprovado (#${String(decision.id)}): ${firstLine(pattern)}`,
+        `✔ Aprovado (#${String(decision.id)}): ${firstLine(
+          decision.category === 'network' ? `rede ${pattern}` : pattern,
+        )}`,
       );
     }
 
@@ -255,7 +259,7 @@ export class ApprovalReview {
     this.output.write('\nSelecionados:');
 
     for (const decision of decisions) {
-      const [first = '', ...rest] = decision.command.split('\n');
+      const [first = '', ...rest] = subjectOf(decision).split('\n');
       this.output.write(`\n  #${String(decision.id)}  ${first}`);
       for (const next of rest) this.output.write(`        ${next}`);
     }
@@ -369,6 +373,13 @@ function byWorkspace(
 }
 
 /** Heredocs and scripts span many lines; the first one says what it is. */
+/** What was denied, as listed: the command, or `rede host:port`. */
+function subjectOf(decision: StoredDecision): string {
+  return decision.category === 'network'
+    ? `rede ${decision.command}`
+    : decision.command;
+}
+
 function firstLine(command: string): string {
   const [first = '', ...rest] = command.split('\n');
   return rest.length === 0

@@ -1,4 +1,10 @@
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -235,11 +241,11 @@ describe('filesystem enforcement compiler', () => {
         compileFilesystemAccess(
           {
             ...base,
-            deny: { filesystem: [rule('/workspace/*/secret')] },
+            deny: { filesystem: [rule('/workspace/**/secret')] },
           },
           root,
         ),
-      ).toThrow('não pode ser compilado');
+      ).toThrow('só aceita ** no fim do caminho');
       expect(() =>
         compileFilesystemAccess(
           {
@@ -249,6 +255,91 @@ describe('filesystem enforcement compiler', () => {
           root,
         ),
       ).toThrow('default deny');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('expande padrões para os arquivos que existem ao iniciar', () => {
+    const root = mkdtempSync(join(tmpdir(), 'goiaba-policy-'));
+    for (const file of [
+      '.env',
+      '.env.local',
+      '.env.example',
+      'bun.lock',
+      'a.ts',
+    ]) {
+      writeFileSync(join(root, file), '');
+    }
+    mkdirSync(join(root, 'config'));
+    writeFileSync(join(root, 'config', 'db.json'), '');
+
+    try {
+      const access = compileFilesystemAccess(
+        {
+          default: 'deny',
+          allow: {
+            filesystem: [
+              { operations: ['read'], paths: ['/workspace/**'] },
+              {
+                operations: ['write'],
+                paths: ['/workspace/**'],
+                ignores: { paths: ['/workspace/*.lock'] },
+              },
+            ],
+          },
+          deny: {
+            filesystem: [
+              {
+                operations: ['*'],
+                paths: [
+                  '/workspace/.env',
+                  '/workspace/.env.*',
+                  '/workspace/config/*.json',
+                ],
+                ignores: { paths: ['/workspace/.env.example'] },
+              },
+            ],
+          },
+        },
+        root,
+      );
+
+      expect(access.masks).toEqual([
+        { path: join(root, 'bun.lock'), access: 'readonly' },
+        { path: join(root, '.env'), access: 'hidden' },
+        { path: join(root, '.env.local'), access: 'hidden' },
+        { path: join(root, 'config', 'db.json'), access: 'hidden' },
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('não deixa visível um caminho dentro de uma pasta escondida', () => {
+    const root = mkdtempSync(join(tmpdir(), 'goiaba-policy-'));
+    mkdirSync(join(root, 'secrets'));
+    writeFileSync(join(root, 'secrets', 'public.txt'), '');
+
+    try {
+      expect(() =>
+        compileFilesystemAccess(
+          {
+            default: 'deny',
+            allow: { filesystem: [rule('/workspace/**')] },
+            deny: {
+              filesystem: [
+                {
+                  operations: ['*'],
+                  paths: ['/workspace/secrets/**'],
+                  ignores: { paths: ['/workspace/secrets/public.txt'] },
+                },
+              ],
+            },
+          },
+          root,
+        ),
+      ).toThrow('a sandbox esconde a pasta inteira');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

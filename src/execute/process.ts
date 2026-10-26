@@ -1,6 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { homedir } from 'node:os';
+import { constants, homedir } from 'node:os';
 import { promisify } from 'node:util';
 import { join } from '../filesystem/index';
 
@@ -49,6 +49,11 @@ export function currentDirectory(): string {
 /** Id of the current process. */
 export function currentPid(): number {
   return process.pid;
+}
+
+/** Who started the current process; changes if that parent dies. */
+export function parentPid(): number {
+  return process.ppid;
 }
 
 /** Runtime running Goiaba (bun), to start helper programs with it. */
@@ -141,6 +146,39 @@ export function startHelper(
     },
   };
 }
+
+/**
+ * Runs a program on this process's own stdin/stdout/stderr (a launcher
+ * handing over to it) and resolves with its exit code; killed by a signal,
+ * 128 + the signal's number, as a shell reports it. Termination signals
+ * this process gets go to the program: as a container's PID 1, nothing would
+ * stop this process otherwise.
+ */
+export function runAttached(
+  executable: string,
+  args: readonly string[],
+): Promise<number> {
+  const child = spawn(executable, [...args], { stdio: 'inherit' });
+  const forward = (signal: NodeJS.Signals): void => {
+    child.kill(signal);
+  };
+  for (const signal of FORWARDED_SIGNALS) process.on(signal, forward);
+
+  return new Promise<number>((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      resolve(code ?? 128 + (signal === null ? 0 : constants.signals[signal]));
+    });
+  }).finally(() => {
+    for (const signal of FORWARDED_SIGNALS) process.off(signal, forward);
+  });
+}
+
+const FORWARDED_SIGNALS: readonly NodeJS.Signals[] = [
+  'SIGTERM',
+  'SIGINT',
+  'SIGHUP',
+];
 
 /**
  * Delivers Ctrl+C to this program. In raw terminal mode the terminal does not

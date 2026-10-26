@@ -7,25 +7,27 @@ import {
   pathExists,
   writeText,
   join,
-} from '../filesystem/index';
-import { UsageError } from '../errors';
-import { goiabaCacheDir } from '../execute/process';
-import type { ProgramCommand, ProgramOutput } from '../execute/types';
-import { truncateError } from '../logger/index';
-import { reportDebug } from '../output/activity';
-import {
-  delegatedCategories,
-  type AgentPolicy,
-  type WebRule,
-} from '../policy/index';
-import { wrapCommand } from '../workspace/sandbox/wrap-command';
+} from '../../filesystem/index';
+import { UsageError } from '../../errors';
+import { goiabaCacheDir } from '../../execute/process';
+import type { ProgramCommand, ProgramOutput } from '../../execute/types';
+import { truncateError } from '../../logger/index';
+import { reportDebug } from '../../output/activity';
+import { delegatedCategories, type AgentPolicy } from '../../policy/index';
+import { buildCodexPermissions, type CodexPermissions } from './permissions';
+import type {
+  Provider as ProviderContract,
+  ProviderPermissions,
+  UnsupportedRule,
+} from '../provider.interface';
+import { wrapCommand } from '../../workspace/sandbox/wrap-command';
 import type {
   ExecutionGate,
   Provider,
   ProviderDescription,
   ProviderEvent,
   ProviderOptions,
-} from './types';
+} from '../types';
 
 /** Long enough for a person to answer an approval prompt. */
 const HOOK_TIMEOUT_SECONDS = 3600;
@@ -36,7 +38,11 @@ const HOOK_TIMEOUT_SECONDS = 3600;
  */
 const GATE_DENIAL = /codex_core::tools::router: .*blocked by PreToolUse hook/;
 
-export class CodexProvider implements Provider<string, string> {
+export class CodexProvider
+  implements
+    Provider<string, string>,
+    ProviderContract<string, string, CodexPermissions>
+{
   public readonly id = 'codex';
 
   private readonly executable: string;
@@ -58,6 +64,18 @@ export class CodexProvider implements Provider<string, string> {
     return { name: 'codex', model: this.model };
   }
 
+  /** The OpenAI API, and ChatGPT for a ChatGPT login (and its token). */
+  public networkEndpoints(): readonly string[] {
+    return ['api.openai.com:443', 'chatgpt.com:443', 'auth.openai.com:443'];
+  }
+
+  /** The policy as Codex settings (`-c`) and command rules (`.rules`). */
+  public buildPermissions(
+    policy: AgentPolicy,
+  ): ProviderPermissions<CodexPermissions> {
+    return buildCodexPermissions(policy);
+  }
+
   public applyPermissions(
     permissions: AgentPolicy,
     gate: ExecutionGate | undefined,
@@ -73,7 +91,9 @@ export class CodexProvider implements Provider<string, string> {
       );
     }
 
-    this.webSearchConfig = webSearchConfig(permissions);
+    const translated = this.buildPermissions(permissions);
+    refuseUnsupportedWeb(translated.unsupported);
+    this.webSearchConfig = translated.native.config['tools.web_search'];
 
     if (gate === undefined) return [];
 
@@ -113,6 +133,10 @@ export class CodexProvider implements Provider<string, string> {
       '--dangerously-bypass-approvals-and-sandbox',
       '--color',
       'never',
+      // Only the model API: no usage metrics (ab.chatgpt.com), which under
+      // network rules would each wait for an approval.
+      '-c',
+      'analytics.enabled=false',
       ...(this.webSearchConfig === undefined
         ? []
         : ['-c', `tools.web_search=${this.webSearchConfig}`]),
@@ -190,73 +214,14 @@ class CodexTurn {
   }
 }
 
-/** Translates the common web policy to Codex's hosted web-search tool. */
-function webSearchConfig(permissions: AgentPolicy): string | undefined {
-  const allow = permissions.allow?.web ?? [];
-  const deny = permissions.deny?.web ?? [];
-  const requireApproval = permissions.requireApproval?.web ?? [];
-
-  if (requireApproval.length > 0) {
-    throw unsupportedWebPolicy();
-  }
-
-  if (allow.length === 0) return undefined;
-  if (allow.length !== 1) throw unsupportedWebPolicy();
-
-  const allowRule = allow[0];
-  if (!coversAllWebOperations(allowRule)) {
-    throw unsupportedWebPolicy();
-  }
-
-  if (!deny.every(coversAllWebOperations)) throw unsupportedWebPolicy();
-
-  const allowedDomains = webDomains(allowRule.domains);
-  const ignoredDomains = allowRule.ignores?.domains ?? [];
-  const deniedDomains = deny.flatMap((rule) => rule.domains);
-  const blockedDomains = webDomains([...ignoredDomains, ...deniedDomains]);
-  const fields = ['mode="live"'];
-
-  if (!allowRule.domains.includes('*')) {
-    fields.push(`allowed_domains=${tomlStrings(allowedDomains)}`);
-  }
-
-  if (blockedDomains.length > 0) {
-    fields.push(`blocked_domains=${tomlStrings(blockedDomains)}`);
-  }
-
-  return `{${fields.join(',')}}`;
-}
-
-function coversAllWebOperations(rule: WebRule): boolean {
-  return rule.operations.includes('*');
-}
-
-function webDomains(domains: readonly string[]): readonly string[] {
-  return [
-    ...new Set(domains.filter((domain) => domain !== '*').map(webDomain)),
-  ];
-}
-
-function webDomain(domain: string): string {
-  const normalized = domain.startsWith('*.') ? domain.slice(2) : domain;
-  if (hasUnsupportedDomainPattern(normalized)) throw unsupportedWebPolicy();
-  return normalized;
-}
-
-function hasUnsupportedDomainPattern(domain: string): boolean {
-  return ['*', '?', '[', ']', '\\', '/'].some((character) =>
-    domain.includes(character),
+/** Refuses web rules Codex would apply more loosely than the policy. */
+function refuseUnsupportedWeb(unsupported: readonly UnsupportedRule[]): void {
+  const web = unsupported.find(
+    (rule) => rule.category === 'web' && rule.effect === 'looser',
   );
-}
-
-function tomlStrings(values: readonly string[]): string {
-  return `[${values.map((value) => JSON.stringify(value)).join(',')}]`;
-}
-
-function unsupportedWebPolicy(): UsageError {
-  return new UsageError(
-    'O provider codex aplica web com uma regra allow de operations ["*"], ' +
-      'domínios exatos ou "*", ignores/deny por domínio e sem requireApproval.',
+  if (web === undefined) return;
+  throw new UsageError(
+    `O provider codex não aplica esta regra web: ${web.reason}`,
   );
 }
 

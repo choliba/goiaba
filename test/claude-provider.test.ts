@@ -37,8 +37,10 @@ describe('ClaudeProvider', () => {
     const command = provider.createCommand('pergunta');
 
     expect(command).toMatchObject({
-      executable: 'claude-custom',
+      executable: 'env',
       arguments: [
+        'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1',
+        'claude-custom',
         '--print',
         '--output-format',
         'stream-json',
@@ -56,6 +58,8 @@ describe('ClaudeProvider', () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
 
     expect(provider.createCommand('dev', 'sessao-1').arguments).toEqual([
+      'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1',
+      'claude',
       '--print',
       '--output-format',
       'stream-json',
@@ -85,7 +89,7 @@ describe('ClaudeProvider', () => {
     const args = provider.createCommand('pergunta').arguments ?? [];
 
     expect(protectedFiles).toEqual([]);
-    expect(args.slice(6, 10)).toEqual([
+    expect(args.slice(8, 12)).toEqual([
       '--permission-mode',
       'dontAsk',
       '--setting-sources',
@@ -247,13 +251,29 @@ describe('ClaudeProvider', () => {
     });
   });
 
-  test('recusa em web o que o Claude não aplica exatamente', () => {
+  test('em web, recusa só o que ficaria mais permissivo que a política', () => {
+    // Stricter than the policy: applied (not granted, or denied wider).
     expect(
       apply({
         default: 'deny',
         allow: { web: [{ operations: ['*'], domains: ['bun.*'] }] },
       }),
-    ).toThrow('domínios exatos, "*.dominio" ou "*"');
+    ).not.toThrow();
+    expect(
+      apply({
+        default: 'deny',
+        deny: {
+          web: [
+            {
+              operations: ['*'],
+              domains: ['*'],
+              ignores: { domains: ['bun.sh'] },
+            },
+          ],
+        },
+      }),
+    ).not.toThrow();
+    // Exact: the ignored domain is allowed by the other rule, as in Claude.
     expect(
       apply({
         default: 'deny',
@@ -268,21 +288,16 @@ describe('ClaudeProvider', () => {
           ],
         },
       }),
-    ).toThrow('outra regra web o libera');
+    ).not.toThrow();
+
+    // Looser: a denial Claude cannot express would not be enforced.
     expect(
       apply({
         default: 'deny',
-        deny: {
-          web: [
-            {
-              operations: ['*'],
-              domains: ['*'],
-              ignores: { domains: ['bun.sh'] },
-            },
-          ],
-        },
+        deny: { web: [{ operations: ['*'], domains: ['evil.*'] }] },
       }),
-    ).toThrow('ignores em deny.web');
+    ).toThrow('O provider claude não aplica esta regra web');
+    // Nobody answers an `ask` with --print.
     expect(
       apply({
         default: 'deny',

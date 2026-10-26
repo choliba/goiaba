@@ -64,6 +64,11 @@ export interface Provider<TInput, TOutput> {
   readonly id: string;
   describe?(): ProviderDescription;
   /**
+   * `host:port` its CLI needs to work (the model API). With network rules,
+   * Goiaba lets them through whatever the policy says.
+   */
+  networkEndpoints?(): readonly string[];
+  /**
    * Applies the categories the sandbox cannot enforce (web, execution,
    * communication) through the CLI. `gate` is given when there are execution
    * rules. Returns CLI files that must stay read-only in the sandbox (e.g. its

@@ -93,10 +93,7 @@ export class TerminalInput {
     keys: readonly string[],
     signal?: AbortSignal,
   ): Promise<string> {
-    if (process.stdin.isTTY) {
-      this.terminal.pause();
-      return readRawChoice(keys, signal);
-    }
+    if (process.stdin.isTTY) return this.terminal.choose(keys, signal);
     return (await this.lines.next(signal)).trim().toLowerCase().charAt(0);
   }
 
@@ -176,10 +173,24 @@ interface WaitingInput {
   readonly instant: readonly string[];
 }
 
-/** Persistent TTY listener: submitted lines stay queued during a model turn. */
+interface WaitingChoice {
+  readonly keys: readonly string[];
+  readonly resolve: (value: string) => void;
+  readonly reject: (error: Error) => void;
+  readonly signal: AbortSignal | undefined;
+  readonly onAbort: () => void;
+}
+
+/**
+ * Persistent TTY listener: submitted lines stay queued during a model turn.
+ * The only reader of the terminal: one-key choices (approvals) are answered
+ * here too, ahead of the line being typed, so a key never reaches two
+ * readers.
+ */
 class TtyInput {
   private readonly queued: string[] = [];
   private readonly waiting: WaitingInput[] = [];
+  private readonly choices: WaitingChoice[] = [];
   private buffer = '';
   private started = false;
   private active = false;
@@ -208,7 +219,28 @@ class TtyInput {
     });
   }
 
-  public pause(): void {
+  /** One of `keys` (or `''` for Enter), before any line being typed. */
+  public choose(
+    keys: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<string> {
+    this.start();
+    return new Promise((resolve, reject) => {
+      const onAbort = (): void => {
+        const waiting = this.choices.find((item) => item.onAbort === onAbort);
+        if (waiting !== undefined) remove(this.choices, waiting);
+        reject(abortError('A escolha foi cancelada.'));
+      };
+      if (signal?.aborted === true) {
+        reject(abortError('A escolha foi cancelada.'));
+        return;
+      }
+      signal?.addEventListener('abort', onAbort, { once: true });
+      this.choices.push({ keys, resolve, reject, signal, onAbort });
+    });
+  }
+
+  private pause(): void {
     if (!this.active) return;
     writeOut(PASTE_OFF);
     process.stdin.off('data', this.onData);
@@ -220,7 +252,10 @@ class TtyInput {
   public close(): void {
     this.pause();
     const error = abortError('stdin foi fechado.');
-    for (const waiter of this.waiting.splice(0)) {
+    for (const waiter of [
+      ...this.choices.splice(0),
+      ...this.waiting.splice(0),
+    ]) {
       waiter.signal?.removeEventListener('abort', waiter.onAbort);
       waiter.reject(error);
     }
@@ -228,7 +263,10 @@ class TtyInput {
 
   private readonly onData = (chunk: Buffer): void => {
     for (const { key, pasted } of this.decoder.feed(chunk.toString('utf8'))) {
-      if (pasted) this.paste(key);
+      // A choice takes typed keys only; pasted text cannot answer it.
+      if (this.choices.length > 0) {
+        if (!pasted) this.answerChoice(key);
+      } else if (pasted) this.paste(key);
       else this.accept(key);
     }
   };
@@ -305,6 +343,36 @@ class TtyInput {
     writeOut(key);
   }
 
+  /** Ctrl+C interrupts, Ctrl+D cancels; other keys outside the choice wait. */
+  private answerChoice(raw: string): void {
+    const choice = this.choices.at(0);
+    if (choice === undefined) return;
+    const key = raw.toLowerCase();
+
+    if (key === CTRL_C) {
+      interruptProgram();
+      this.close();
+      return;
+    }
+    if (key === CTRL_D) {
+      this.settleChoice(choice);
+      choice.reject(abortError('A escolha foi cancelada.'));
+      return;
+    }
+    const value = key === '\r' || key === '\n' ? '' : key;
+    if (value !== '' && !choice.keys.includes(value)) return;
+
+    // The output side shows the answer (see StandardOutput.choose).
+    recordInput('input_choice', { value });
+    this.settleChoice(choice);
+    choice.resolve(value);
+  }
+
+  private settleChoice(choice: WaitingChoice): void {
+    remove(this.choices, choice);
+    choice.signal?.removeEventListener('abort', choice.onAbort);
+  }
+
   private isInstant(key: string): boolean {
     return this.waiting[0]?.instant.includes(key.toLowerCase()) ?? false;
   }
@@ -330,78 +398,6 @@ class TtyInput {
     this.buffer = '';
     this.started = false;
   }
-}
-
-interface RawRead {
-  readonly accept: (key: string) => string | undefined;
-  readonly cancel: () => void;
-}
-
-function readRawChoice(
-  keys: readonly string[],
-  signal?: AbortSignal,
-): Promise<string> {
-  return readRaw(signal, (finish, reject): RawRead => ({
-    accept(raw): string | undefined {
-      const key = raw.toLowerCase();
-      if (key === CTRL_C || key === CTRL_D) {
-        if (key === CTRL_C) interruptProgram();
-        reject(abortError('A escolha foi cancelada.'));
-        return undefined;
-      }
-      if (key === '\r' || key === '\n') {
-        recordInput('input_choice', { value: '' });
-        finish('');
-        return undefined;
-      }
-      if (!keys.includes(key)) return undefined;
-      recordInput('input_choice', { value: key });
-      finish(key);
-      return undefined;
-    },
-    cancel: () => reject(abortError('A escolha foi cancelada.')),
-  }));
-}
-
-function readRaw(
-  signal: AbortSignal | undefined,
-  create: (
-    finish: (value: string) => void,
-    reject: (error: Error) => void,
-  ) => RawRead,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const stdin = process.stdin;
-    const cleanup = (): void => {
-      stdin.off('data', onData);
-      signal?.removeEventListener('abort', onAbort);
-      stdin.setRawMode(false);
-      stdin.pause();
-    };
-    const finish = (value: string): void => {
-      cleanup();
-      resolve(value);
-    };
-    const fail = (error: Error): void => {
-      cleanup();
-      reject(error);
-    };
-    const reading = create(finish, fail);
-    const onAbort = (): void => reading.cancel();
-    const onData = (chunk: Buffer): void => {
-      for (const key of chunk.toString('utf8')) reading.accept(key);
-    };
-
-    if (signal?.aborted === true) {
-      reject(abortError('A entrada foi cancelada.'));
-      return;
-    }
-
-    signal?.addEventListener('abort', onAbort, { once: true });
-    stdin.setRawMode(true);
-    stdin.on('data', onData);
-    stdin.resume();
-  });
 }
 
 function isPrintable(key: string): boolean {

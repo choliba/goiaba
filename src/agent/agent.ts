@@ -43,6 +43,7 @@ import { StandardOutput, type OutputAdapter } from '../output/index';
 import { scriptSignal } from '../usage';
 import type { Workspace } from '../workspace/index';
 import { currentProcessCommand, environment } from '../execute/process';
+import { NetworkBoundary, type NetworkApprovalRequest } from '../network/index';
 
 export class Agent {
   /** Identifies the agent in its activity, logs and sessions. */
@@ -56,6 +57,7 @@ export class Agent {
   private readonly signal: AbortSignal | undefined;
   private readonly store: Store | undefined;
   private readonly broker: ApprovalBroker | undefined;
+  private readonly network: NetworkBoundary | undefined;
   /** One running agent per workspace, across programs. */
   private readonly lock: WorkspaceLock;
   /** A session to continue on the next run (resume(), GOIABA_RESUME_SESSION). */
@@ -65,6 +67,9 @@ export class Agent {
   private readonly subscribers: readonly AgentSubscriber[];
   /** What the agent said while the approvals screen was open; shown after. */
   private held: string[] | undefined;
+  /** Approvals being asked right now: the CLI waits on them, it is not silent. */
+  private approving = 0;
+  private silence: { touch(): void } | undefined;
   private state: AgentStatus = 'idle';
   /** The run in progress; `run()` while running returns it. */
   private current: Promise<void> | undefined;
@@ -116,16 +121,37 @@ export class Agent {
     // decides whether to continue (see `resumableSession`).
     this.forced = forcedSession();
     this.store = store ?? defaultStore();
-    this.broker =
+    const enforced =
       permissions === undefined
         ? undefined
         : enforcePermissions({
             permissions,
             provider,
             workspace,
-            approve: approve ?? humanApprover(interaction, signal),
+            approve: this.whileApproving(
+              approve ?? humanApprover(interaction, signal),
+            ),
             store: this.store,
           });
+    this.broker = enforced?.broker;
+    this.network = enforced?.network;
+  }
+
+  /**
+   * While a question is open the CLI is waiting for the person, not working
+   * in the background: no silence notice over the prompt, and the silence is
+   * counted again from the answer.
+   */
+  private whileApproving(approve: CommandApprover): CommandApprover {
+    return async (request) => {
+      this.approving += 1;
+      try {
+        return await approve(request);
+      } finally {
+        this.approving -= 1;
+        this.silence?.touch();
+      }
+    };
   }
 
   /** idle, running, paused, stopped or destroyed. */
@@ -368,6 +394,7 @@ export class Agent {
 
       if (sessionId !== undefined) {
         this.broker?.setSession(sessionId);
+        this.network?.setSession(sessionId);
         // The task is already in the session's history: only what changed.
         nextInput = this.continuation(sessionId);
         report({ type: 'resume', session: sessionId, input: nextInput });
@@ -385,8 +412,11 @@ export class Agent {
         // The loop runs while the CLI does (it ends when the process exits):
         // a long silence meanwhile gets a line saying it is still at work.
         const silence = watchSilence(() => {
-          if (this.held === undefined) this.show(BACKGROUND_MESSAGE);
+          if (this.held === undefined && this.approving === 0) {
+            this.show(BACKGROUND_MESSAGE);
+          }
         });
+        this.silence = silence;
 
         try {
           for await (const event of this.executor.run(
@@ -407,6 +437,7 @@ export class Agent {
               }
               sessionId = event.id;
               this.broker?.setSession(event.id);
+              this.network?.setSession(event.id);
               this.store?.recordSession({
                 id: event.id,
                 provider: this.provider.id,
@@ -668,7 +699,18 @@ export class Agent {
       this.store?.pendingNotices(this.workspace.root, session) ?? [];
     this.store?.markNotified(notices.map((notice) => notice.id));
 
-    return [...describeNotices(notices), CONTINUE].join('\n');
+    return [
+      ...describeNotices(
+        notices.map((approval) => ({
+          approval,
+          asked:
+            approval.decisionId === undefined
+              ? undefined
+              : this.store?.decision(approval.decisionId)?.command,
+        })),
+      ),
+      CONTINUE,
+    ].join('\n');
   }
 }
 
@@ -789,18 +831,51 @@ function anySignal(
   return defined.length === 0 ? undefined : AbortSignal.any(defined);
 }
 
-function describeNotices(notices: readonly StoredApproval[]): string[] {
-  if (notices.length === 0) return [];
+/** An approval, with what was asked when it approves a denial. */
+interface Notice {
+  readonly approval: StoredApproval;
+  readonly asked: string | undefined;
+}
+
+function describeNotices(notices: readonly Notice[]): string[] {
+  const commands = notices.filter(
+    ({ approval }) => approval.category === 'execution',
+  );
+  const destinations = notices.filter(
+    ({ approval }) => approval.category === 'network',
+  );
 
   return [
-    'Permissões atualizadas: estes comandos, que foram bloqueados, agora estão permitidos.',
-    'Execute-os de novo, exatamente como estão, antes de seguir:',
-    ...notices.map((notice) =>
-      notice.kind === 'once'
-        ? `- (uma vez) ${notice.pattern}`
-        : `- (neste workspace) ${notice.pattern}`,
-    ),
+    ...(commands.length === 0
+      ? []
+      : [
+          'Permissões atualizadas: estes comandos, que foram bloqueados, agora estão permitidos.',
+          'Execute-os de novo, exatamente como estão, antes de seguir:',
+          ...commands.map(describeNotice),
+        ]),
+    ...(destinations.length === 0
+      ? []
+      : [
+          'Rede liberada: estes destinos, que foram bloqueados, agora estão permitidos.',
+          'Repita o que precisava deles antes de seguir:',
+          ...destinations.map(describeNotice),
+        ]),
   ];
+}
+
+/**
+ * What to run again: the command that was denied, never a pattern (`curl *`
+ * would be run as is). The pattern only says what else is now allowed.
+ */
+function describeNotice({
+  approval: { kind, pattern },
+  asked,
+}: Notice): string {
+  if (kind === 'once') return `- (uma vez) ${asked ?? pattern}`;
+  if (asked === undefined || asked === pattern) {
+    return `- (neste workspace) ${pattern}`;
+  }
+  return `- (neste workspace) ${asked} — liberado pelo padrão \`${pattern}\``;
 }
 
 /** Rejects as soon as the signal aborts, without waiting for the answer. */
@@ -859,9 +934,19 @@ function enforcePermissions({
   readonly workspace: Workspace;
   readonly approve: CommandApprover;
   readonly store: Store | undefined;
-}): ApprovalBroker | undefined {
+}): {
+  readonly broker: ApprovalBroker | undefined;
+  readonly network: NetworkBoundary | undefined;
+} {
   rejectUnenforced(permissions);
   workspace.applyPermissions(permissions);
+  const network = configureNetwork({
+    permissions,
+    workspace,
+    provider,
+    approve,
+    store,
+  });
 
   const broker = needsGate(permissions, provider)
     ? new ApprovalBroker({
@@ -883,16 +968,65 @@ function enforcePermissions({
     ...(broker === undefined ? [] : [broker.dir]),
     ...cliFiles,
   ]);
-  return broker;
+  return { broker, network };
 }
 
 /** Categories of `AgentPolicy` that Goiaba does not enforce yet. */
-const UNENFORCED: readonly PolicyCategory[] = [
-  'network',
-  'tools',
-  'agents',
-  'secrets',
-];
+const UNENFORCED: readonly PolicyCategory[] = ['tools', 'agents', 'secrets'];
+
+/**
+ * With network rules, the sandbox gets no network of its own: everything
+ * leaves through Goiaba's proxy, which decides by the policy. The provider's
+ * own API always gets through.
+ */
+function configureNetwork({
+  permissions,
+  workspace,
+  provider,
+  approve,
+  store,
+}: {
+  readonly permissions: AgentPolicy;
+  readonly workspace: Workspace;
+  readonly provider: AgentProvider;
+  readonly approve: CommandApprover;
+  readonly store: Store | undefined;
+}): NetworkBoundary | undefined {
+  if (!hasNetworkRules(permissions)) return undefined;
+
+  const network = new NetworkBoundary({
+    permissions,
+    root: workspace.root,
+    provider: provider.id,
+    ...(store === undefined ? {} : { store }),
+    endpoints: provider.networkEndpoints?.() ?? [],
+    approve: (request) => approveNetwork(approve, request, provider.id),
+    audit: (event) => reportDebug({ type: 'network_decision', ...event }),
+  });
+  workspace.configureNetwork(network);
+  return network;
+}
+
+function hasNetworkRules(permissions: AgentPolicy): boolean {
+  return (['allow', 'requireApproval', 'deny'] as const).some(
+    (source) => (permissions[source]?.network?.length ?? 0) > 0,
+  );
+}
+
+/** The same approver as commands: one prompt, one queue for the person. */
+function approveNetwork(
+  approve: CommandApprover,
+  request: NetworkApprovalRequest,
+  provider: string,
+): ReturnType<CommandApprover> {
+  return approve({
+    command: `${request.hostname}:${String(request.port)}`,
+    pattern: request.pattern,
+    reason: request.reason,
+    provider,
+    category: 'network',
+  });
+}
 
 /**
  * Rules Goiaba cannot enforce would be ignored silently: refuse to start

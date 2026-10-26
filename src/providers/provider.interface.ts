@@ -10,6 +10,11 @@ import type { AgentPolicy, PolicyCategory } from '../policy/policy.interface';
 export interface Provider<TInput, TOutput, TPermissions> {
   readonly id: string;
   describe?(): ProviderDescription;
+  /**
+   * `host:port` its CLI needs to work (the model API). With network rules,
+   * Goiaba lets them through whatever the policy says.
+   */
+  networkEndpoints?(): readonly string[];
 
   /**
    * The policy in this provider's own language (CLI settings, flags, rules
@@ -102,4 +107,10 @@ export interface UnsupportedRule {
   readonly source: 'allow' | 'requireApproval' | 'deny';
   readonly rule: unknown;
   readonly reason: string;
+  /**
+   * What the provider ends up doing instead: `stricter` denies something the
+   * policy allows (safe); `looser` allows something it denies (not safe:
+   * applying refuses it).
+   */
+  readonly effect: 'stricter' | 'looser';
 }

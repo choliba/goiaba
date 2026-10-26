@@ -1,5 +1,6 @@
 import type { AgentPolicy } from '../../src/policy/policy.interface';
 import { ClaudeProvider } from '../../src/providers/claude/claude-provider';
+import { CodexProvider } from '../../src/providers/codex/codex-provider';
 
 /**
  * Todas as opções possíveis de uma política de agente (`AgentPolicy`),
@@ -238,7 +239,9 @@ export const claudePermissoes = new ClaudeProvider({
 
 console.log(claudePermissoes);
 
-// const codexPermissoes = todasAsPermissoes;
+export const codexPermissoes = new CodexProvider({
+  model: 'gpt-6-luna',
+}).buildPermissions(todasAsPermissoes);
 // const cursorPermissoes = todasAsPermissoes;
 // const ollamaClaudePermissoes = todasAsPermissoes;
 // const ollamaCodexPermissoes = todasAsPermissoes;

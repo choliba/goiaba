@@ -23,14 +23,17 @@ export function humanApprover(
   output: OutputAdapter,
   signal?: AbortSignal,
 ): CommandApprover {
-  return async ({ command, reason, pattern }) => {
+  return async ({ command, reason, pattern, category = 'execution' }) => {
     // The command is shown once, in full; the options stay together at the
     // end even when the command is a long heredoc.
-    const scope = scopeLabel(command, pattern);
+    const network = category === 'network';
+    const scope = network ? '(este destino)' : scopeLabel(command, pattern);
     const question = [
       '',
-      '┌─ 🤖 Solicitação de Execução do Agente',
-      ...boxed('Comando: ', command),
+      network
+        ? '┌─ 🌐 Solicitação de Rede do Agente'
+        : '┌─ 🤖 Solicitação de Execução do Agente',
+      ...boxed(network ? 'Destino: ' : 'Comando: ', command),
       `│  Motivo:  ${reason}`,
       '└─────────────────────────────────────────────────────────────',
       '  Escolha uma opção:',

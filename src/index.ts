@@ -91,7 +91,7 @@ export {
   DockerSandbox,
   type Sandbox,
 } from './workspace/sandbox/index';
-export { CodexProvider } from './providers/codex-provider';
+export { CodexProvider } from './providers/codex/codex-provider';
 export { CursorProvider } from './providers/cursor-provider';
 export {
   OllamaProvider,

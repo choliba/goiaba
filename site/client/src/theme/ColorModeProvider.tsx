@@ -1,5 +1,16 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { CssBaseline, ThemeProvider, useMediaQuery, type PaletteMode } from '@mui/material';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import {
+  CssBaseline,
+  ThemeProvider,
+  useMediaQuery,
+  type PaletteMode,
+} from '@mui/material';
 import { createAppTheme } from './index';
 
 const STORAGE_KEY = 'color-mode';
@@ -49,6 +60,7 @@ export function ColorModeProvider({ children }: { children: ReactNode }) {
 
 export function useColorMode(): ColorModeContextValue {
   const ctx = useContext(ColorModeContext);
-  if (!ctx) throw new Error('useColorMode precisa estar dentro de ColorModeProvider');
+  if (!ctx)
+    throw new Error('useColorMode precisa estar dentro de ColorModeProvider');
   return ctx;
 }

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 
 import { clearConfigCache, loadConfig } from '../src/config/index';
 import { closeLogger, openLogger } from '../src/logger/index';
-import { CodexProvider } from '../src/providers/codex-provider';
+import { CodexProvider } from '../src/providers/codex/codex-provider';
 import type { ProgramOutput } from '../src/execute/types';
 
 afterEach(() => {
@@ -30,6 +30,8 @@ describe('CodexProvider', () => {
         '--dangerously-bypass-approvals-and-sandbox',
         '--color',
         'never',
+        '-c',
+        'analytics.enabled=false',
         '--skip-git-repo-check',
         '--json',
         '--model',
@@ -237,6 +239,8 @@ describe('CodexProvider', () => {
       '--dangerously-bypass-approvals-and-sandbox',
       '--color',
       'never',
+      '-c',
+      'analytics.enabled=false',
       'resume',
       '--skip-git-repo-check',
       '--json',
@@ -289,27 +293,21 @@ describe('CodexProvider', () => {
     );
   });
 
-  test('traduz allow de domínios específicos da busca web', () => {
+  test('recusa allow de domínio específico, que no Codex abre os subdomínios', () => {
     const provider = new CodexProvider({ model: 'modelo' });
 
-    provider.applyPermissions(
-      {
-        default: 'deny',
-        allow: {
-          web: [
-            {
-              operations: ['*'],
-              domains: ['openai.com', '*.anthropic.com'],
-            },
-          ],
+    // A Codex domain also opens its subdomains: looser than the policy.
+    expect(() =>
+      provider.applyPermissions(
+        {
+          default: 'deny',
+          allow: {
+            web: [{ operations: ['*'], domains: ['openai.com'] }],
+          },
         },
-      },
-      undefined,
-    );
-
-    expect(provider.createCommand('pesquise').arguments).toContain(
-      'tools.web_search={mode="live",allowed_domains=["openai.com","anthropic.com"]}',
-    );
+        undefined,
+      ),
+    ).toThrow('junto com os subdomínios');
   });
 
   test('recusa política web que o Codex não representa', () => {

@@ -6,9 +6,10 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
-const publicDirectory = basename(moduleDirectory) === 'src'
-  ? resolve(moduleDirectory, '../dist/public')
-  : resolve(moduleDirectory, 'public');
+const publicDirectory =
+  basename(moduleDirectory) === 'src'
+    ? resolve(moduleDirectory, '../dist/public')
+    : resolve(moduleDirectory, 'public');
 
 @Module({
   imports: [

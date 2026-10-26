@@ -1,13 +1,8 @@
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
 import { UsageError } from '../../errors';
 import { truncateError } from '../../logger/index';
-import {
-  delegatedCategories,
-  type AgentPolicy,
-  type WebOperation,
-  type WebRule,
-  wildmatch,
-} from '../../policy/index';
+import { wrapCommand } from '../../workspace/sandbox/wrap-command';
+import { delegatedCategories, type AgentPolicy } from '../../policy/index';
 import { buildClaudePermissions, type ClaudePermissions } from './permissions';
 import type {
   Provider as ProviderContract,
@@ -77,6 +72,11 @@ export class ClaudeProvider
     return { name: 'claude', model: this.model };
   }
 
+  /** The Messages API, and where a claude.ai login refreshes its token. */
+  public networkEndpoints(): readonly string[] {
+    return ['api.anthropic.com:443', 'console.anthropic.com:443'];
+  }
+
   public applyPermissions(
     permissions: AgentPolicy,
     gate: ExecutionGate | undefined,
@@ -94,7 +94,7 @@ export class ClaudeProvider
 
     if (gate === undefined && !categories.includes('web')) return [];
 
-    const web = webPermissions(permissions);
+    const web = webSettings(this.buildPermissions(permissions));
 
     // dontAsk runs only what is pre-approved: file tools (the sandbox limits
     // their paths), the web tools the rules allow and Bash calls the gate's
@@ -139,7 +139,9 @@ export class ClaudeProvider
     const permissionMode =
       this.settings === undefined ? 'bypassPermissions' : 'dontAsk';
 
-    return {
+    // Only the model API: no telemetry, error reports or update checks, which
+    // under network rules would each wait for an approval.
+    return wrapCommand('env', ['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1'], {
       executable: this.executable,
       arguments: [
         '--print',
@@ -162,7 +164,7 @@ export class ClaudeProvider
         ...(sessionId === undefined ? [] : ['--resume', sessionId]),
       ],
       input: appendInteractionProtocol(input),
-    };
+    });
   }
 
   public async *parseOutput(
@@ -290,112 +292,36 @@ function shellJoin(argv: readonly string[]): string {
 }
 
 /**
- * `permissions.web` as Claude permission rules: WebFetch reads a page
- * (`read_text`) of one domain; WebSearch searches (`search`) any site. The
- * other operations have no Claude tool, so there is nothing to allow.
+ * The web part of the translation, as the settings the CLI runs with. Refuses
+ * what Claude would apply more loosely than the policy, and requireApproval:
+ * with `--print` nobody answers an `ask`.
  */
-function webPermissions(permissions: AgentPolicy): {
+function webSettings(translated: ProviderPermissions<ClaudePermissions>): {
   readonly allow: readonly string[];
   readonly deny: readonly string[];
 } {
-  if ((permissions.requireApproval?.web?.length ?? 0) > 0) {
+  const looser = translated.unsupported.find(
+    (rule) => rule.category === 'web' && rule.effect === 'looser',
+  );
+  if (looser !== undefined) {
+    throw new UsageError(
+      `O provider claude não aplica esta regra web: ${looser.reason}`,
+    );
+  }
+  if (translated.native.ask.some(isWebRule)) {
     throw new UsageError(
       'O provider claude ainda não aplica requireApproval em web.',
     );
   }
 
-  const allowRules = permissions.allow?.web ?? [];
-  const denyRules = permissions.deny?.web ?? [];
-
-  if (denyRules.some((rule) => (rule.ignores?.domains?.length ?? 0) > 0)) {
-    // "Deny all but x": a Claude deny always beats its allow.
-    throw new UsageError(
-      'O provider claude ainda não aplica ignores em deny.web.',
-    );
-  }
-
   return {
-    allow: allowRules.flatMap((rule) => webRules(rule, 'allow')),
-    deny: [
-      ...denyRules.flatMap((rule) => webRules(rule, 'deny')),
-      ...ignoredDomains(allowRules).map(
-        (domain) => `WebFetch(domain:${claudeDomain(domain)})`,
-      ),
-    ],
+    allow: translated.native.allow.filter(isWebRule),
+    deny: translated.native.deny.filter(isWebRule),
   };
 }
 
-/**
- * `ignores` of an allow rule become Claude denies: exact only while no other
- * allow rule reaches the domain, since a Claude deny beats every allow.
- */
-function ignoredDomains(rules: readonly WebRule[]): string[] {
-  return rules.flatMap((rule, index) => {
-    if (!coversOperation(rule, 'read_text')) return [];
-
-    const ignored = rule.ignores?.domains ?? [];
-    for (const domain of ignored) {
-      const other = rules.find(
-        (candidate, at) =>
-          at !== index &&
-          coversOperation(candidate, 'read_text') &&
-          candidate.domains.some((pattern) => wildmatch(domain, pattern)),
-      );
-      if (other !== undefined) {
-        throw new UsageError(
-          `O provider claude não aplica ignores de ${domain} quando outra regra web o libera.`,
-        );
-      }
-    }
-    return [...ignored];
-  });
-}
-
-function webRules(rule: WebRule, source: 'allow' | 'deny'): string[] {
-  const anyDomain = rule.domains.includes('*');
-  const ignores = (rule.ignores?.domains?.length ?? 0) > 0;
-  const rules: string[] = [];
-
-  if (coversOperation(rule, 'read_text')) {
-    rules.push(
-      ...(anyDomain
-        ? ['WebFetch']
-        : rule.domains.map(
-            (domain) => `WebFetch(domain:${claudeDomain(domain)})`,
-          )),
-    );
-  }
-
-  // WebSearch cannot be limited to a domain: allowed only for every domain
-  // with none ignored, denied for any.
-  if (
-    coversOperation(rule, 'search') &&
-    ((anyDomain && !ignores) || source === 'deny')
-  ) {
-    rules.push('WebSearch');
-  }
-
-  return rules;
-}
-
-function coversOperation(rule: WebRule, operation: WebOperation): boolean {
-  return rule.operations.includes('*') || rule.operations.includes(operation);
-}
-
-/**
- * What Claude's WebFetch matches as the policy does: an exact domain, or
- * `*.domain` for its subdomains (not the domain itself). `*` is handled apart.
- */
-function claudeDomain(domain: string): string {
-  const exact = domain.startsWith('*.') ? domain.slice(2) : domain;
-
-  if (exact.length === 0 || /[*?[\]]/.test(exact)) {
-    throw new UsageError(
-      `O provider claude só aplica domínios exatos, "*.dominio" ou "*" em web: ${domain}`,
-    );
-  }
-
-  return domain;
+function isWebRule(rule: string): boolean {
+  return rule.startsWith('WebFetch') || rule.startsWith('WebSearch');
 }
 
 function contentBlocks(message: unknown): readonly Record<string, unknown>[] {

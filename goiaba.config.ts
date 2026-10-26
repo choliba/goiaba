@@ -4,9 +4,8 @@ import { ecsFormat } from '@elastic/ecs-pino-format';
 import pino from 'pino';
 import { defineConfig } from './src/config';
 
-
-const dirRoot = dirname(__filename)
-const storage = join(dirRoot, 'storage')
+const dirRoot = dirname(__filename);
+const storage = join(dirRoot, 'storage');
 
 const destination = (dest: string) =>
   pino.destination({ dest, sync: true, mkdir: true, mode: 0o600 });

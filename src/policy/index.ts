@@ -1,4 +1,6 @@
 import {
+  isDirectory,
+  listDirectory,
   pathExists,
   realPath,
   isAbsolute,
@@ -172,21 +174,37 @@ export function compileFilesystemAccess(
   for (const rule of allow) {
     for (const operation of expandedOperations(rule.operations)) {
       for (const ignored of rule.ignores?.paths ?? []) {
-        addMask(masks, compileMaskPath(ignored, workspaceRoot), operation);
+        for (const path of maskPaths(ignored, workspaceRoot)) {
+          addMask(masks, path, operation);
+        }
       }
     }
   }
 
   for (const rule of permissions.deny?.filesystem ?? []) {
-    if ((rule.ignores?.paths?.length ?? 0) > 0) {
-      throw new UsageError(
-        'ignores em regras deny de filesystem ainda não são compiláveis com segurança.',
-      );
-    }
+    // Ignored paths stay out of the mask; one that is missing has nothing to
+    // keep visible.
+    const kept = new Set(
+      (rule.ignores?.paths ?? []).flatMap((pattern) =>
+        maskPaths(pattern, workspaceRoot, { optional: true }),
+      ),
+    );
 
     for (const operation of expandedOperations(rule.operations)) {
       for (const pattern of rule.paths) {
-        addMask(masks, compileMaskPath(pattern, workspaceRoot), operation);
+        for (const path of maskPaths(pattern, workspaceRoot)) {
+          if (kept.has(path)) continue;
+
+          const inside = [...kept].find((ignored) =>
+            ignored.startsWith(`${path}${sep}`),
+          );
+          if (inside !== undefined) {
+            throw new UsageError(
+              `Não dá para deixar ${inside} visível dentro de ${path}: a sandbox esconde a pasta inteira.`,
+            );
+          }
+          addMask(masks, path, operation);
+        }
       }
     }
   }
@@ -244,6 +262,61 @@ function permitsWorkspaceTree(
       includesOperation(rule.operations, operation) &&
       rule.paths.includes('/workspace/**'),
   );
+}
+
+/**
+ * The paths a mask pattern names: one path, or, for a pattern (`.env.*`,
+ * `*.lock`, `config/*.json`), the files it matches when the agent starts.
+ * `**` only as the last part (`dir/**`): elsewhere it would walk the whole
+ * workspace.
+ */
+function maskPaths(
+  pattern: string,
+  root: string,
+  { optional = false } = {},
+): string[] {
+  if (!pattern.startsWith('/workspace/')) {
+    throw new UsageError(
+      `A política de filesystem só pode usar /workspace: ${pattern}`,
+    );
+  }
+
+  const tree = pattern.endsWith('/**');
+  const suffix = tree ? pattern.slice(0, -3) : pattern;
+
+  if (!hasMagic(suffix)) {
+    const missing = !pathExists(
+      resolve(root, suffix.slice('/workspace/'.length)),
+    );
+    return optional && missing ? [] : [compileMaskPath(pattern, root)];
+  }
+  if (suffix.includes('**')) {
+    throw new UsageError(
+      `A sandbox só aceita ** no fim do caminho (pasta/**): ${pattern}`,
+    );
+  }
+
+  let matches = [''];
+  for (const segment of suffix.slice('/workspace/'.length).split('/')) {
+    matches = matches.flatMap((base) => {
+      const join = (name: string): string =>
+        base === '' ? name : `${base}/${name}`;
+      if (!hasMagic(segment)) return [join(segment)];
+
+      const dir = resolve(root, base);
+      return isDirectory(dir)
+        ? listDirectory(dir)
+            .filter((name) => wildmatch(name, segment))
+            .map(join)
+        : [];
+    });
+  }
+
+  return matches
+    .filter((path) => pathExists(resolve(root, path)))
+    .map((path) =>
+      compileMaskPath(`/workspace/${path}${tree ? '/**' : ''}`, root),
+    );
 }
 
 function compileMaskPath(pattern: string, root: string): string {
@@ -462,12 +535,46 @@ function matchesRule(rule: PolicyRule, action: AgentAction): boolean {
     );
   }
 
+  if (action.category === 'network') {
+    return (
+      'operations' in rule &&
+      includesOperation(rule.operations, action.operation) &&
+      patterns.some((pattern) => hostMatches(target, pattern)) &&
+      !ignored.some((pattern) => hostMatches(target, pattern))
+    );
+  }
+
   return (
     'operations' in rule &&
     includesOperation(rule.operations, action.operation) &&
     matchesAny(target, patterns) &&
     !matchesAny(target, ignored)
   );
+}
+
+/**
+ * `host` covers every port; `host:443` or `host:*` names the port. The
+ * destination is `host:port` (a bare host only matches port-less patterns).
+ */
+export function hostMatches(destination: string, pattern: string): boolean {
+  const target = splitHost(destination);
+  const rule = splitHost(pattern);
+  return (
+    wildmatch(target.host, rule.host) &&
+    (rule.port === undefined || wildmatch(target.port ?? '', rule.port))
+  );
+}
+
+function splitHost(value: string): {
+  readonly host: string;
+  readonly port?: string;
+} {
+  const match = /^(.+):(\d+|\*)$/.exec(value);
+  const host = match?.at(1);
+  const port = match?.at(2);
+  return host === undefined || port === undefined
+    ? { host: value }
+    : { host, port };
 }
 
 function includesOperation(

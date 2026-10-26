@@ -9,7 +9,7 @@ import { reportDebug } from '../../output/activity';
 import { logSandbox } from './debug';
 import { hostStateDirs } from './host-state';
 import { protectedMasks } from './protect';
-import type { Sandbox } from './types';
+import type { NetworkExit, Sandbox } from './types';
 import { wrapCommand } from './wrap-command';
 import type { FilesystemAccess } from '../../policy/index';
 
@@ -37,6 +37,7 @@ export class DockerSandbox implements Sandbox {
   private containerName: string | undefined;
   private filesystem: FilesystemAccess | undefined;
   private protectedPaths: readonly string[] = [];
+  private network: NetworkExit | undefined;
 
   public constructor({
     image,
@@ -58,7 +59,17 @@ export class DockerSandbox implements Sandbox {
     this.protectedPaths = [...this.protectedPaths, ...paths];
   }
 
-  public prepare(command: ProgramCommand): ProgramCommand {
+  /**
+   * The container gets no network (`--network none`): each one starts with
+   * the bridge to Goiaba's proxy, which then runs the command.
+   */
+  public isolateNetwork(exit: NetworkExit): void {
+    this.network = exit;
+  }
+
+  public async prepare(command: ProgramCommand): Promise<ProgramCommand> {
+    const network = this.network;
+    const launcher = network === undefined ? [] : await network.launcher();
     const envNames = Object.keys(this.env)
       .filter((name) => this.env[name] !== undefined)
       .toSorted();
@@ -67,7 +78,12 @@ export class DockerSandbox implements Sandbox {
     const mounts = describeMounts(
       this.root,
       innerRoot,
-      [...hostStateDirs(this.env), ...this.writable],
+      [
+        ...hostStateDirs(this.env),
+        ...this.writable,
+        // The bridge creates the published ports' sockets there.
+        ...(network === undefined ? [] : [network.portsDir()]),
+      ],
       {
         workspaceAccess: this.filesystem?.workspaceAccess ?? 'readwrite',
         masks: [
@@ -84,7 +100,7 @@ export class DockerSandbox implements Sandbox {
       isolation: true,
       image: this.image,
       container: { name: containerName, autoRemove: true, interactive: true },
-      network: { mode: 'host' },
+      network: { mode: network === undefined ? 'host' : 'none' },
       workingDir: innerRoot,
       mounts,
       volumes: mounts
@@ -109,7 +125,7 @@ export class DockerSandbox implements Sandbox {
         '--name',
         containerName,
         '--network',
-        'host',
+        network === undefined ? 'host' : 'none',
         '--cap-add',
         'SYS_CHROOT',
         ...volumeArgs(mounts),
@@ -122,6 +138,8 @@ export class DockerSandbox implements Sandbox {
         ...innerUserCommand(),
         '/usr/bin/env',
         `--chdir=${this.root}`,
+        ...(network?.environment() ?? []),
+        ...launcher,
       ],
       command,
     );

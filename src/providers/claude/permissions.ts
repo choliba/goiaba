@@ -54,7 +54,20 @@ interface Category {
     operations: readonly string[],
     targets: readonly string[],
     source: Source,
-  ) => readonly (string | { readonly reason: string })[];
+  ) => readonly (string | Unexpressed)[];
+}
+
+type Effect = UnsupportedRule['effect'];
+
+/** A rule Claude cannot express, and what happens instead (by default, by source). */
+interface Unexpressed {
+  readonly reason: string;
+  readonly effect?: Effect;
+}
+
+/** Not granting what allow asks is stricter; not enforcing a denial is looser. */
+function defaultEffect(source: Source): Effect {
+  return source === 'allow' ? 'stricter' : 'looser';
 }
 
 /**
@@ -83,11 +96,32 @@ export function buildClaudePermissions(
 
       rules.forEach((rule, index) => {
         const operations = rule.operations ?? ['*'];
-        for (const result of category.translate(
+        const ignored = category.ignored(rule);
+        let results = category.translate(
           operations,
           category.targets(rule),
           source,
-        )) {
+        );
+
+        // A search cannot leave the ignored domains out: off for this rule.
+        if (
+          name === 'web' &&
+          source === 'allow' &&
+          ignored.length > 0 &&
+          results.includes('WebSearch')
+        ) {
+          results = results.filter((result) => result !== 'WebSearch');
+          unsupported.push({
+            category: name,
+            source,
+            rule,
+            reason:
+              'A busca do Claude não exclui domínios (ignores): fica desligada nessa regra.',
+            effect: 'stricter',
+          });
+        }
+
+        for (const result of results) {
           if (typeof result === 'string') lists[list].add(result);
           else
             unsupported.push({
@@ -95,10 +129,10 @@ export function buildClaudePermissions(
               source,
               rule,
               reason: result.reason,
+              effect: result.effect ?? defaultEffect(source),
             });
         }
 
-        const ignored = category.ignored(rule);
         if (ignored.length === 0) return;
 
         // Claude has no exceptions inside a rule: an allow rule's ignores
@@ -109,6 +143,8 @@ export function buildClaudePermissions(
             source,
             rule,
             reason: `O Claude não tem exceções (ignores) em ${source}.`,
+            // The rule covers the ignored targets too.
+            effect: 'stricter',
           });
           return;
         }
@@ -123,15 +159,8 @@ export function buildClaudePermissions(
           const denied: string[] = [];
 
           for (const operation of expanded) {
-            if (name === 'web' && operation === 'search') {
-              unsupported.push({
-                category: name,
-                source,
-                rule,
-                reason: `${target} está em ignores, mas a busca do Claude não se limita a domínios.`,
-              });
-              continue;
-            }
+            // The search is off for this rule already (above).
+            if (name === 'web' && operation === 'search') continue;
             // Another rule reaching it for this operation decides it in
             // Claude as in the policy (its allow, or its ask beating allow).
             if (
@@ -150,6 +179,8 @@ export function buildClaudePermissions(
                 source,
                 rule,
                 reason: result.reason,
+                // The ignored target stays allowed by this rule.
+                effect: 'looser',
               });
           }
         }
@@ -194,9 +225,10 @@ function covers(operations: readonly string[], operation: string): boolean {
   return operations.includes('*') || operations.includes(operation);
 }
 
+/** Claude does not control it at all: everything is allowed there. */
 const unsupportedCategory =
   (reason: string): Category['translate'] =>
-  () => [{ reason }];
+  () => [{ reason, effect: 'looser' }];
 
 const CATEGORIES: Readonly<Record<PolicyCategory, Category>> = {
   filesystem: {

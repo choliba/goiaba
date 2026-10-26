@@ -4,11 +4,17 @@ import { Database } from 'bun:sqlite';
 
 export type ApprovalScope = 'once' | 'session' | 'workspace' | 'deny';
 
+/** What a decision or approval is about: a shell command or a destination. */
+export type DecisionCategory = 'execution' | 'network';
+
 export interface DecisionRecord {
   readonly session: string | undefined;
   readonly provider: string;
   readonly root: string;
+  /** The command, or `host:port` for `network`. */
   readonly command: string;
+  /** `execution` when left out. */
+  readonly category?: DecisionCategory;
   readonly decision: 'allow' | 'deny';
   readonly source: 'policy' | 'default' | 'human' | 'saved';
   readonly scope?: ApprovalScope;
@@ -16,6 +22,7 @@ export interface DecisionRecord {
 }
 
 export interface StoredDecision extends DecisionRecord {
+  readonly category: DecisionCategory;
   readonly id: number;
   /** First time it was decided. */
   readonly ts: string;
@@ -39,7 +46,10 @@ export interface StoredApproval {
   /** Exact command (`once`) or command pattern (`workspace`). */
   readonly pattern: string;
   readonly kind: 'once' | 'workspace';
+  readonly category: DecisionCategory;
   readonly createdAt: string;
+  /** The denial it approved, when given from the approvals screen. */
+  readonly decisionId?: number;
 }
 
 /**
@@ -58,25 +68,25 @@ const PENDING_DENIAL = `d.decision = 'deny' AND d.source IN ('default', 'human')
   AND NOT EXISTS (
     SELECT 1 FROM decisions later
     WHERE later.root = d.root AND later.command = d.command
-      AND later.decision = 'allow' AND later.id > d.id)`;
+      AND later.category = d.category AND later.decision = 'allow' AND later.id > d.id)`;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   provider TEXT NOT NULL,
   root TEXT NOT NULL,
-  started_at TEXT NOT NULL,
+  started_at DATETIME NOT NULL,
   executable TEXT,
   arguments TEXT,
   cwd TEXT,
   prompt TEXT,
-  finished_at TEXT,
+  finished_at DATETIME,
   outcome TEXT,
   agent TEXT
 );
 CREATE TABLE IF NOT EXISTS decisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ts TEXT NOT NULL,
+  ts DATETIME NOT NULL,
   session TEXT,
   provider TEXT NOT NULL,
   root TEXT NOT NULL,
@@ -86,8 +96,9 @@ CREATE TABLE IF NOT EXISTS decisions (
   scope TEXT,
   reason TEXT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 1,
-  last_ts TEXT,
-  dismissed_at TEXT
+  last_ts DATETIME,
+  dismissed_at DATETIME,
+  category TEXT NOT NULL DEFAULT 'execution'
 );
 CREATE TABLE IF NOT EXISTS approvals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,11 +106,12 @@ CREATE TABLE IF NOT EXISTS approvals (
   session TEXT,
   pattern TEXT NOT NULL,
   kind TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  consumed_at TEXT,
-  notified_at TEXT,
-  revoked_at TEXT,
-  decision_id INTEGER
+  created_at DATETIME NOT NULL,
+  consumed_at DATETIME,
+  notified_at DATETIME,
+  revoked_at DATETIME,
+  decision_id INTEGER,
+  category TEXT NOT NULL DEFAULT 'execution'
 );
 `;
 
@@ -119,6 +131,8 @@ export interface NewApproval {
   /** Exact command (`once`) or command pattern (`workspace`). */
   readonly pattern: string;
   readonly kind: 'once' | 'workspace';
+  /** `execution` when left out. */
+  readonly category?: DecisionCategory;
   readonly session?: string | undefined;
   /** The denial this approves, so it stops being listed as pending. */
   readonly decisionId?: number;
@@ -154,6 +168,11 @@ export class Store {
     if (!approvalColumns.some((column) => column.name === 'decision_id')) {
       this.db.run('ALTER TABLE approvals ADD COLUMN decision_id INTEGER');
     }
+    if (!approvalColumns.some((column) => column.name === 'category')) {
+      this.db.run(
+        "ALTER TABLE approvals ADD COLUMN category TEXT NOT NULL DEFAULT 'execution'",
+      );
+    }
 
     const sessionColumns = this.db
       .query<{ name: string }, []>('PRAGMA table_info(sessions)')
@@ -187,6 +206,11 @@ export class Store {
     }
     if (!decisionColumns.has('dismissed_at')) {
       this.db.run('ALTER TABLE decisions ADD COLUMN dismissed_at TEXT');
+    }
+    if (!decisionColumns.has('category')) {
+      this.db.run(
+        "ALTER TABLE decisions ADD COLUMN category TEXT NOT NULL DEFAULT 'execution'",
+      );
     }
     this.mergeRepeatedDenials();
   }
@@ -358,7 +382,7 @@ export class Store {
 
   /**
    * Records a decision and returns its id. A command denied again while its
-   * denial is still pending (same workspace, session and command) is the same
+   * denial is still pending (same workspace, session, category and command) is the same
    * request: its row counts one more attempt instead of a new row.
    */
   public recordDecision(record: DecisionRecord): number {
@@ -369,13 +393,18 @@ export class Store {
       (record.source === 'default' || record.source === 'human')
     ) {
       const pending = this.db
-        .query<{ id: number }, [string, string | null, string]>(
+        .query<{ id: number }, [string, string | null, string, string]>(
           `SELECT d.id FROM decisions d
            WHERE d.root = ? AND d.session IS ? AND d.command = ?
-             AND ${PENDING_DENIAL}
+             AND d.category = ? AND ${PENDING_DENIAL}
            ORDER BY d.id DESC LIMIT 1`,
         )
-        .get(record.root, record.session ?? null, record.command);
+        .get(
+          record.root,
+          record.session ?? null,
+          record.command,
+          record.category ?? 'execution',
+        );
 
       if (pending !== null) {
         this.db
@@ -390,8 +419,8 @@ export class Store {
 
     const inserted = this.db
       .query(
-        `INSERT INTO decisions (ts, session, provider, root, command, decision, source, scope, reason, last_ts)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO decisions (ts, session, provider, root, command, category, decision, source, scope, reason, last_ts)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         ts,
@@ -399,6 +428,7 @@ export class Store {
         record.provider,
         record.root,
         record.command,
+        record.category ?? 'execution',
         record.decision,
         record.source,
         record.scope ?? null,
@@ -447,13 +477,14 @@ export class Store {
   public saveApproval(approval: NewApproval): void {
     this.db
       .query(
-        'INSERT INTO approvals (root, session, pattern, kind, created_at, decision_id, notified_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO approvals (root, session, pattern, kind, category, created_at, decision_id, notified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
         approval.root,
         approval.session ?? null,
         approval.pattern,
         approval.kind,
+        approval.category ?? 'execution',
         now(),
         approval.decisionId ?? null,
         approval.notified === true ? now() : null,
@@ -461,15 +492,20 @@ export class Store {
   }
 
   /** Active approvals for this workspace (and session, for `once`). */
-  public activeApprovals(root: string, session?: string): StoredApproval[] {
+  public activeApprovals(
+    root: string,
+    session?: string,
+    category: DecisionCategory = 'execution',
+  ): StoredApproval[] {
     return this.db
-      .query<ApprovalRow, [string, string]>(
+      .query<ApprovalRow, [string, string, string]>(
         `SELECT * FROM approvals
          WHERE root = ? AND revoked_at IS NULL AND consumed_at IS NULL
            AND (kind = 'workspace' OR session IS NULL OR session = ?)
+           AND category = ?
          ORDER BY id`,
       )
-      .all(root, session ?? '')
+      .all(root, session ?? '', category)
       .map(toApproval);
   }
 
@@ -512,6 +548,7 @@ interface DecisionRow {
   provider: string;
   root: string;
   command: string;
+  category: DecisionCategory;
   decision: 'allow' | 'deny';
   source: 'policy' | 'default' | 'human' | 'saved';
   scope: ApprovalScope | null;
@@ -538,7 +575,9 @@ interface ApprovalRow {
   session: string | null;
   pattern: string;
   kind: 'once' | 'workspace';
+  category: DecisionCategory;
   created_at: string;
+  decision_id: number | null;
 }
 
 function toDecision(row: DecisionRow): StoredDecision {
@@ -549,6 +588,7 @@ function toDecision(row: DecisionRow): StoredDecision {
     provider: row.provider,
     root: row.root,
     command: row.command,
+    category: row.category,
     decision: row.decision,
     source: row.source,
     ...(row.scope === null ? {} : { scope: row.scope }),
@@ -565,7 +605,9 @@ function toApproval(row: ApprovalRow): StoredApproval {
     session: row.session,
     pattern: row.pattern,
     kind: row.kind,
+    category: row.category,
     createdAt: row.created_at,
+    ...(row.decision_id === null ? {} : { decisionId: row.decision_id }),
   };
 }
 

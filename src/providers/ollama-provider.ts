@@ -4,7 +4,7 @@ import { reportDebug } from '../output/activity';
 import type { AgentPolicy } from '../policy/index';
 import { wrapCommand } from '../workspace/sandbox/wrap-command';
 import { ClaudeProvider } from './claude/claude-provider';
-import { CodexProvider } from './codex-provider';
+import { CodexProvider } from './codex/codex-provider';
 import type {
   ExecutionGate,
   Provider,
@@ -57,10 +57,12 @@ export class OllamaProvider implements Provider<string, string> {
   private readonly cli: OllamaCli;
   private readonly model: string;
   private readonly contextWindow: number;
+  private readonly endpoint: string;
 
   public constructor(options: OllamaProviderOptions) {
     const baseUrl = readBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
     this.id = `ollama-${options.cli}`;
+    this.endpoint = endpointOf(baseUrl);
     this.cli = options.cli;
     this.model = options.model;
     this.contextWindow = readContextWindow(
@@ -90,6 +92,11 @@ export class OllamaProvider implements Provider<string, string> {
 
   public describe(): ProviderDescription {
     return { name: 'ollama', model: this.model, cli: this.cli };
+  }
+
+  /** Only Ollama: the CLI is pointed at it instead of its own API. */
+  public networkEndpoints(): readonly string[] {
+    return [this.endpoint];
   }
 
   /** Same policy enforcement as the CLI's own provider (execution gate). */
@@ -134,6 +141,14 @@ function hasWebPermissions(permissions: AgentPolicy): boolean {
   );
 }
 
+function endpointOf(baseUrl: string): string {
+  const url = new URL(baseUrl);
+  const port =
+    url.port.length > 0 ? url.port : url.protocol === 'https:' ? '443' : '80';
+  // `[::1]` → `::1`, as the network gate writes hosts.
+  return `${url.hostname.replace(/^\[(.*)\]$/, '$1')}:${port}`;
+}
+
 function readBaseUrl(value: string): string {
   if (!URL.canParse(value)) {
     throw new UsageError(`baseUrl do Ollama inválida: ${value}`);
@@ -156,7 +171,6 @@ function claudeEnv(
     `ANTHROPIC_DEFAULT_SONNET_MODEL=${model}`,
     `ANTHROPIC_DEFAULT_OPUS_MODEL=${model}`,
     `CLAUDE_CODE_SUBAGENT_MODEL=${model}`,
-    'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1',
     // An unknown model gets a guessed window and the history is never
     // compacted: the real one, enforced.
     `CLAUDE_CODE_MAX_CONTEXT_TOKENS=${String(contextWindow)}`,

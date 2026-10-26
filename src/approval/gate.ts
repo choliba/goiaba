@@ -1,15 +1,18 @@
 import { reportDebug, reportError } from '../output/activity';
 import { commandMatches, parseCommand } from '../policy/command';
 import { PolicyEngine, type AgentPolicy } from '../policy/index';
-import type { ApprovalScope, Store } from '../store/index';
+import type { ApprovalScope, DecisionCategory, Store } from '../store/index';
 
 export interface CommandApprovalRequest {
+  /** The command, or `host:port` for `network`. */
   readonly command: string;
   /** Why the policy did not decide on its own. */
   readonly reason: string;
   /** Pattern a `session`/`workspace` approval would save. */
   readonly pattern: string;
   readonly provider: string;
+  /** `execution` when left out. */
+  readonly category?: DecisionCategory;
 }
 
 /** Decides what the policy leaves open; a person, by default. */
