@@ -1,14 +1,11 @@
-import type { ProgramCommand } from '../execute/types.js';
-import { UsageError } from '../errors.js';
-import {
-  compileFilesystemAccess,
-  type AgentPermissions,
-} from '../policy/index.js';
+import type { ProgramCommand } from '../execute/types';
+import { UsageError } from '../errors';
+import { compileFilesystemAccess, type AgentPolicy } from '../policy/index';
 import {
   BubblewrapSandbox,
   DockerSandbox,
   type Sandbox,
-} from './sandbox/index.js';
+} from './sandbox/index';
 
 export type WorkspaceType = 'docker' | 'bubblewrap';
 
@@ -31,6 +28,8 @@ export type WorkspaceOptions =
 export class Workspace {
   public readonly type: WorkspaceType;
   public readonly root: string;
+  /** As created: type, root, image, writable paths. */
+  public readonly options: WorkspaceOptions;
   public readonly sandbox: Sandbox;
 
   public constructor(options: WorkspaceOptions) {
@@ -40,13 +39,19 @@ export class Workspace {
 
     this.root = options.root;
     this.type = options.type;
+    this.options = options;
     this.sandbox = createSandbox(options);
   }
 
-  public applyPermissions(permissions: AgentPermissions): void {
+  public applyPermissions(permissions: AgentPolicy): void {
     this.sandbox.configureFilesystem(
       compileFilesystemAccess(permissions, this.root),
     );
+  }
+
+  /** See {@link Sandbox.protect}. */
+  public protect(paths: readonly string[]): void {
+    this.sandbox.protect(paths);
   }
 
   public prepare(

@@ -1,26 +1,30 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import { once } from 'node:events';
-import {
-  closeSync,
-  existsSync,
-  lstatSync,
-  openSync,
-  readdirSync,
-  readFileSync,
-  readlinkSync,
-  statSync,
-} from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
 
-import type { ProgramCommand } from '../../execute/types.js';
-import { UsageError } from '../../errors.js';
-import { debug, isDebug } from '../../log/index.js';
-import { logSandbox } from './debug.js';
-import { hostStateDirs } from './host-state.js';
-import type { Sandbox } from './types.js';
-import { wrapCommand } from './wrap-command.js';
-import type { FilesystemAccess, FilesystemMask } from '../../policy/index.js';
+import {
+  isDirectory,
+  isSymlink,
+  pathExists,
+  readLink,
+  join,
+} from '../../filesystem/index';
+import {
+  canEnterUserNamespace,
+  processChildren,
+  processCwd,
+  processName,
+  processNamespace,
+} from '../../execute/proc';
+import { environment, startHelper, type Helper } from '../../execute/process';
+import type { ProgramCommand } from '../../execute/types';
+import { UsageError } from '../../errors';
+import { isDebug } from '../../logger/index';
+import { reportDebug } from '../../output/activity';
+import { logSandbox } from './debug';
+import { hostStateDirs } from './host-state';
+import type { Sandbox } from './types';
+import { wrapCommand } from './wrap-command';
+import type { FilesystemAccess, FilesystemMask } from '../../policy/index';
+import { protectedMasks } from './protect';
 
 export interface BubblewrapSandboxOptions {
   readonly root: string;
@@ -28,7 +32,12 @@ export interface BubblewrapSandboxOptions {
   readonly writable?: readonly string[];
 }
 
-const JAIL_COMMAND = ['sleep', 'infinity'] as const;
+/**
+ * Keeps the jail up while Goiaba lives: it blocks reading a pipe from this
+ * process, and when Goiaba dies (even by SIGKILL, without `close()`), the pipe
+ * closes, `cat` exits and the jail's PID 1 takes everything inside with it.
+ */
+const JAIL_COMMAND = ['cat'] as const;
 
 /**
  * Jails the host executable: only system dirs, the workspace root and CLI
@@ -43,14 +52,15 @@ export class BubblewrapSandbox implements Sandbox {
   private readonly root: string;
   private readonly env: NodeJS.ProcessEnv;
   private readonly writable: readonly string[];
-  private keeper: ChildProcess | undefined;
+  private keeper: Helper | undefined;
   private jailPid: number | undefined;
   private starting: Promise<number> | undefined;
   private filesystem: FilesystemAccess | undefined;
+  private protectedPaths: readonly string[] = [];
 
   public constructor({
     root,
-    env = process.env,
+    env = environment(),
     writable = [],
   }: BubblewrapSandboxOptions) {
     this.root = root;
@@ -68,6 +78,16 @@ export class BubblewrapSandbox implements Sandbox {
     this.filesystem = access;
   }
 
+  public protect(paths: readonly string[]): void {
+    if (this.keeper !== undefined) {
+      throw new UsageError(
+        'Caminhos protegidos devem ser configurados antes da execução.',
+      );
+    }
+
+    this.protectedPaths = [...this.protectedPaths, ...paths];
+  }
+
   public async prepare(command: ProgramCommand): Promise<ProgramCommand> {
     const pid = await this.ensureJail();
 
@@ -78,16 +98,16 @@ export class BubblewrapSandbox implements Sandbox {
     );
   }
 
-  public async started(child: ChildProcess): Promise<void> {
+  public async started(pid: number | undefined): Promise<void> {
     if (!isDebug() || this.jailPid === undefined) {
       return;
     }
 
-    debug({
+    reportDebug({
       type: 'sandbox',
       sandbox: 'bubblewrap',
       phase: 'command',
-      pid: child.pid,
+      pid,
       childPid: this.jailPid,
       enter: bubblewrapEnterCommand(this.jailPid, this.root),
     });
@@ -98,17 +118,7 @@ export class BubblewrapSandbox implements Sandbox {
     this.keeper = undefined;
     this.jailPid = undefined;
 
-    if (keeper === undefined || keeper.pid === undefined) {
-      return;
-    }
-
-    try {
-      keeper.kill('SIGKILL');
-    } catch {
-      return;
-    }
-
-    await once(keeper, 'close').catch(() => undefined);
+    await keeper?.stop();
   }
 
   private async ensureJail(): Promise<number> {
@@ -125,7 +135,7 @@ export class BubblewrapSandbox implements Sandbox {
 
   private async startJail(): Promise<number> {
     // spawn reports a missing cwd as ENOENT on the executable itself.
-    if (!existsSync(this.root)) {
+    if (!pathExists(this.root)) {
       throw new UsageError(`A raiz do workspace não existe: ${this.root}`);
     }
 
@@ -140,7 +150,10 @@ export class BubblewrapSandbox implements Sandbox {
     ];
     const jailArgs = [
       ...bubblewrapJailArgs(this.root, writable, readonly),
-      ...bubblewrapMaskArgs(this.filesystem?.masks ?? []),
+      ...bubblewrapMaskArgs([
+        ...(this.filesystem?.masks ?? []),
+        ...protectedMasks(this.protectedPaths),
+      ]),
     ];
 
     logSandbox(
@@ -172,13 +185,12 @@ export class BubblewrapSandbox implements Sandbox {
       },
     );
 
-    const keeper = spawn('bwrap', [...jailArgs, ...JAIL_COMMAND], {
+    const keeper = startHelper('bwrap', [...jailArgs, ...JAIL_COMMAND], {
       cwd: this.root,
-      stdio: 'ignore',
     });
     this.keeper = keeper;
 
-    keeper.once('exit', () => {
+    keeper.onExit(() => {
       if (this.keeper === keeper) {
         this.keeper = undefined;
         this.jailPid = undefined;
@@ -205,7 +217,7 @@ export class BubblewrapSandbox implements Sandbox {
     this.jailPid = pid;
 
     if (isDebug()) {
-      debug({
+      reportDebug({
         type: 'sandbox',
         sandbox: 'bubblewrap',
         phase: 'process',
@@ -229,7 +241,7 @@ const OPTIONAL_SYSTEM_DIRS = [
 const ROOT_SYMLINKS: readonly string[] = ['/bin', '/lib', '/lib64', '/sbin'];
 
 export function bubblewrapReadonlyBinds(
-  env: NodeJS.ProcessEnv = process.env,
+  env: NodeJS.ProcessEnv = environment(),
   writable: readonly string[] = [],
 ): string[] {
   const home = env['HOME'] ?? homedir();
@@ -250,7 +262,7 @@ export function bubblewrapReadonlyBinds(
       path === '/' ||
       ROOT_SYMLINKS.includes(path) ||
       seen.has(path) ||
-      !existsSync(path) ||
+      !pathExists(path) ||
       coveredBy(path, writable) ||
       coveredBy(path, paths)
     ) {
@@ -295,7 +307,7 @@ function rootSymlinkArgs(): string[] {
 
     if (target !== undefined) {
       args.push('--symlink', target, path);
-    } else if (existsSync(path)) {
+    } else if (pathExists(path)) {
       args.push('--ro-bind', path, path);
     }
   }
@@ -305,11 +317,11 @@ function rootSymlinkArgs(): string[] {
 
 function readSymlink(path: string): string | undefined {
   try {
-    if (!lstatSync(path).isSymbolicLink()) {
+    if (!isSymlink(path)) {
       return undefined;
     }
 
-    return readlinkSync(path);
+    return readLink(path);
   } catch {
     return undefined;
   }
@@ -375,16 +387,16 @@ export async function resolveBubblewrapPid(
   parentPid: number,
   ready?: { readonly cwd: string; readonly command: string },
 ): Promise<number | undefined> {
-  const hostUser = readNamespace(parentPid, 'user');
+  const hostUser = processNamespace(parentPid, 'user');
 
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    for (const pid of readChildren(parentPid)) {
-      const user = readNamespace(pid, 'user');
+    for (const pid of processChildren(parentPid)) {
+      const user = processNamespace(pid, 'user');
 
       if (
         user !== undefined &&
         user !== hostUser &&
-        canOpenUserNamespace(pid) &&
+        canEnterUserNamespace(pid) &&
         (ready === undefined || isJailReady(pid, ready))
       ) {
         return pid;
@@ -402,71 +414,9 @@ function isJailReady(
   ready: { readonly cwd: string; readonly command: string },
 ): boolean {
   return (
-    readCwd(pid) === ready.cwd &&
-    readChildren(pid).some((child) => readComm(child) === ready.command)
+    processCwd(pid) === ready.cwd &&
+    processChildren(pid).some((child) => processName(child) === ready.command)
   );
-}
-
-function readComm(pid: number): string | undefined {
-  try {
-    return readFileSync(`/proc/${String(pid)}/comm`, 'utf8').trim();
-  } catch {
-    return undefined;
-  }
-}
-
-function readCwd(pid: number): string | undefined {
-  try {
-    return readlinkSync(`/proc/${String(pid)}/cwd`);
-  } catch {
-    return undefined;
-  }
-}
-
-function readChildren(pid: number): number[] {
-  const pids = new Set<number>();
-  const taskDir = `/proc/${String(pid)}/task`;
-  let tasks: string[];
-
-  try {
-    tasks = readdirSync(taskDir);
-  } catch {
-    return [];
-  }
-
-  for (const task of tasks) {
-    try {
-      const children = readFileSync(`${taskDir}/${task}/children`, 'utf8')
-        .trim()
-        .split(/\s+/)
-        .filter((value) => value.length > 0);
-
-      for (const child of children) {
-        pids.add(Number(child));
-      }
-    } catch {
-      // A task desapareceu enquanto a jaula ainda subia.
-    }
-  }
-
-  return [...pids];
-}
-
-function readNamespace(pid: number, kind: string): string | undefined {
-  try {
-    return readlinkSync(`/proc/${String(pid)}/ns/${kind}`);
-  } catch {
-    return undefined;
-  }
-}
-
-function canOpenUserNamespace(pid: number): boolean {
-  try {
-    closeSync(openSync(`/proc/${String(pid)}/ns/user`, 'r'));
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function delay(ms: number): Promise<void> {
@@ -484,7 +434,7 @@ function writableBinds(
   const seen = new Set(paths);
 
   for (const path of extra) {
-    if (seen.has(path) || !existsSync(path)) {
+    if (seen.has(path) || !pathExists(path)) {
       continue;
     }
 
@@ -498,7 +448,7 @@ function writableBinds(
 function bubblewrapMaskArgs(masks: readonly FilesystemMask[]): string[] {
   return masks.flatMap(({ path, access }) => {
     if (access === 'readonly') return ['--ro-bind', path, path];
-    return statSync(path).isDirectory()
+    return isDirectory(path)
       ? ['--tmpfs', path]
       : ['--ro-bind', '/dev/null', path];
   });

@@ -1,12 +1,49 @@
-import type { ProgramCommand, ProgramOutput } from '../execute/types.js';
-import { debug, logError, truncateError } from '../log/index.js';
-import type { Provider, ProviderEvent, ProviderOptions } from './types.js';
+import { createHash } from 'node:crypto';
+import { homedir } from 'node:os';
+
+import {
+  createSymlink,
+  ensureDirectory,
+  pathExists,
+  writeText,
+  join,
+} from '../filesystem/index';
+import { UsageError } from '../errors';
+import { goiabaCacheDir } from '../execute/process';
+import type { ProgramCommand, ProgramOutput } from '../execute/types';
+import { truncateError } from '../logger/index';
+import { reportDebug } from '../output/activity';
+import {
+  delegatedCategories,
+  type AgentPolicy,
+  type WebRule,
+} from '../policy/index';
+import { wrapCommand } from '../workspace/sandbox/wrap-command';
+import type {
+  ExecutionGate,
+  Provider,
+  ProviderDescription,
+  ProviderEvent,
+  ProviderOptions,
+} from './types';
+
+/** Long enough for a person to answer an approval prompt. */
+const HOOK_TIMEOUT_SECONDS = 3600;
+
+/**
+ * Codex logs every command our gate denies. The denial is already recorded
+ * (database, log, approvals screen): the line goes to the debug log only.
+ */
+const GATE_DENIAL = /codex_core::tools::router: .*blocked by PreToolUse hook/;
 
 export class CodexProvider implements Provider<string, string> {
   public readonly id = 'codex';
 
   private readonly executable: string;
   private readonly model: string;
+  /** Per-workspace CODEX_HOME carrying the gate's hook, when gated. */
+  private codexHome: string | undefined;
+  private webSearchConfig: string | undefined;
 
   public constructor({ executable = 'codex', model }: ProviderOptions) {
     if (model.trim().length === 0) {
@@ -17,7 +54,49 @@ export class CodexProvider implements Provider<string, string> {
     this.model = model;
   }
 
+  public describe(): ProviderDescription {
+    return { name: 'codex', model: this.model };
+  }
+
+  public applyPermissions(
+    permissions: AgentPolicy,
+    gate: ExecutionGate | undefined,
+  ): readonly string[] {
+    const categories = delegatedCategories(permissions);
+    const unsupported = categories.find(
+      (category) => category !== 'execution' && category !== 'web',
+    );
+
+    if (unsupported !== undefined) {
+      throw new UsageError(
+        `O provider ${this.id} ainda não aplica a categoria ${unsupported}.`,
+      );
+    }
+
+    this.webSearchConfig = webSearchConfig(permissions);
+
+    if (gate === undefined) return [];
+
+    const home = codexHomeFor(gate.root);
+    const rules = join(home, 'rules');
+    ensureDirectory(rules);
+    const hooks = writeHooks(home, gate.hookCommand);
+    linkCredentials(home);
+    this.codexHome = home;
+
+    // Read-only in the sandbox: the agent must not drop the hook or add rules.
+    return [hooks, rules];
+  }
+
   public createCommand(input: string, sessionId?: string): ProgramCommand {
+    const command = this.buildCommand(input, sessionId);
+
+    return this.codexHome === undefined
+      ? command
+      : wrapCommand('env', [`CODEX_HOME=${this.codexHome}`], command);
+  }
+
+  private buildCommand(input: string, sessionId?: string): ProgramCommand {
     const commonArguments = [
       // The jail hides the parent repository; the sandbox is the boundary.
       '--skip-git-repo-check',
@@ -26,13 +105,21 @@ export class CodexProvider implements Provider<string, string> {
       this.model,
     ];
     // Exec-level flags: `resume` does not accept them after the subcommand.
-    // Workspace already runs the whole CLI inside Docker/Bubblewrap. A second
-    // Linux sandbox here would try to create namespaces inside that jail.
     const execArguments = [
-      '--sandbox',
-      'danger-full-access',
+      // The whole CLI already runs inside Goiaba's sandbox (Docker/Bubblewrap),
+      // which is the boundary: Codex's own sandbox would nest namespaces, and
+      // its approval policy would reject the model's escalation requests.
+      // Commands are still decided by Goiaba's PreToolUse hook.
+      '--dangerously-bypass-approvals-and-sandbox',
       '--color',
       'never',
+      ...(this.webSearchConfig === undefined
+        ? []
+        : ['-c', `tools.web_search=${this.webSearchConfig}`]),
+      // Our own hook in our own CODEX_HOME; there is no one to trust it.
+      ...(this.codexHome === undefined
+        ? []
+        : ['--dangerously-bypass-hook-trust']),
     ];
 
     return {
@@ -56,10 +143,12 @@ export class CodexProvider implements Provider<string, string> {
     output: AsyncIterable<ProgramOutput>,
   ): AsyncIterable<ProviderEvent<string>> {
     let stdout = '';
+    const turn = new CodexTurn();
 
     for await (const { channel, chunk } of output) {
       if (channel === 'stderr') {
-        yield { type: 'output', value: chunk };
+        const kept = withoutGateDenials(chunk);
+        if (kept !== undefined) yield { type: 'output', value: kept };
         continue;
       }
 
@@ -68,22 +157,107 @@ export class CodexProvider implements Provider<string, string> {
       stdout = lines.pop() ?? '';
 
       for (const line of lines) {
-        const event = readEvent(line);
-
-        if (event !== undefined) {
-          yield event;
-        }
+        yield* readEvents(line, turn);
       }
     }
 
     if (stdout.length > 0) {
-      const event = readEvent(stdout);
-
-      if (event !== undefined) {
-        yield event;
-      }
+      yield* readEvents(stdout, turn);
     }
   }
+}
+
+class CodexTurn {
+  private reasoning: string | undefined;
+  private answered = false;
+
+  public start(): void {
+    this.reasoning = undefined;
+    this.answered = false;
+  }
+
+  public rememberReasoning(text: string): void {
+    this.reasoning = text;
+  }
+
+  public rememberAnswer(): void {
+    this.answered = true;
+  }
+
+  public fallback(): string | undefined {
+    if (this.answered) return undefined;
+    return this.reasoning;
+  }
+}
+
+/** Translates the common web policy to Codex's hosted web-search tool. */
+function webSearchConfig(permissions: AgentPolicy): string | undefined {
+  const allow = permissions.allow?.web ?? [];
+  const deny = permissions.deny?.web ?? [];
+  const requireApproval = permissions.requireApproval?.web ?? [];
+
+  if (requireApproval.length > 0) {
+    throw unsupportedWebPolicy();
+  }
+
+  if (allow.length === 0) return undefined;
+  if (allow.length !== 1) throw unsupportedWebPolicy();
+
+  const allowRule = allow[0];
+  if (!coversAllWebOperations(allowRule)) {
+    throw unsupportedWebPolicy();
+  }
+
+  if (!deny.every(coversAllWebOperations)) throw unsupportedWebPolicy();
+
+  const allowedDomains = webDomains(allowRule.domains);
+  const ignoredDomains = allowRule.ignores?.domains ?? [];
+  const deniedDomains = deny.flatMap((rule) => rule.domains);
+  const blockedDomains = webDomains([...ignoredDomains, ...deniedDomains]);
+  const fields = ['mode="live"'];
+
+  if (!allowRule.domains.includes('*')) {
+    fields.push(`allowed_domains=${tomlStrings(allowedDomains)}`);
+  }
+
+  if (blockedDomains.length > 0) {
+    fields.push(`blocked_domains=${tomlStrings(blockedDomains)}`);
+  }
+
+  return `{${fields.join(',')}}`;
+}
+
+function coversAllWebOperations(rule: WebRule): boolean {
+  return rule.operations.includes('*');
+}
+
+function webDomains(domains: readonly string[]): readonly string[] {
+  return [
+    ...new Set(domains.filter((domain) => domain !== '*').map(webDomain)),
+  ];
+}
+
+function webDomain(domain: string): string {
+  const normalized = domain.startsWith('*.') ? domain.slice(2) : domain;
+  if (hasUnsupportedDomainPattern(normalized)) throw unsupportedWebPolicy();
+  return normalized;
+}
+
+function hasUnsupportedDomainPattern(domain: string): boolean {
+  return ['*', '?', '[', ']', '\\', '/'].some((character) =>
+    domain.includes(character),
+  );
+}
+
+function tomlStrings(values: readonly string[]): string {
+  return `[${values.map((value) => JSON.stringify(value)).join(',')}]`;
+}
+
+function unsupportedWebPolicy(): UsageError {
+  return new UsageError(
+    'O provider codex aplica web com uma regra allow de operations ["*"], ' +
+      'domínios exatos ou "*", ignores/deny por domínio e sem requireApproval.',
+  );
 }
 
 function createEvent(text: string): ProviderEvent<string> {
@@ -94,33 +268,46 @@ function createEvent(text: string): ProviderEvent<string> {
   return { type: 'output', value: text };
 }
 
-function readEvent(line: string): ProviderEvent<string> | undefined {
+function readEvents(
+  line: string,
+  turn: CodexTurn,
+): readonly ProviderEvent<string>[] {
   if (line.trim().length === 0) {
-    return undefined;
+    return [];
   }
 
   try {
     const event: unknown = JSON.parse(line);
 
     if (!isRecord(event)) {
-      return undefined;
+      return [];
+    }
+
+    if (event['type'] === 'turn.started') {
+      turn.start();
+      return [];
+    }
+
+    if (event['type'] === 'turn.completed') {
+      const fallback = turn.fallback();
+      return fallback === undefined ? [] : [createEvent(fallback)];
     }
 
     if (
       event['type'] === 'thread.started' &&
       typeof event['thread_id'] === 'string'
     ) {
-      return { type: 'session', id: event['thread_id'] };
+      return [{ type: 'session', id: event['thread_id'] }];
     }
 
     if (event['type'] !== 'item.completed') {
-      return undefined;
+      return [];
     }
 
     const item = event['item'];
 
     if (!isRecord(item)) {
-      return undefined;
+      return [];
     }
 
     if (item['type'] === 'command_execution') {
@@ -131,27 +318,59 @@ function readEvent(line: string): ProviderEvent<string> | undefined {
         cwd: item['cwd'],
         exitCode,
       };
-      debug({ type: 'tool', ...call });
+      const events: ProviderEvent<string>[] = [
+        { type: 'tool', phase: 'call', detail: call },
+      ];
 
       if (typeof exitCode === 'number' && exitCode !== 0) {
         const output = item['aggregated_output'];
-        logError({
-          type: 'tool_error',
-          provider: 'codex',
-          ...call,
-          message: truncateError(typeof output === 'string' ? output : ''),
+        events.push({
+          type: 'tool',
+          phase: 'error',
+          detail: {
+            provider: 'codex',
+            ...call,
+            message: truncateError(typeof output === 'string' ? output : ''),
+          },
         });
       }
+
+      const progress = commandProgress(item['command'], exitCode);
+      return progress === undefined ? events : [...events, progress];
+    }
+
+    if (item['type'] === 'reasoning' && typeof item['text'] === 'string') {
+      turn.rememberReasoning(item['text']);
+      return [];
     }
 
     if (item['type'] !== 'agent_message' || typeof item['text'] !== 'string') {
-      return undefined;
+      return [];
     }
 
-    return createEvent(item['text']);
+    turn.rememberAnswer();
+    return [createEvent(item['text'])];
   } catch {
-    return createEvent(line);
+    return [createEvent(line)];
   }
+}
+
+/** Visible activity while the model is working; full details remain in debug. */
+function commandProgress(
+  command: unknown,
+  exitCode: unknown,
+): ProviderEvent<string> | undefined {
+  if (typeof command !== 'string' || typeof exitCode !== 'number') {
+    return undefined;
+  }
+
+  const firstLine = command.split('\n')[0]?.trim() ?? '';
+  const summary =
+    firstLine.length <= 140 ? firstLine : `${firstLine.slice(0, 139)}…`;
+  return {
+    type: 'output',
+    value: `${exitCode === 0 ? '✓' : '✗'} ${summary}`,
+  };
 }
 
 function appendInteractionProtocol(input: string): string {
@@ -167,4 +386,61 @@ function appendInteractionProtocol(input: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+/**
+ * A CODEX_HOME of our own: the hook cannot live in the user's ~/.codex, whose
+ * rules and config could loosen the policy. Stable per workspace, so sessions
+ * survive for `resume`.
+ */
+function codexHomeFor(root: string): string {
+  const id = createHash('sha256').update(root).digest('hex').slice(0, 16);
+  return join(goiabaCacheDir(), 'codex', id);
+}
+
+/** Wires Codex's PreToolUse hook to the gate; returns the hooks.json path. */
+function writeHooks(home: string, hookCommand: readonly string[]): string {
+  const hooks = join(home, 'hooks.json');
+  const hook = {
+    type: 'command',
+    command: shellJoin(hookCommand),
+    timeout: HOOK_TIMEOUT_SECONDS,
+  };
+
+  writeText(
+    hooks,
+    `${JSON.stringify({
+      hooks: { PreToolUse: [{ matcher: '^Bash$', hooks: [hook] }] },
+    })}\n`,
+    0o600,
+  );
+  return hooks;
+}
+
+/** Logged-in Codex keeps its credentials when CODEX_HOME is ours. */
+function linkCredentials(home: string): void {
+  const auth = join(homedir(), '.codex', 'auth.json');
+  const link = join(home, 'auth.json');
+
+  if (pathExists(auth) && !pathExists(link)) {
+    createSymlink(auth, link);
+  }
+}
+
+/** POSIX shell quoting for the hook command line. */
+function shellJoin(argv: readonly string[]): string {
+  return argv.map((arg) => `'${arg.replaceAll("'", "'\\''")}'`).join(' ');
+}
+
+/** `chunk` without the gate's denials; undefined when nothing else is left. */
+function withoutGateDenials(chunk: string): string | undefined {
+  const kept = chunk.split('\n').filter((line) => {
+    const denial = GATE_DENIAL.test(line);
+    if (denial) reportDebug({ type: 'provider-noise', line });
+    return !denial;
+  });
+
+  return kept.some((line) => line.trim().length > 0)
+    ? kept.join('\n')
+    : undefined;
 }

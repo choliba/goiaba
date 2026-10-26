@@ -1,5 +1,6 @@
-app/
+storage/
 node_modules/
 logs/
 .goiaba/
 bun.lock
+.agents/

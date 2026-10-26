@@ -24,7 +24,7 @@ chamar `run()`. Envolva o script em `runScript`, que carrega o
 `goiaba.config.ts` e mostra erros de uso (`UsageError`) sem stack trace.
 
 ```ts
-import { Agent, ClaudeProvider, runScript, Workspace } from '../src/index.js';
+import { Agent, ClaudeProvider, runScript, Workspace } from '../src/index';
 
 await runScript(async () => {
   const agent = new Agent({
@@ -53,7 +53,7 @@ import {
   runScript,
   Workspace,
   type ProviderEvent,
-} from '../src/index.js';
+} from '../src/index';
 
 await runScript(async () => {
   const output = new OutputDispatcher<ProviderEvent<string>>();
@@ -124,11 +124,11 @@ comum a todos: a sandbox (que sempre existe) e as `permissions`. Em modo não
 interativo não há ninguém para aprovar ferramentas, então a sandbox é o
 limite:
 
-| Provider         | CLI      | Como roda                                                                                                                             |
-| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `ClaudeProvider` | `claude` | `--permission-mode bypassPermissions`; com `permissions.execution`, `dontAsk` + as regras traduzidas (veja [Permissões](#permissões)) |
-| `CodexProvider`  | `codex`  | `--sandbox danger-full-access --skip-git-repo-check` (o isolamento externo do `Workspace` é a fronteira de segurança)                 |
-| `CursorProvider` | `agent`  | `--trust --force`                                                                                                                     |
+| Provider         | CLI      | Como roda                                                                                                                       |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ClaudeProvider` | `claude` | `--permission-mode bypassPermissions`; com `permissions.execution`, `dontAsk` + o hook do [gate de execução](#gate-de-execução) |
+| `CodexProvider`  | `codex`  | `--sandbox danger-full-access --skip-git-repo-check` (o isolamento externo do `Workspace` é a fronteira de segurança)           |
+| `CursorProvider` | `agent`  | `--trust --force`                                                                                                               |
 
 Quando a resposta do agente termina em `?`, ela vira uma pergunta (`ask`) e a
 resposta do usuário retoma a mesma sessão.
@@ -148,10 +148,10 @@ new OllamaProvider({
 });
 ```
 
-| `cli`    | Como aponta para o Ollama                                                                                                               | Permissões                                |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `claude` | `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN=ollama` e os modelos auxiliares (`ANTHROPIC_DEFAULT_*_MODEL`) apontando para o mesmo modelo | `execution` via permissões do Claude Code |
-| `codex`  | `codex exec --oss --local-provider ollama` com `CODEX_OSS_BASE_URL`; desliga `apps` e `goals`; a sandbox pertence ao `Workspace`        | `execution` via exec policy isolada Codex |
+| `cli`    | Como aponta para o Ollama                                                                                                               | Permissões                                 |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `claude` | `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN=ollama` e os modelos auxiliares (`ANTHROPIC_DEFAULT_*_MODEL`) apontando para o mesmo modelo | `execution` via permissões do Claude Code  |
+| `codex`  | `codex exec --oss --local-provider ollama` com `CODEX_OSS_BASE_URL`; desliga `apps` e `goals`; a sandbox pertence ao `Workspace`        | como no `CodexProvider` (gate de execução) |
 
 - O modelo precisa estar baixado (`ollama pull <modelo>`) e suportar
   ferramentas (`ollama show <modelo>` lista `tools`). Para o Claude Code, use
@@ -164,24 +164,27 @@ new OllamaProvider({
 ## Permissões
 
 As permissões são definidas no próprio agente TypeScript (tipo
-`AgentPermissions`, em `src/policy/types.ts`), com o mesmo vocabulário para
-todos os providers. Quem aplica depende da categoria:
+`AgentPolicy`, em `src/policy/policy.interface.ts`, o único modelo de
+permissão do Goiaba), com o mesmo vocabulário para todos os providers. Quem
+aplica depende da categoria:
 
 - `filesystem` é aplicado pela sandbox do `Workspace` (`docker` ou
   `bubblewrap`), igual para qualquer provider;
 - `web`, `execution` e `communication` são traduzidos por cada provider
   (`applyPermissions`) para o mecanismo do próprio CLI. O que o CLI não
-  consegue aplicar com exatidão é recusado antes de iniciar.
+  consegue aplicar com exatidão é recusado antes de iniciar;
+- `network`, `tools`, `agents` e `secrets` fazem parte do modelo, mas o
+  Goiaba ainda não os aplica: um agente com regras delas recusa iniciar.
 
 Nenhuma política é reduzida silenciosamente para best effort.
 
 ### Exemplo com todas as opções
 
 > Este exemplo mostra todos os campos que o tipo aceita. Hoje ele **é
-> recusado**, porque nenhum provider aplica ainda tudo o que ele pede (veja
+> recusado**, porque nenhum provider aplica ainda `web` e `communication` (veja
 > [O que já é aplicado](#o-que-já-é-aplicado)). Para um agente que roda, use
-> `filesystem` em `allow`/`deny` e, com o `ClaudeProvider`, `execution` em
-> `allow`/`deny`.
+> `filesystem` em `allow`/`deny` e `execution` em `allow`/`deny`/`requireApproval`
+> com Claude, Codex ou Ollama.
 
 ```ts
 const agent = new Agent({
@@ -189,7 +192,7 @@ const agent = new Agent({
   provider: new ClaudeProvider({ model: 'claude-sonnet-5-5' }),
   workspace: new Workspace({
     type: 'bubblewrap',
-    root: '/home/dev/dev/goiaba/app',
+    root: '/caminho/do/projeto/storage/workspace',
   }),
   permissions: {
     // Política quando nenhuma regra corresponde: 'allow' | 'deny' | 'require_approval'
@@ -246,29 +249,33 @@ const agent = new Agent({
 
 ### Campos
 
-**`AgentPermissions`**
+**`AgentPolicy`**
 
-| Campo             | Tipo               | Obrigatório | Descrição                                        |
-| ----------------- | ------------------ | ----------- | ------------------------------------------------ |
-| `default`         | `ActionPolicy`     | sim         | Política usada quando nenhuma regra corresponde. |
-| `allow`           | `PermissionGroups` | não         | Regras que liberam a ação.                       |
-| `requireApproval` | `PermissionGroups` | não         | Regras que exigem aprovação antes da ação.       |
-| `deny`            | `PermissionGroups` | não         | Regras que bloqueiam a ação.                     |
+| Campo             | Tipo           | Obrigatório | Descrição                                        |
+| ----------------- | -------------- | ----------- | ------------------------------------------------ |
+| `default`         | `ActionPolicy` | sim         | Política usada quando nenhuma regra corresponde. |
+| `allow`           | `PolicyGroups` | não         | Regras que liberam a ação.                       |
+| `requireApproval` | `PolicyGroups` | não         | Regras que exigem aprovação antes da ação.       |
+| `deny`            | `PolicyGroups` | não         | Regras que bloqueiam a ação.                     |
 
 **`ActionPolicy`**: `'allow' | 'deny' | 'require_approval'`
 
-**`PermissionGroups`**
+**`PolicyGroups`**
 
 | Campo           | Tipo                  | Obrigatório |
 | --------------- | --------------------- | ----------- |
 | `filesystem`    | `FilesystemRule[]`    | não         |
 | `web`           | `WebRule[]`           | não         |
+| `network`       | `NetworkRule[]`       | não         |
 | `execution`     | `ExecutionRule[]`     | não         |
+| `tools`         | `ToolRule[]`          | não         |
+| `agents`        | `SubagentRule[]`      | não         |
 | `communication` | `CommunicationRule[]` | não         |
+| `secrets`       | `SecretRule[]`        | não         |
 
 **Regras**
 
-Em `filesystem`, `web` e `communication`, `operations` não pode ser vazio, e
+Em todas as categorias menos `execution`, `operations` não pode ser vazio, e
 `'*'` vale para todas as operações da categoria. `execution` não tem
 `operations`: nenhum CLI consegue verificar a intenção de um comando (teste,
 lint...), só o comando em si, então a regra é só `commands`, que não pode ser
@@ -287,6 +294,18 @@ vazio.
 | `CommunicationRule` | `operations`       | `(CommunicationOperation \| '*')[]` | sim         |
 |                     | `channels`         | `string[]`                          | sim         |
 |                     | `ignores.channels` | `string[]`                          | não         |
+| `NetworkRule`       | `operations`       | `(NetworkOperation \| '*')[]`       | sim         |
+|                     | `hosts`            | `string[]`                          | sim         |
+|                     | `ignores.hosts`    | `string[]`                          | não         |
+| `ToolRule`          | `operations`       | `(ToolOperation \| '*')[]`          | sim         |
+|                     | `tools`            | `string[]` (`servidor/ferramenta`)  | sim         |
+|                     | `ignores.tools`    | `string[]`                          | não         |
+| `SubagentRule`      | `operations`       | `(SubagentOperation \| '*')[]`      | sim         |
+|                     | `agents`           | `string[]` (nome ou modelo)         | sim         |
+|                     | `ignores.agents`   | `string[]`                          | não         |
+| `SecretRule`        | `operations`       | `(SecretOperation \| '*')[]`        | sim         |
+|                     | `secrets`          | `string[]` (nome da variável)       | sim         |
+|                     | `ignores.secrets`  | `string[]`                          | não         |
 
 **Operações**
 
@@ -295,6 +314,10 @@ vazio.
 | `FilesystemOperation`    | `'read'`, `'write'`                                                             |
 | `WebOperation`           | `'search'`, `'read_text'`, `'interact'`, `'form_submit'`, `'login'`, `'browse'` |
 | `CommunicationOperation` | `'send_email'`, `'post_social_media'`, `'send_logs'`                            |
+| `NetworkOperation`       | `'connect'`                                                                     |
+| `ToolOperation`          | `'call'`                                                                        |
+| `SubagentOperation`      | `'spawn'`                                                                       |
+| `SecretOperation`        | `'read'`                                                                        |
 
 ### Como as regras são avaliadas
 
@@ -314,17 +337,22 @@ a raiz real do `Workspace`; o caminho real do `root` também é aceito
 
 ### O que já é aplicado
 
-| Categoria       | Quem aplica                       | `allow`  | `deny`              | `requireApproval` |
-| --------------- | --------------------------------- | -------- | ------------------- | ----------------- |
-| `filesystem`    | sandbox (`docker`, `bubblewrap`)  | sim      | sim (sem `ignores`) | recusado          |
-| `execution`     | `ClaudeProvider`                  | sim      | sim (sem `ignores`) | recusado          |
-| `execution`     | `OllamaProvider` (`cli: 'codex'`) | sim      | sim                 | recusado          |
-| `execution`     | `CodexProvider`, `CursorProvider` | recusado | recusado            | recusado          |
-| `web`           | nenhum provider ainda             | recusado | recusado            | recusado          |
-| `communication` | nenhum provider ainda             | recusado | recusado            | recusado          |
+| Categoria       | Quem aplica                              | `allow`  | `deny`              | `requireApproval` |
+| --------------- | ---------------------------------------- | -------- | ------------------- | ----------------- |
+| `filesystem`    | sandbox (`docker`, `bubblewrap`)         | sim      | sim (sem `ignores`) | recusado          |
+| `execution`     | gate de execução (Claude, Codex, Ollama) | sim      | sim                 | sim (pergunta)    |
+| `execution`     | `CursorProvider`                         | recusado | recusado            | recusado          |
+| `web`           | `ClaudeProvider`                         | sim¹     | sim¹                | recusado          |
+| `web`           | `CodexProvider`                          | sim²     | sim²                | recusado          |
+| `communication` | nenhum provider ainda                    | recusado | recusado            | recusado          |
 
 Uma categoria sem nenhuma regra não é controlada: sem `execution`, o agente
 roda qualquer comando, preso só à sandbox.
+
+¹ O Claude traduz apenas as operações e os domínios representáveis por suas
+ferramentas. ² O Codex traduz uma regra `allow.web` com `operations: ['*']`
+para `tools.web_search`, incluindo domínios permitidos e domínios bloqueados
+por `ignores` ou `deny`; `requireApproval.web` ainda é recusado.
 
 **Filesystem.** O backend também exige:
 
@@ -335,33 +363,72 @@ roda qualquer comando, preso só à sandbox.
   outros curingas, que existam no disco e não sejam symlinks para fora do
   workspace.
 
-**Execution no `ClaudeProvider`.** As regras viram `--settings` com
-`permissions.allow`/`deny` em `Bash(<comando>)`, com o modo `dontAsk` (nega o
-que não estiver em `allow`) e `--setting-sources ""` (as configurações do
-usuário e do projeto não podem liberar mais nada). Por isso:
+### Gate de execução
 
-- `default` precisa ser `'deny'`;
-- `ignores` de um `allow` vira `deny`: nunca libera mais que a política, mas
-  pode bloquear um comando que outra regra `allow` liberaria;
-- `?`, `[]`, `\` e parênteses em `commands` não têm equivalente e são
-  recusados;
-- as ferramentas de arquivo do Claude (`Read`, `Edit`, `Write`...) ficam
-  liberadas, porque quem limita os caminhos é a sandbox;
-- comandos que o Claude considera somente leitura (como `date` ou `ls`) rodam
-  mesmo fora do `allow`; a sandbox continua limitando o que eles enxergam.
+`execution` é decidido **pelo Goiaba, igual para qualquer CLI**. O provider só
+liga o hook `PreToolUse` do CLI (Claude Code ou Codex) a um gate; o hook, dentro
+da sandbox, pergunta ao gate, que roda no host, por um socket:
 
-Qualquer outra forma é recusada antes de iniciar o provider.
+```
+CLI (na jaula) ── hook PreToolUse (só leitura) ── socket ──► gate (host)
+                                                               ├─ PolicyEngine
+                                                               ├─ aprovações salvas (SQLite)
+                                                               └─ você (OutputAdapter)
+```
 
-**Execution no `OllamaProvider` com `cli: 'codex'`.** As regras são gravadas
-em um `CODEX_HOME` temporário e isolado como exec policies nativas do Codex.
-Um hook `PreToolUse` aplica a decisão antes de cada comando e bloqueia tudo que
-não tenha uma regra `allow` explícita. O diretório é removido quando o agente
-termina. `default` precisa ser `'deny'`, e `requireApproval.execution` é
-recusado no modo não interativo.
+- **Um comando por vez.** A linha é dividida em `&&`, `||`, `;` e `|`, e cada
+  parte é avaliada; vence a decisão mais restritiva (`deny` > aprovação >
+  `allow`). Linha com redirecionamento, substituição ou script (`>`, `<`,
+  `$(...)`, `` ` ``, heredoc, `&`) vai para aprovação mesmo se o comando
+  inicial for permitido: o efeito não é verificável pela regra.
+- **Aprovação.** O que cai em `requireApproval` (ou no `default` que não seja
+  `allow`/`deny`) é perguntado pelo terminal:
+  `[u] uma vez · [s] nesta sessão · [w] sempre neste workspace · [n] não`.
+  Sessão e workspace salvam um padrão (`mkdir -p src/x` → `mkdir *`); um
+  comando composto só é aprovado exatamente como veio. Sem terminal, nega. A
+  opção `approve` do `Agent` troca quem decide.
+- **Falha fechada.** Hook sem resposta, gate fora do ar ou timeout negam o
+  comando. O hook e a configuração do CLI ficam montados **só leitura** na
+  sandbox (`Sandbox.protect`): o agente não reescreve o que aplica a política.
+- **No Claude**, o hook vai por `--settings` (com `--setting-sources ""`) e o
+  modo é `dontAsk`: só roda o que o hook aprova; as ferramentas de arquivo
+  (`Read`, `Edit`, `Write`...) ficam liberadas porque quem limita os caminhos
+  é a sandbox. **No Codex**, o hook fica em um `CODEX_HOME` do workspace
+  (`~/.cache/goiaba/codex/<hash>`), estável para a sessão poder ser retomada.
 
-Por segurança, são aceitos comandos literais (`npm publish`) e prefixos com
-`*` ou `**` apenas como último token (`npm *`). Outros curingas ou operadores
-de shell são recusados, pois não têm tradução exata para `prefix_rule`.
+### Decisões, aprovações depois e retomada
+
+Toda decisão do gate fica no banco SQLite (por padrão `.goiaba/goiaba.db`; veja `database` em [Configuração](#configuração)), com a origem
+(`policy`, `human`, `saved`). O que foi negado pode ser aprovado depois, e o
+agente retoma sabendo disso. A tela de aprovações abre com **Ctrl+A** dentro
+do agente, ou com `bun run approvals` (`--root <dir>`) em outro terminal:
+marque os pedidos (números, `1,3`, `1-5`, `a` para todos), avance com `r` e
+escolha:
+
+- `u`: aprova uma vez (o comando exato);
+- `w`: aprova sempre neste workspace (o padrão do comando, como `npm *`);
+- `d`: **descarta**: o pedido não é aprovado e deixa de ser esperado (some da
+  tela e do aviso "Aguardando aprovação"). Fica registrado no banco; se o
+  agente tentar o comando de novo, vira um pedido novo;
+- `q`: sai sem alterar nada.
+
+O mesmo comando negado de novo enquanto o pedido está pendente não cria outra
+linha: conta como mais uma tentativa (`×N` na tela).
+
+```ts
+new Agent({
+  prompt: 'Continue.',
+  provider,
+  workspace,
+  permissions,
+  resume: 'last', // ou o id de uma sessão
+});
+```
+
+Com `resume`, o primeiro turno retoma a sessão do CLI (`--resume`) e começa
+com as aprovações novas: "Permissões atualizadas desde a última execução: …
+Continue a tarefa de onde parou." `'last'` é a última sessão do mesmo provider
+no mesmo workspace; sem sessão anterior, o agente para com um erro.
 
 ## Workspace
 
@@ -399,7 +466,7 @@ import { join } from 'node:path';
 
 new Workspace({
   type: 'bubblewrap',
-  root: '/home/dev/dev/goiaba/app',
+  root: '/caminho/do/projeto/storage/workspace',
   // Ex.: caches para bun/npm install funcionarem dentro da jaula.
   writable: [join(homedir(), '.bun/install/cache'), join(homedir(), '.npm')],
 });
@@ -419,7 +486,7 @@ rede usa o modo `host`.
 ```ts
 new Workspace({
   type: 'docker',
-  root: '/home/dev/dev/goiaba/app',
+  root: '/caminho/do/projeto/storage/workspace',
   image: 'FROM oven/bun:latest',
 });
 ```
@@ -445,26 +512,134 @@ bun run format  # prettier --write
     desligadas: os tipos do `bun:test` declaram `.rejects` como não-Promise e
     os matchers (`expect.objectContaining`...) como `any`.
 - **Formatação:** Prettier com os padrões da v3 e aspas simples.
+- **Fronteiras:** executar é pelo `execute` (`src/execute/`: processos,
+  ambiente, `/proc`), sair é pelo `output` (`src/output/`) e disco é pelo
+  `filesystem` (`src/filesystem/`). O resto do código não usa `process`,
+  `child_process`, `node:fs` nem `node:path` diretamente (caminhos também
+  vêm do `filesystem`). O log é pelo `logger`
+  (`src/logger/`) e os comandos de linha de comando pelo `command`
+  (`src/command/`); pacotes de terceiros ficam atrás deles.
+
+### Comandos
+
+Scripts de linha de comando (`scripts/`, `src/cli/`) só declaram o comando; o
+`src/command` lê os argumentos, valida, gera o `--help` e roda dentro do
+`runScript` (config, log e Ctrl+C). `--help` e erros de uso respondem na hora,
+sem abrir o log, e erros de uso terminam com código 1.
+
+```ts
+import { defineCommand, runCommand } from '../src/command/index';
+
+await runCommand(
+  defineCommand({
+    name: 'issue',
+    description: 'Abre uma issue no GitHub a partir de um Markdown.',
+    args: { arquivo: { description: 'Markdown do plano', required: true } },
+    options: {
+      repo: { type: 'string', short: 'r', description: 'owner/nome' },
+      dry: { type: 'boolean', short: 'd', description: 'Só mostra' },
+    },
+    // args.arquivo: string; options.repo: string | undefined; options.dry: boolean
+    run: async ({ args, options, output, signal }) => {
+      /* … */
+    },
+  }),
+);
+```
+
+| Comando               | O que faz                                                      |
+| --------------------- | -------------------------------------------------------------- |
+| `bun issue <arquivo>` | Abre uma issue a partir de um plano com frontmatter (`--dry`). |
+| `bun clear`           | Apaga o conteúdo de `logger.dir` (`--dry`, `--yes`).           |
+| `bun run approvals`   | Revisa e aprova comandos negados (`--root <dir>`).             |
 
 ## Configuração
 
 A configuração do projeto fica em `goiaba.config.ts` na raiz. O env é um objeto
 qualquer: as chaves string viram variáveis de ambiente (sem sobrescrever o
-`process.env` já definido). `logDir` recebe o transcript JSONL da sessão. Com `debug: true`, cada sandbox
+`process.env` já definido). `logger.dir` recebe o log da sessão. Com `debug: true`, cada sandbox
 grava isolamento, imagem/container, volumes, montagens e rede; o executor
 grava os comandos (inner, spawn, exit) e as tool calls do agente.
-`GOIABA_DEBUG` e `GOIABA_LOG_DIR` também sobrescrevem o arquivo.
+`GOIABA_DEBUG` e `GOIABA_LOG_DIR` (para `logger.dir`) também sobrescrevem o arquivo.
 
 ```ts
-import { defineConfig } from './src/config/index.js';
+import { defineConfig } from './src/config/index';
 
 export default defineConfig({
-  logDir: 'logs',
   debug: false,
+  logger: { dir: 'logs' }, // sem `use`: ECS JSONL, sem pacote
+  // Banco SQLite de sessões, decisões e aprovações (opcional).
+  database: {
+    dir: 'db', // relativo a este arquivo; padrão: .goiaba
+    name: 'agentes.db', // padrão: goiaba.db
+  },
   envs: [
     {
       CURSOR_API_KEY: process.env.CURSOR_API_KEY,
     },
   ],
+});
+```
+
+| Campo           | Tipo       | Padrão         | Descrição                                                    |
+| --------------- | ---------- | -------------- | ------------------------------------------------------------ |
+| `debug`         | `boolean`  | `false`        | Grava sandbox, comandos e tool calls no log.                 |
+| `logger.dir`    | `string`   | `.goiaba/logs` | Pasta do log; relativa ao arquivo de config.                 |
+| `logger.use`    | `função`   | —              | Cria a instância do pacote de log (veja [Log](#log)).        |
+| `database.dir`  | `string`   | `.goiaba`      | Pasta do banco SQLite; relativa ao arquivo de config.        |
+| `database.name` | `string`   | `goiaba.db`    | Nome do arquivo do banco (sem barras).                       |
+| `envs`          | `object[]` | `[]`           | Variáveis de ambiente; as chaves string vão para o ambiente. |
+
+### Log
+
+Todo registro segue o mesmo contrato, qualquer que seja o pacote: estrutura
+[ECS](https://www.elastic.co/guide/en/ecs/current/index.html) (`@timestamp`,
+`log.level`, `service`, `trace.id`, `transaction.id`, `message`, `user`) e
+nomes semânticos do [OpenTelemetry](https://opentelemetry.io/docs/specs/semconv/)
+para o que cada evento traz (`event.name`, `gen_ai.*`, `process.*`, `error.*`).
+O que é só do Goiaba fica em `goiaba.*`; o texto da conversa, em
+`goiaba.content`. `trace.id` identifica a execução do script e
+`transaction.id`, cada `Agent.run()`.
+
+Todo registro de um agente diz em que ele roda: `gen_ai.agent.name`,
+`gen_ai.provider.name` (`ollama`, `claude`…), `gen_ai.request.model` e, quando
+o provider dirige uma CLI (Ollama com `claude` ou `codex`), `goiaba.cli`. Com
+`debug: true`, cada execução começa com um registro `agent_config`
+(`goiaba.config`): nome, prompt, provider, workspace, permissões, gate,
+conversa e a configuração do Goiaba (pasta do log, banco, envs) — segredos
+mascarados.
+
+Erros não vão para um arquivo à parte: são os registros com
+`log.level: "error"`.
+
+Segredos são mascarados antes de chegar ao pacote (`[REDACTED]`): chaves como
+`token`, `secret`, `password`, `authorization`, argumentos `NOME_TOKEN=valor`
+e os valores das envs sensíveis do config.
+
+Sem `logger.use`, o Goiaba grava ECS JSONL em `logger.dir` (arquivos `0600`),
+sem nenhum pacote. Com `logger.use`, você escolhe o
+pacote: o Goiaba chama a função com `dir` (o `logger.dir` absoluto) e `session`
+(o nome desta execução) e usa a instância devolvida — pino, winston, LogTape ou
+qualquer objeto com `debug/info/warn/error`. Formato, nível e destino são da
+instância; trocar de pacote muda só essa função.
+
+```ts
+import { join } from 'node:path';
+import { ecsFormat } from '@elastic/ecs-pino-format';
+import pino from 'pino';
+
+export default defineConfig({
+  logger: {
+    dir: 'logs',
+    use: ({ dir, session }) =>
+      pino(
+        { ...ecsFormat({ serviceName: 'goiaba' }), level: 'debug' },
+        pino.destination({
+          dest: join(dir, `${session}.jsonl`),
+          sync: true,
+          mkdir: true,
+        }),
+      ),
+  },
 });
 ```

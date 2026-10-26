@@ -1,22 +1,52 @@
-import { existsSync, realpathSync } from 'node:fs';
-import { isAbsolute, normalize, relative, resolve, sep } from 'node:path';
-
-import { UsageError } from '../errors.js';
+import {
+  pathExists,
+  realPath,
+  isAbsolute,
+  normalize,
+  relative,
+  resolve,
+  sep,
+} from '../filesystem/index';
+import { UsageError } from '../errors';
 import type {
-  AgentPermissions,
+  AgentAction,
+  AgentPolicy,
   ApprovalHandler,
-  ExecutionRule,
   FilesystemAccess,
   FilesystemOperation,
   FilesystemRule,
-  PermissionGroups,
-  PolicyAction,
+  PolicyCategory,
   PolicyDecision,
-} from './types.js';
-import { validateWildmatch, wildmatch } from './wildmatch.js';
+  PolicyGroups,
+  PolicyRule,
+} from './policy.interface';
+import {
+  commandMatches,
+  parseCommand,
+  validateCommandPattern,
+} from './command';
+import { validateWildmatch, wildmatch } from './wildmatch';
 
-export * from './types.js';
-export { wildmatch } from './wildmatch.js';
+export * from './policy.interface';
+export { wildmatch } from './wildmatch';
+
+/** Reason of a decision taken by `default`, when no rule matched. */
+export const NO_RULE_REASON = 'Nenhuma regra corresponde à ação.';
+
+const STRICTNESS = { allow: 0, require_approval: 1, deny: 2 } as const;
+
+/**
+ * Whether `next` should replace `current` as a line's decision: a stricter
+ * policy, or, at the same policy, an explicit rule over the `default` (so an
+ * approval cannot mask `sudo` in one of the parts).
+ */
+function stricter(next: PolicyDecision, current: PolicyDecision): boolean {
+  if (STRICTNESS[next.policy] !== STRICTNESS[current.policy]) {
+    return STRICTNESS[next.policy] > STRICTNESS[current.policy];
+  }
+
+  return current.source === 'default' && next.source !== 'default';
+}
 
 const SOURCES = [
   ['allow', 'allow'],
@@ -25,16 +55,16 @@ const SOURCES = [
 ] as const;
 
 export class PolicyEngine {
-  public constructor(private readonly permissions: AgentPermissions) {
+  public constructor(private readonly permissions: AgentPolicy) {
     validatePermissions(permissions);
   }
 
-  public check(action: PolicyAction): PolicyDecision {
+  public check(action: AgentAction): PolicyDecision {
     let decision: PolicyDecision | undefined;
 
     for (const [source, policy] of SOURCES) {
-      const rules = this.permissions[source]?.[action.category] as
-        readonly Rule[] | undefined;
+      const rules: readonly PolicyRule[] | undefined =
+        this.permissions[source]?.[action.category];
       const rule = rules?.findLast((candidate) =>
         matchesRule(candidate, action),
       );
@@ -53,13 +83,44 @@ export class PolicyEngine {
       decision ?? {
         policy: this.permissions.default,
         source: 'default',
-        reason: 'Nenhuma regra corresponde à ação.',
+        reason: NO_RULE_REASON,
       }
     );
   }
 
+  /**
+   * Decision for a whole shell command line: each simple command is checked
+   * and the most restrictive decision wins. A permitted line with redirection
+   * or substitution still needs approval, since its effect is not readable
+   * from the parts.
+   */
+  public checkCommand(command: string): PolicyDecision {
+    const { parts, complex } = parseCommand(command);
+
+    if (parts.length === 0) {
+      return { policy: 'deny', source: 'default', reason: 'Comando vazio.' };
+    }
+
+    const decision = parts
+      .map((part) => this.check({ category: 'execution', command: part }))
+      .reduce((strictest, next) =>
+        stricter(next, strictest) ? next : strictest,
+      );
+
+    if (complex && decision.policy === 'allow') {
+      return {
+        ...decision,
+        policy: 'require_approval',
+        reason:
+          'O comando tem redirecionamento, substituição ou script: o efeito não é verificável pela regra.',
+      };
+    }
+
+    return decision;
+  }
+
   public async authorize(
-    action: PolicyAction,
+    action: AgentAction,
     approve?: ApprovalHandler,
   ): Promise<boolean> {
     const decision = this.check(action);
@@ -70,10 +131,8 @@ export class PolicyEngine {
   }
 }
 
-type Rule = NonNullable<PermissionGroups[keyof PermissionGroups]>[number];
-
 export function compileFilesystemAccess(
-  rawPermissions: AgentPermissions,
+  rawPermissions: AgentPolicy,
   workspaceRoot: string,
 ): FilesystemAccess {
   const permissions = aliasWorkspaceRoot(rawPermissions, workspaceRoot);
@@ -140,9 +199,9 @@ export function compileFilesystemAccess(
 
 /** Rewrites filesystem patterns written with the real root to the /workspace alias. */
 function aliasWorkspaceRoot(
-  permissions: AgentPermissions,
+  permissions: AgentPolicy,
   workspaceRoot: string,
-): AgentPermissions {
+): AgentPolicy {
   const root = resolve(workspaceRoot);
   const alias = (pattern: string): string =>
     pattern === root || pattern.startsWith(`${root}/`)
@@ -160,7 +219,7 @@ function aliasWorkspaceRoot(
             ignores: { ...rule.ignores, paths: rule.ignores.paths.map(alias) },
           }),
     }));
-  const aliasGroups = (groups: PermissionGroups): PermissionGroups =>
+  const aliasGroups = (groups: PolicyGroups): PolicyGroups =>
     groups.filesystem === undefined
       ? groups
       : { ...groups, filesystem: aliasRules(groups.filesystem) };
@@ -214,14 +273,14 @@ function compileMaskPath(pattern: string, root: string): string {
     throw new UsageError(`O caminho escapa do workspace: ${pattern}`);
   }
 
-  if (!existsSync(target)) {
+  if (!pathExists(target)) {
     throw new UsageError(
       `O caminho protegido precisa existir para ser mascarado: ${pattern}`,
     );
   }
 
-  const realRoot = realpathSync(root);
-  const realTarget = realpathSync(target);
+  const realRoot = realPath(root);
+  const realTarget = realPath(target);
   const realRelative = relative(realRoot, realTarget);
 
   if (
@@ -282,7 +341,7 @@ export type DelegatedCategory = 'web' | 'execution' | 'communication';
  * its CLI's own permission mechanism, or refuses them.
  */
 export function delegatedCategories(
-  permissions: AgentPermissions,
+  permissions: AgentPolicy,
 ): readonly DelegatedCategory[] {
   return (['web', 'execution', 'communication'] as const).filter((category) =>
     (['allow', 'deny', 'requireApproval'] as const).some(
@@ -291,7 +350,18 @@ export function delegatedCategories(
   );
 }
 
-function validatePermissions(permissions: AgentPermissions): void {
+const CATEGORIES: readonly PolicyCategory[] = [
+  'filesystem',
+  'web',
+  'network',
+  'execution',
+  'tools',
+  'agents',
+  'communication',
+  'secrets',
+];
+
+function validatePermissions(permissions: AgentPolicy): void {
   if (!['allow', 'deny', 'require_approval'].includes(permissions.default)) {
     throw new UsageError(
       `Política padrão inválida: ${permissions.default as string}`,
@@ -302,76 +372,101 @@ function validatePermissions(permissions: AgentPermissions): void {
     const groups = permissions[source];
     if (groups === undefined) continue;
 
-    for (const category of [
-      'filesystem',
-      'web',
-      'execution',
-      'communication',
-    ] as const) {
-      for (const rule of groups[category] ?? []) {
-        if (isExecutionRule(rule)) {
-          if (rule.commands.length === 0) {
-            throw new UsageError('Uma regra execution precisa ter commands.');
-          }
-        } else if (rule.operations.length === 0) {
+    for (const category of CATEGORIES) {
+      const rules: readonly PolicyRule[] = groups[category] ?? [];
+
+      for (const rule of rules) {
+        const { patterns, ignored } = targetsOf(category, rule);
+
+        if (patterns.length === 0) {
+          throw new UsageError(
+            `Uma regra ${category} precisa ter ${category === 'execution' ? 'commands' : 'alvos'}.`,
+          );
+        }
+        if ('operations' in rule && rule.operations.length === 0) {
           throw new UsageError(`Uma regra ${category} precisa ter operações.`);
         }
 
-        for (const pattern of patternsOf(rule)) validateWildmatch(pattern);
+        for (const pattern of [...patterns, ...ignored]) {
+          if (category === 'execution') validateCommandPattern(pattern);
+          else validateWildmatch(pattern);
+        }
       }
     }
   }
 }
 
-function patternsOf(rule: Rule): readonly string[] {
-  if ('paths' in rule) return [...rule.paths, ...(rule.ignores?.paths ?? [])];
-  if ('domains' in rule)
-    return [...rule.domains, ...(rule.ignores?.domains ?? [])];
-  if ('channels' in rule)
-    return [...rule.channels, ...(rule.ignores?.channels ?? [])];
-  return [...rule.commands, ...(rule.ignores?.commands ?? [])];
+/** The targets of a rule in its category, and the ones it ignores. */
+function targetsOf(
+  category: PolicyCategory,
+  rule: PolicyRule,
+): {
+  readonly patterns: readonly string[];
+  readonly ignored: readonly string[];
+} {
+  const pick = (key: string): readonly string[] => {
+    const value: unknown = Reflect.get(rule, key);
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : [];
+  };
+  const ignoredBy = (key: string): readonly string[] => {
+    const ignores: unknown = Reflect.get(rule, 'ignores');
+    if (typeof ignores !== 'object' || ignores === null) return [];
+    const value: unknown = Reflect.get(ignores, key);
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : [];
+  };
+  const key = TARGET_KEYS[category];
+  return { patterns: pick(key), ignored: ignoredBy(key) };
 }
 
-function isExecutionRule(rule: Rule): rule is ExecutionRule {
-  return 'commands' in rule;
+/** Where each category keeps its targets, in rules and in actions. */
+const TARGET_KEYS = {
+  filesystem: 'paths',
+  web: 'domains',
+  network: 'hosts',
+  execution: 'commands',
+  tools: 'tools',
+  agents: 'agents',
+  communication: 'channels',
+  secrets: 'secrets',
+} as const satisfies Readonly<Record<PolicyCategory, string>>;
+
+/** Where each action keeps the value its rules are compared with. */
+const ACTION_KEYS = {
+  filesystem: 'path',
+  web: 'domain',
+  network: 'host',
+  execution: 'command',
+  tools: 'tool',
+  agents: 'agent',
+  communication: 'channel',
+  secrets: 'secret',
+} as const satisfies Readonly<Record<PolicyCategory, string>>;
+
+function actionTarget(action: AgentAction): string {
+  const value: unknown = Reflect.get(action, ACTION_KEYS[action.category]);
+  return typeof value === 'string' ? value : '';
 }
 
-function matchesRule(rule: Rule, action: PolicyAction): boolean {
-  if (isExecutionRule(rule)) {
-    return (
-      action.category === 'execution' &&
-      matchesAny(action.command, rule.commands) &&
-      !matchesAny(action.command, rule.ignores?.commands)
-    );
-  }
+function matchesRule(rule: PolicyRule, action: AgentAction): boolean {
+  const { patterns, ignored } = targetsOf(action.category, rule);
+  const target = actionTarget(action);
 
-  if (
-    action.category === 'execution' ||
-    !includesOperation(rule.operations, action.operation)
-  ) {
-    return false;
-  }
-
-  if (action.category === 'filesystem') {
+  if (action.category === 'execution') {
     return (
-      'paths' in rule &&
-      matchesAny(action.path, rule.paths) &&
-      !matchesAny(action.path, rule.ignores?.paths)
-    );
-  }
-
-  if (action.category === 'web') {
-    return (
-      'domains' in rule &&
-      matchesAny(action.domain, rule.domains) &&
-      !matchesAny(action.domain, rule.ignores?.domains)
+      patterns.some((pattern) => commandMatches(target, pattern)) &&
+      !ignored.some((pattern) => commandMatches(target, pattern))
     );
   }
 
   return (
-    'channels' in rule &&
-    matchesAny(action.channel, rule.channels) &&
-    !matchesAny(action.channel, rule.ignores?.channels)
+    'operations' in rule &&
+    includesOperation(rule.operations, action.operation) &&
+    matchesAny(target, patterns) &&
+    !matchesAny(target, ignored)
   );
 }
 

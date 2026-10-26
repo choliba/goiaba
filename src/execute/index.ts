@@ -8,11 +8,12 @@ import {
 import type { Readable, Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 
-import { logCommand } from '../log/index.js';
-import { OutputDispatcher, OutputStream } from '../output/index.js';
-import type { ProgramCommand, ProgramOutput } from './types.js';
-import type { Provider, ProviderEvent } from '../providers/types.js';
-import type { Workspace } from '../workspace/index.js';
+import { truncateError } from '../logger/index';
+import { reportCommand } from '../output/activity';
+import { OutputDispatcher, OutputStream } from '../output/index';
+import type { ProgramCommand, ProgramOutput } from './types';
+import type { Provider, ProviderEvent } from '../providers/types';
+import type { Workspace } from '../workspace/index';
 
 /** Starts a process with piped stdio; injectable for tests. */
 export type SpawnProcess = (
@@ -77,26 +78,27 @@ export class Executor<TOutput = string> {
     try {
       signal?.throwIfAborted();
       const inner = provider.createCommand(input, sessionId, workspace.root);
-      logCommand({
+      reportCommand({
         phase: 'inner',
         executionId,
         provider: provider.id,
         executable: inner.executable,
-        arguments: inner.arguments,
+        arguments: inner.arguments ?? [],
         cwd: inner.cwd ?? workspace.root,
       });
 
       const command = await workspace.prepare(inner);
-      logCommand({
+      reportCommand({
         phase: 'spawn',
         executionId,
         provider: provider.id,
         executable: command.executable,
-        arguments: command.arguments,
+        arguments: command.arguments ?? [],
         cwd: command.cwd,
       });
 
       signal?.throwIfAborted();
+      const startedAt = performance.now();
       const { process, output, completion } = this.start(command);
       stopOnAbort = () => {
         terminate(process);
@@ -111,7 +113,7 @@ export class Executor<TOutput = string> {
       }
 
       try {
-        await workspace.sandbox.started?.(process);
+        await workspace.sandbox.started?.(process.pid);
       } catch {
         // Falha de inspect/debug não deve abortar a execução.
       }
@@ -125,12 +127,19 @@ export class Executor<TOutput = string> {
       const status = await completion;
       // A killed CLI exits with a signal; report the abort, not the exit.
       signal?.throwIfAborted();
-      logCommand({
+      reportCommand({
         phase: 'exit',
         executionId,
         provider: provider.id,
         executable: command.executable,
+        // Which command ended, without looking up its spawn record.
+        commandLine: truncateError(
+          [command.executable, ...(command.arguments ?? [])].join(' '),
+        ),
         cwd: command.cwd,
+        pid: process.pid,
+        // Nanoseconds, as ECS `event.duration`.
+        duration: Math.round((performance.now() - startedAt) * 1e6),
         code: status.code,
         signal: status.signal,
       });

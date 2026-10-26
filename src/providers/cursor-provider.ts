@@ -1,6 +1,11 @@
-import type { ProgramCommand, ProgramOutput } from '../execute/types.js';
-import { debug } from '../log/index.js';
-import type { Provider, ProviderEvent, ProviderOptions } from './types.js';
+import type { ProgramCommand, ProgramOutput } from '../execute/types';
+import type {
+  Provider,
+  ProviderDescription,
+  ProviderEvent,
+  ProviderOptions,
+  ToolEvent,
+} from './types';
 
 export class CursorProvider implements Provider<string, string> {
   public readonly id = 'cursor';
@@ -15,6 +20,10 @@ export class CursorProvider implements Provider<string, string> {
 
     this.executable = executable;
     this.model = model;
+  }
+
+  public describe(): ProviderDescription {
+    return { name: 'cursor', model: this.model };
   }
 
   public createCommand(
@@ -120,7 +129,8 @@ function readEvents(
     }
 
     if (event['type'] === 'tool_call') {
-      logToolCall(event);
+      const tool = toolCall(event);
+      if (tool !== undefined) events.push({ value: tool });
     }
 
     if (event['type'] === 'assistant') {
@@ -190,28 +200,31 @@ function appendInteractionProtocol(input: string): string {
   ].join('\n')}`;
 }
 
-function logToolCall(event: Record<string, unknown>): void {
+function toolCall(event: Record<string, unknown>): ToolEvent | undefined {
   if (!isRecord(event['tool_call'])) {
-    return;
+    return undefined;
   }
 
-  const entry = Object.entries(event['tool_call'])[0];
+  const entry = Object.entries(event['tool_call']).at(0);
 
   if (entry === undefined) {
-    return;
+    return undefined;
   }
 
   const [rawName, payload] = entry;
   const body = isRecord(payload) ? payload : {};
 
-  debug({
+  return {
     type: 'tool',
-    subtype: event['subtype'],
-    call_id: event['call_id'],
-    tool: rawName.replace(/ToolCall$/, ''),
-    args: sanitizeToolValue(body['args']),
-    result: sanitizeToolResult(body['result']),
-  });
+    phase: 'call',
+    detail: {
+      subtype: event['subtype'],
+      call_id: event['call_id'],
+      tool: rawName.replace(/ToolCall$/, ''),
+      args: sanitizeToolValue(body['args']),
+      result: sanitizeToolResult(body['result']),
+    },
+  };
 }
 
 function sanitizeToolValue(value: unknown): unknown {

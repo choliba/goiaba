@@ -12,19 +12,19 @@ import { join } from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
 
-import type { ProgramCommand } from '../src/execute/types.js';
-import { UsageError } from '../src/usage.js';
+import type { ProgramCommand } from '../src/execute/types';
+import { UsageError } from '../src/usage';
 import {
   BubblewrapSandbox,
   bubblewrapEnterCommand,
   bubblewrapJailArgs,
   resolveBubblewrapPid,
-} from '../src/workspace/sandbox/bubblewrap.js';
+} from '../src/workspace/sandbox/bubblewrap';
 import {
   DEFAULT_DOCKER_IMAGE,
   DockerSandbox,
-} from '../src/workspace/sandbox/docker.js';
-import { Workspace } from '../src/workspace/index.js';
+} from '../src/workspace/sandbox/docker';
+import { Workspace } from '../src/workspace/index';
 
 const root = '/home/dev/dev/goiaba';
 
@@ -71,7 +71,7 @@ describe('Workspace', () => {
 
     for (let index = 0; index < imageIndex; index += 1) {
       if (args[index] === '-e') {
-        const value = args[index + 1];
+        const value = args.at(index + 1);
 
         if (value !== undefined && !value.includes('=')) {
           envNames.push(value);
@@ -263,8 +263,12 @@ describe('Workspace', () => {
   test.skipIf(Bun.which('bwrap') === null || Bun.which('nsenter') === null)(
     'bubblewrap esconde o diretório pai do root',
     async () => {
-      const jailRoot = join(root, 'app');
-      mkdirSync(jailRoot, { recursive: true });
+      // A parent with files that must stay hidden, outside the repository.
+      const parent = mkdtempSync(join(tmpdir(), 'goiaba-parent-'));
+      writeFileSync(join(parent, 'goiaba.config.ts'), '');
+      writeFileSync(join(parent, 'package.json'), '{}');
+      const jailRoot = join(parent, 'app');
+      mkdirSync(jailRoot);
       const workspace = new Workspace({
         type: 'bubblewrap',
         root: jailRoot,
@@ -297,6 +301,7 @@ describe('Workspace', () => {
         expect(listing.stdout.split(/\s+/)).toContain('app');
       } finally {
         await workspace.close();
+        rmSync(parent, { recursive: true, force: true });
       }
     },
   );
@@ -343,7 +348,11 @@ describe('Workspace', () => {
           throw new Error('bwrap sem pid');
         }
 
-        const pid = await resolveBubblewrapPid(parentPid);
+        // Wait until the jail is set up, as the sandbox does.
+        const pid = await resolveBubblewrapPid(parentPid, {
+          cwd: root,
+          command: 'sleep',
+        });
 
         if (pid === undefined) {
           throw new Error('filho da jaula não encontrado');

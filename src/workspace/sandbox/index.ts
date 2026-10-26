@@ -1,9 +1,9 @@
-export type { Sandbox } from './types.js';
+export type { Sandbox } from './types';
 export {
   DEFAULT_DOCKER_IMAGE,
   DockerSandbox,
   type DockerSandboxOptions,
-} from './docker.js';
+} from './docker';
 export {
   BubblewrapSandbox,
   bubblewrapEnterCommand,
@@ -11,4 +11,4 @@ export {
   bubblewrapNsenterArgs,
   resolveBubblewrapPid,
   type BubblewrapSandboxOptions,
-} from './bubblewrap.js';
+} from './bubblewrap';

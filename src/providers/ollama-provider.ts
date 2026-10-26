@@ -1,19 +1,17 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-
-import { UsageError } from '../errors.js';
-import type { ProgramCommand, ProgramOutput } from '../execute/types.js';
-import { debug } from '../log/index.js';
-import {
-  delegatedCategories,
-  type AgentPermissions,
-  type ExecutionRule,
-} from '../policy/index.js';
-import { wrapCommand } from '../workspace/sandbox/wrap-command.js';
-import { ClaudeProvider } from './claude-provider.js';
-import { CodexProvider } from './codex-provider.js';
-import type { Provider, ProviderEvent, ProviderOptions } from './types.js';
+import { UsageError } from '../errors';
+import type { ProgramCommand, ProgramOutput } from '../execute/types';
+import { reportDebug } from '../output/activity';
+import type { AgentPolicy } from '../policy/index';
+import { wrapCommand } from '../workspace/sandbox/wrap-command';
+import { ClaudeProvider } from './claude/claude-provider';
+import { CodexProvider } from './codex-provider';
+import type {
+  ExecutionGate,
+  Provider,
+  ProviderDescription,
+  ProviderEvent,
+  ProviderOptions,
+} from './types';
 
 export type OllamaCli = 'claude' | 'codex';
 
@@ -21,9 +19,19 @@ export interface OllamaProviderOptions extends ProviderOptions {
   readonly cli: OllamaCli;
   /** Ollama server; defaults to the local one. */
   readonly baseUrl?: string;
+  /**
+   * Tokens the model is loaded with in Ollama (`ollama ps`, CONTEXT). The
+   * CLIs would assume the model's maximum and never compact the history;
+   * with this they compact before going past it.
+   */
+  readonly contextWindow?: number;
 }
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:11434';
+/** Ollama's default context here (`ollama ps` shows 32768). */
+const DEFAULT_CONTEXT_WINDOW = 32_768;
+/** Codex compacts at this share of the window, leaving room to answer. */
+const COMPACT_AT = 0.8;
 
 /**
  * stderr lines the CLIs print only because they talk to Ollama: an unknown
@@ -43,15 +51,21 @@ const OLLAMA_NOISE = [
  */
 export class OllamaProvider implements Provider<string, string> {
   public readonly id: string;
-  public readonly applyPermissions?: (permissions: AgentPermissions) => void;
 
   private readonly inner: ClaudeProvider | CodexProvider;
-  private readonly env: string[];
-  private codexHome: string | undefined;
+  private readonly env: readonly string[];
+  private readonly cli: OllamaCli;
+  private readonly model: string;
+  private readonly contextWindow: number;
 
   public constructor(options: OllamaProviderOptions) {
     const baseUrl = readBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
     this.id = `ollama-${options.cli}`;
+    this.cli = options.cli;
+    this.model = options.model;
+    this.contextWindow = readContextWindow(
+      options.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+    );
 
     const providerOptions: ProviderOptions = {
       model: options.model,
@@ -61,33 +75,36 @@ export class OllamaProvider implements Provider<string, string> {
     };
 
     if (options.cli === 'claude') {
-      const inner = new ClaudeProvider(providerOptions);
-      this.inner = inner;
-      this.applyPermissions = (permissions) => {
-        inner.applyPermissions(permissions);
-      };
-      this.env = [...claudeEnv(baseUrl, options.model)];
+      this.inner = new ClaudeProvider(providerOptions);
+      this.env = claudeEnv(baseUrl, options.model, this.contextWindow);
     } else {
       this.inner = new CodexProvider(providerOptions);
-      this.env = [`CODEX_OSS_BASE_URL=${baseUrl}/v1`];
-      this.applyPermissions = (permissions) => {
-        this.applyCodexPermissions(permissions);
-      };
+      this.env = [
+        `CODEX_OSS_BASE_URL=${baseUrl}/v1`,
+        // Codex 0.163 tries to decode Ollama's /models response as its own
+        // catalog and logs a harmless error twice. Hide only that Rust target.
+        'RUST_LOG=error,codex_models_manager=off',
+      ];
     }
   }
 
-  public close(): void {
-    if (this.codexHome !== undefined) {
-      rmSync(this.codexHome, { recursive: true, force: true });
-      this.codexHome = undefined;
+  public describe(): ProviderDescription {
+    return { name: 'ollama', model: this.model, cli: this.cli };
+  }
+
+  /** Same policy enforcement as the CLI's own provider (execution gate). */
+  public applyPermissions(
+    permissions: AgentPolicy,
+    gate: ExecutionGate | undefined,
+  ): readonly string[] {
+    if (this.inner instanceof CodexProvider && hasWebPermissions(permissions)) {
+      throw new UsageError(
+        'O Ollama não oferece a ferramenta web_search hospedada do Codex; ' +
+          'use uma ferramenta local sujeita a permissions.execution.',
+      );
     }
 
-    for (let index = this.env.length - 1; index >= 0; index -= 1) {
-      const entry = this.env[index];
-      if (entry !== undefined && entry.startsWith('CODEX_HOME=')) {
-        this.env.splice(index, 1);
-      }
-    }
+    return this.inner.applyPermissions(permissions, gate);
   }
 
   public createCommand(input: string, sessionId?: string): ProgramCommand {
@@ -96,7 +113,9 @@ export class OllamaProvider implements Provider<string, string> {
     return wrapCommand(
       'env',
       this.env,
-      this.inner instanceof CodexProvider ? withOssFlags(command) : command,
+      this.inner instanceof CodexProvider
+        ? withOssFlags(command, this.contextWindow)
+        : command,
     );
   }
 
@@ -105,197 +124,14 @@ export class OllamaProvider implements Provider<string, string> {
   ): AsyncIterable<ProviderEvent<string>> {
     return this.inner.parseOutput(withoutOllamaNoise(output));
   }
-
-  private applyCodexPermissions(permissions: AgentPermissions): void {
-    const unsupported = delegatedCategories(permissions).find(
-      (category) => category !== 'execution',
-    );
-
-    if (unsupported !== undefined) {
-      throw new UsageError(
-        `O provider ${this.id} ainda não aplica a categoria ${unsupported}.`,
-      );
-    }
-
-    if (!delegatedCategories(permissions).includes('execution')) return;
-
-    if ((permissions.requireApproval?.execution?.length ?? 0) > 0) {
-      throw new UsageError(
-        `O provider ${this.id} não pede aprovação no modo não interativo.`,
-      );
-    }
-
-    if (permissions.default !== 'deny') {
-      throw new UsageError(
-        `permissions.execution no ${this.id} exige default deny.`,
-      );
-    }
-
-    const cache = process.env['XDG_CACHE_HOME'] ?? join(homedir(), '.cache');
-    const goiabaCache = join(cache, 'goiaba');
-    mkdirSync(goiabaCache, { recursive: true });
-    const home = mkdtempSync(join(goiabaCache, 'codex-'));
-    const rulesDir = join(home, 'rules');
-    mkdirSync(rulesDir);
-
-    try {
-      const allow = permissions.allow?.execution ?? [];
-      const deny = permissions.deny?.execution ?? [];
-      const lines = [
-        ...allow.flatMap((rule) => codexRules(rule, 'allow')),
-        ...allow.flatMap((rule) =>
-          codexRules({ commands: rule.ignores?.commands ?? [] }, 'forbidden'),
-        ),
-        ...deny.flatMap((rule) => codexRules(rule, 'forbidden')),
-      ];
-      writeFileSync(join(rulesDir, 'goiaba.rules'), `${lines.join('\n')}\n`, {
-        mode: 0o600,
-      });
-      writeCodexExecutionHook(home, permissions);
-    } catch (error) {
-      rmSync(home, { recursive: true, force: true });
-      throw error;
-    }
-
-    this.close();
-    this.codexHome = home;
-    this.env.push(`CODEX_HOME=${home}`);
-  }
 }
 
-function codexRules(
-  rule: ExecutionRule,
-  decision: 'allow' | 'forbidden',
-): string[] {
-  return rule.commands.map((command) => {
-    const pattern = codexPrefix(command);
-    return `prefix_rule(pattern=${JSON.stringify(pattern)}, decision=${JSON.stringify(decision)})`;
-  });
-}
-
-function writeCodexExecutionHook(
-  home: string,
-  permissions: AgentPermissions,
-): void {
-  const hook = join(home, 'execution-policy.mjs');
-  const policy = JSON.stringify({
-    default: permissions.default,
-    allow: permissions.allow?.execution ?? [],
-    deny: permissions.deny?.execution ?? [],
-  });
-
-  writeFileSync(
-    hook,
-    `import { readFileSync } from 'node:fs';
-const policy = ${policy};
-const input = JSON.parse(readFileSync(0, 'utf8'));
-const command = input?.tool_input?.command;
-const deny = (reason) => process.stdout.write(JSON.stringify({
-  hookSpecificOutput: {
-    hookEventName: 'PreToolUse',
-    permissionDecision: 'deny',
-    permissionDecisionReason: reason,
-  },
-}));
-if (typeof command !== 'string') {
-  deny('Comando inválido bloqueado pela política do agente.');
-  process.exit(0);
-}
-if (/[\\n\\r;&|<>\x60]/.test(command) || command.includes('$(')) {
-  deny('Comando composto ou com redirecionamento bloqueado pela política do agente.');
-  process.exit(0);
-}
-const escape = (value) => value.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&');
-const compile = (pattern) => {
-  let source = '^';
-  for (let index = 0; index < pattern.length; index += 1) {
-    const character = pattern[index];
-    if (character === '\\\\') {
-      index += 1;
-      source += escape(pattern[index] ?? '');
-    } else if (character === '?') {
-      source += '[^/]';
-    } else if (character === '*') {
-      if (pattern[index + 1] === '*') {
-        while (pattern[index + 1] === '*') index += 1;
-        source += '.*';
-      } else {
-        source += '[^/]*';
-      }
-    } else if (character === '[') {
-      const end = pattern.indexOf(']', index + 1);
-      if (end === -1) throw new Error('invalid pattern');
-      let content = pattern.slice(index + 1, end);
-      if (content.startsWith('!')) content = '^' + content.slice(1);
-      source += '[' + content.replaceAll('\\\\', '\\\\\\\\') + ']';
-      index = end;
-    } else {
-      source += escape(character);
-    }
-  }
-  return new RegExp(source + '$');
-};
-const matches = (patterns = []) => patterns.some((pattern) => compile(pattern).test(command));
-const applies = (rule) => matches(rule.commands) && !matches(rule.ignores?.commands);
-if (policy.deny.some(applies)) {
-  deny('Comando bloqueado por permissions.deny.execution.');
-} else if (policy.allow.some(applies)) {
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'allow',
-    },
-  }));
-} else {
-  deny('Comando não autorizado por permissions.allow.execution.');
-}
-`,
-    { mode: 0o700 },
+function hasWebPermissions(permissions: AgentPolicy): boolean {
+  return (
+    (permissions.allow?.web?.length ?? 0) > 0 ||
+    (permissions.deny?.web?.length ?? 0) > 0 ||
+    (permissions.requireApproval?.web?.length ?? 0) > 0
   );
-
-  writeFileSync(
-    join(home, 'hooks.json'),
-    `${JSON.stringify({
-      hooks: {
-        PreToolUse: [
-          {
-            matcher: '^Bash$',
-            hooks: [
-              {
-                type: 'command',
-                command: `${JSON.stringify(process.execPath)} ${JSON.stringify(hook)}`,
-                timeout: 5,
-              },
-            ],
-          },
-        ],
-      },
-    })}\n`,
-    { mode: 0o600 },
-  );
-}
-
-function codexPrefix(command: string): string[] {
-  const tokens = command.trim().split(/\s+/);
-  const wildcard = tokens.findIndex((token) => token === '*' || token === '**');
-
-  if (wildcard !== -1) {
-    if (wildcard !== tokens.length - 1 || wildcard === 0) {
-      throw new UsageError(
-        `O padrão de comando não tem equivalente no codex: ${command}`,
-      );
-    }
-
-    return tokens.slice(0, wildcard);
-  }
-
-  if (tokens.some((token) => /[*?[\]\\'"$;&|()<>]/.test(token))) {
-    throw new UsageError(
-      `O padrão de comando não tem equivalente no codex: ${command}`,
-    );
-  }
-
-  return tokens;
 }
 
 function readBaseUrl(value: string): string {
@@ -306,7 +142,11 @@ function readBaseUrl(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
-function claudeEnv(baseUrl: string, model: string): readonly string[] {
+function claudeEnv(
+  baseUrl: string,
+  model: string,
+  contextWindow: number,
+): readonly string[] {
   return [
     `ANTHROPIC_BASE_URL=${baseUrl}`,
     'ANTHROPIC_AUTH_TOKEN=ollama',
@@ -317,31 +157,55 @@ function claudeEnv(baseUrl: string, model: string): readonly string[] {
     `ANTHROPIC_DEFAULT_OPUS_MODEL=${model}`,
     `CLAUDE_CODE_SUBAGENT_MODEL=${model}`,
     'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1',
+    // An unknown model gets a guessed window and the history is never
+    // compacted: the real one, enforced.
+    `CLAUDE_CODE_MAX_CONTEXT_TOKENS=${String(contextWindow)}`,
+    `CLAUDE_CODE_AUTO_COMPACT_WINDOW=${String(contextWindow)}`,
   ];
 }
 
-/** `codex exec [--oss ...] ...`: OSS flags belong to `exec`, before `resume`. */
-function withOssFlags(command: ProgramCommand): ProgramCommand {
-  const [subcommand, ...rest] = command.arguments ?? [];
+/**
+ * `[env ...] codex exec [--oss ...] ...`: OSS flags belong to `exec`, before
+ * `resume`. The codex provider may prefix the command with `env CODEX_HOME=…`.
+ */
+function readContextWindow(tokens: number): number {
+  if (!Number.isInteger(tokens) || tokens <= 0) {
+    throw new UsageError(
+      `contextWindow deve ser um número inteiro de tokens: ${String(tokens)}`,
+    );
+  }
+  return tokens;
+}
 
-  if (subcommand !== 'exec') {
-    throw new Error('O comando do codex deveria começar com exec.');
+function withOssFlags(
+  command: ProgramCommand,
+  contextWindow: number,
+): ProgramCommand {
+  const args = command.arguments ?? [];
+  const exec = args.indexOf('exec');
+
+  if (exec === -1) {
+    throw new Error('O comando do codex deveria ter o subcomando exec.');
   }
 
   return {
     ...command,
     arguments: [
-      'exec',
+      ...args.slice(0, exec + 1),
       '--oss',
       '--local-provider',
       'ollama',
-      '--dangerously-bypass-hook-trust',
       // ChatGPT connectors and goals crowd out the shell tool for local models.
       '--disable',
       'apps',
       '--disable',
       'goals',
-      ...rest,
+      // Codex takes the model's maximum (258k) and never compacts otherwise.
+      '-c',
+      `model_context_window=${String(contextWindow)}`,
+      '-c',
+      `model_auto_compact_token_limit=${String(Math.floor(contextWindow * COMPACT_AT))}`,
+      ...args.slice(exec + 1),
     ],
   };
 }
@@ -357,7 +221,7 @@ async function* withoutOllamaNoise(
 
     const kept = value.chunk.split('\n').filter((line) => {
       const noise = OLLAMA_NOISE.some((pattern) => pattern.test(line));
-      if (noise) debug({ type: 'provider-noise', line });
+      if (noise) reportDebug({ type: 'provider-noise', line });
       return !noise;
     });
 

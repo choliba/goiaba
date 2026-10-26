@@ -1,12 +1,14 @@
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+
+import { environment } from '../../execute/process';
+import { join } from '../../filesystem/index';
 
 /**
  * Directories where host CLIs keep credentials, cache and policy files.
  * The sandbox filesystem is otherwise read-only.
  */
 export function hostStateDirs(
-  env: NodeJS.ProcessEnv = process.env,
+  env: NodeJS.ProcessEnv = environment(),
 ): readonly string[] {
   const home = env['HOME'] ?? homedir();
 

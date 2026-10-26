@@ -1,25 +1,34 @@
 {
   "name": "goiaba",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "arquiteto": "bun agents/arquiteto.ts",
-    "seguro": "bun agents/seguro.ts",
-    "test": "bun test test/",
+    "chat": "bun agents/chat-agente.ts",
+    "ollama:codex": "bun agents/ollama.codex.ts",
+    "ollama:claude": "bun agents/ollama.claude.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --type-aware",
-    "lint:fix": "oxlint --type-aware --fix",
+    "lint": "oxlint --type-aware src test agents scripts goiaba.config.ts",
+    "lint:fix": "oxlint --type-aware --fix src test agents scripts goiaba.config.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run typecheck && bun run lint && bun run format:check && bun run test"
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun run test",
+    "approvals": "bun src/cli/approvals.ts",
+    "issue": "bun scripts/issue.ts",
+    "clear": "bun scripts/clear.ts",
+    "test": "bun test test/"
   },
   "devDependencies": {
-    "@tsconfig/strictest": "2.0.8",
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.5",
     "oxlint": "1.89.0",
     "oxlint-tsgolint": "7.0.2005",
     "prettier": "3.9.10",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@elastic/ecs-pino-format": "^1.5.0",
+    "pino": "^10.4.0"
   }
 }

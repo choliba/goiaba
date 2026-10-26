@@ -1,16 +1,17 @@
-import { execFile, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { promisify } from 'node:util';
-import { existsSync, statSync } from 'node:fs';
 
-import type { ProgramCommand } from '../../execute/types.js';
-import { UsageError } from '../../errors.js';
-import { debug, isDebug } from '../../log/index.js';
-import { logSandbox } from './debug.js';
-import { hostStateDirs } from './host-state.js';
-import type { Sandbox } from './types.js';
-import { wrapCommand } from './wrap-command.js';
-import type { FilesystemAccess } from '../../policy/index.js';
+import { isDirectory, pathExists } from '../../filesystem/index';
+import { currentUser, environment, runProgram } from '../../execute/process';
+import type { ProgramCommand } from '../../execute/types';
+import { UsageError } from '../../errors';
+import { isDebug } from '../../logger/index';
+import { reportDebug } from '../../output/activity';
+import { logSandbox } from './debug';
+import { hostStateDirs } from './host-state';
+import { protectedMasks } from './protect';
+import type { Sandbox } from './types';
+import { wrapCommand } from './wrap-command';
+import type { FilesystemAccess } from '../../policy/index';
 
 export interface DockerSandboxOptions {
   readonly image: string;
@@ -23,7 +24,6 @@ export const DEFAULT_DOCKER_IMAGE = 'FROM oven/bun:latest';
 
 const HOST_ROOT = '/host';
 const FROM_IMAGE = /^FROM\s+(\S+)$/i;
-const execFileAsync = promisify(execFile);
 
 /**
  * Jails the host executable inside the image: the host filesystem is read-only,
@@ -36,11 +36,12 @@ export class DockerSandbox implements Sandbox {
   private readonly writable: readonly string[];
   private containerName: string | undefined;
   private filesystem: FilesystemAccess | undefined;
+  private protectedPaths: readonly string[] = [];
 
   public constructor({
     image,
     root,
-    env = process.env,
+    env = environment(),
     writable = [],
   }: DockerSandboxOptions) {
     this.image = readDockerImage(image);
@@ -53,6 +54,10 @@ export class DockerSandbox implements Sandbox {
     this.filesystem = access;
   }
 
+  public protect(paths: readonly string[]): void {
+    this.protectedPaths = [...this.protectedPaths, ...paths];
+  }
+
   public prepare(command: ProgramCommand): ProgramCommand {
     const envNames = Object.keys(this.env)
       .filter((name) => this.env[name] !== undefined)
@@ -63,12 +68,17 @@ export class DockerSandbox implements Sandbox {
       this.root,
       innerRoot,
       [...hostStateDirs(this.env), ...this.writable],
-      this.filesystem,
+      {
+        workspaceAccess: this.filesystem?.workspaceAccess ?? 'readwrite',
+        masks: [
+          ...(this.filesystem?.masks ?? []),
+          ...protectedMasks(this.protectedPaths),
+        ],
+      },
     );
     const containerName = `goiaba-${randomUUID().slice(0, 8)}`;
     this.containerName = containerName;
-    const uid = process.getuid?.();
-    const gid = process.getgid?.();
+    const { uid, gid } = currentUser();
 
     logSandbox('docker', command, {
       isolation: true,
@@ -126,21 +136,21 @@ export class DockerSandbox implements Sandbox {
       return;
     }
 
-    await execFileAsync('docker', ['rm', '--force', name], {
-      timeout: 10_000,
+    await runProgram('docker', ['rm', '--force', name], {
+      timeoutMs: 10_000,
     }).catch(() => undefined);
   }
 
-  public async started(process: ChildProcess): Promise<void> {
+  public async started(pid: number | undefined): Promise<void> {
     if (!isDebug()) {
       return;
     }
 
-    debug({
+    reportDebug({
       type: 'sandbox',
       sandbox: 'docker',
       phase: 'process',
-      pid: process.pid,
+      pid,
       container: { name: this.containerName },
     });
 
@@ -150,7 +160,7 @@ export class DockerSandbox implements Sandbox {
 
     const inspect = await inspectContainer(this.containerName);
 
-    debug({
+    reportDebug({
       type: 'sandbox',
       sandbox: 'docker',
       phase: 'inspect',
@@ -185,7 +195,7 @@ function describeMounts(
   const seen = new Set([root]);
 
   for (const path of extra) {
-    if (seen.has(path) || !existsSync(path)) {
+    if (seen.has(path) || !pathExists(path)) {
       continue;
     }
 
@@ -210,7 +220,7 @@ function describeMounts(
         destination,
         mode: 'ro',
       });
-    } else if (statSync(mask.path).isDirectory()) {
+    } else if (isDirectory(mask.path)) {
       mounts.push({ type: 'tmpfs', destination });
     } else {
       mounts.push({
@@ -248,8 +258,7 @@ function volumeArgs(mounts: readonly Mount[]): string[] {
 }
 
 function innerUserCommand(): readonly string[] {
-  const uid = process.getuid?.();
-  const gid = process.getgid?.();
+  const { uid, gid } = currentUser();
 
   if (uid === undefined || gid === undefined || uid === 0) {
     return [];
@@ -273,7 +282,7 @@ function readDockerImage(image: string): string {
     );
   }
 
-  return match[1] ?? '';
+  return match[1];
 }
 
 async function inspectContainer(
@@ -281,10 +290,8 @@ async function inspectContainer(
 ): Promise<Record<string, unknown> | undefined> {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     try {
-      const { stdout } = await execFileAsync('docker', ['inspect', name], {
-        encoding: 'utf8',
-        timeout: 1000,
-        maxBuffer: 2 * 1024 * 1024,
+      const stdout = await runProgram('docker', ['inspect', name], {
+        timeoutMs: 1000,
       });
       const parsed: unknown = JSON.parse(stdout);
 

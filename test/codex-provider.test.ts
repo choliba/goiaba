@@ -4,11 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 
-import { clearConfigCache, loadConfig } from '../src/config/index.js';
-import { closeLogger, openLogger } from '../src/log/index.js';
-import { CodexProvider } from '../src/providers/codex-provider.js';
-import type { ProgramOutput } from '../src/execute/types.js';
-import { readLogRecords } from './support/log-records.js';
+import { clearConfigCache, loadConfig } from '../src/config/index';
+import { closeLogger, openLogger } from '../src/logger/index';
+import { CodexProvider } from '../src/providers/codex-provider';
+import type { ProgramOutput } from '../src/execute/types';
 
 afterEach(() => {
   closeLogger();
@@ -28,8 +27,7 @@ describe('CodexProvider', () => {
       executable: 'codex-custom',
       arguments: [
         'exec',
-        '--sandbox',
-        'danger-full-access',
+        '--dangerously-bypass-approvals-and-sandbox',
         '--color',
         'never',
         '--skip-git-repo-check',
@@ -45,13 +43,13 @@ describe('CodexProvider', () => {
     );
   });
 
-  test('registra um comando que falhou em logDir/erros', async () => {
+  test('entrega a falha de um comando como evento de ferramenta', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 
     try {
       writeFileSync(
         join(cwd, 'goiaba.config.ts'),
-        `export default { logDir: 'logs' };\n`,
+        `export default { logger: { dir: 'logs' } };\n`,
       );
       await loadConfig({ cwd });
       openLogger();
@@ -69,7 +67,7 @@ describe('CodexProvider', () => {
           },
         })}\n`;
 
-      await collect(
+      const events = await collect(
         provider.parseOutput(
           source([
             { channel: 'stdout', chunk: item(0, 'ok') },
@@ -78,15 +76,19 @@ describe('CodexProvider', () => {
         ),
       );
 
-      expect(readLogRecords(join(cwd, 'logs', 'erros'))).toEqual([
-        expect.objectContaining({
-          level: 'error',
-          type: 'tool_error',
-          provider: 'codex',
-          command: 'npm install',
-          exitCode: 1,
-          message: 'npm ERR! EROFS',
-        }),
+      expect(events.filter((event) => event.type === 'tool')).toEqual([
+        expect.objectContaining({ phase: 'call' }),
+        expect.objectContaining({ phase: 'call' }),
+        {
+          type: 'tool',
+          phase: 'error',
+          detail: expect.objectContaining({
+            provider: 'codex',
+            command: 'npm install',
+            exitCode: 1,
+            message: 'npm ERR! EROFS',
+          }),
+        },
       ]);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
@@ -111,6 +113,106 @@ describe('CodexProvider', () => {
     ]);
   });
 
+  test('as negações do gate no stderr não chegam à saída', async () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+    const denial =
+      '2026-10-26T16:21:38Z ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: Negado: este comando aguarda a aprovação. Command: ls';
+    const output = source([
+      { channel: 'stderr', chunk: `${denial}\n` },
+      { channel: 'stderr', chunk: `${denial}\nfalha de verdade\n` },
+    ]);
+
+    expect(await collect(provider.parseOutput(output))).toEqual([
+      { type: 'output', value: 'falha de verdade\n' },
+    ]);
+  });
+
+  test('usa o último reasoning quando o modelo local não envia resposta', async () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+    const output = source([
+      { channel: 'stdout', chunk: '{"type":"turn.started"}\n' },
+      {
+        channel: 'stdout',
+        chunk:
+          '{"type":"item.completed","item":{"type":"reasoning","text":"vou usar curl"}}\n',
+      },
+      {
+        channel: 'stdout',
+        chunk:
+          '{"type":"item.completed","item":{"type":"command_execution","command":"curl https://example.com","exit_code":0}}\n',
+      },
+      {
+        channel: 'stdout',
+        chunk:
+          '{"type":"item.completed","item":{"type":"reasoning","text":"conteúdo final"}}\n',
+      },
+      { channel: 'stdout', chunk: '{"type":"turn.completed"}\n' },
+    ]);
+
+    expect(await collect(provider.parseOutput(output))).toEqual([
+      expect.objectContaining({ type: 'tool', phase: 'call' }),
+      { type: 'output', value: '✓ curl https://example.com' },
+      { type: 'output', value: 'conteúdo final' },
+    ]);
+  });
+
+  test('não repete reasoning quando existe agent_message', async () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+    const output = source([
+      { channel: 'stdout', chunk: '{"type":"turn.started"}\n' },
+      {
+        channel: 'stdout',
+        chunk:
+          '{"type":"item.completed","item":{"type":"reasoning","text":"rascunho"}}\n',
+      },
+      {
+        channel: 'stdout',
+        chunk:
+          '{"type":"item.completed","item":{"type":"agent_message","text":"resposta"}}\n',
+      },
+      { channel: 'stdout', chunk: '{"type":"turn.completed"}\n' },
+    ]);
+
+    expect(await collect(provider.parseOutput(output))).toEqual([
+      { type: 'output', value: 'resposta' },
+    ]);
+  });
+
+  test('mostra o progresso dos comandos no terminal', async () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+    const output = source([
+      {
+        channel: 'stdout',
+        chunk: `${JSON.stringify({
+          type: 'item.completed',
+          item: {
+            type: 'command_execution',
+            command: 'find src -type f',
+            exit_code: 0,
+          },
+        })}\n`,
+      },
+      {
+        channel: 'stdout',
+        chunk: `${JSON.stringify({
+          type: 'item.completed',
+          item: {
+            type: 'command_execution',
+            command: 'npm test',
+            exit_code: 1,
+          },
+        })}\n`,
+      },
+    ]);
+
+    const events = await collect(provider.parseOutput(output));
+
+    expect(events.filter((event) => event.type === 'output')).toEqual([
+      { type: 'output', value: '✓ find src -type f' },
+      { type: 'output', value: '✗ npm test' },
+    ]);
+  });
+
   test('classifica uma pergunta final como ask', async () => {
     const provider = new CodexProvider({ model: 'modelo' });
     const output = source([
@@ -132,8 +234,7 @@ describe('CodexProvider', () => {
 
     expect(command.arguments).toEqual([
       'exec',
-      '--sandbox',
-      'danger-full-access',
+      '--dangerously-bypass-approvals-and-sandbox',
       '--color',
       'never',
       'resume',
@@ -144,6 +245,87 @@ describe('CodexProvider', () => {
       'thread-123',
       '-',
     ]);
+  });
+
+  test('ativa a busca web ampla do Codex', () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+
+    expect(
+      provider.applyPermissions(
+        {
+          default: 'deny',
+          allow: { web: [{ operations: ['*'], domains: ['*'] }] },
+        },
+        undefined,
+      ),
+    ).toEqual([]);
+    const commandArguments = provider.createCommand('pesquise').arguments ?? [];
+    expect(commandArguments).toContain('-c');
+    expect(commandArguments).toContain('tools.web_search={mode="live"}');
+  });
+
+  test('traduz filtros de domínio da busca web', () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+
+    provider.applyPermissions(
+      {
+        default: 'deny',
+        allow: {
+          web: [
+            {
+              operations: ['*'],
+              domains: ['*'],
+              ignores: { domains: ['google.com', '*.google.com'] },
+            },
+          ],
+        },
+        deny: { web: [{ operations: ['*'], domains: ['example.com'] }] },
+      },
+      undefined,
+    );
+
+    expect(provider.createCommand('pesquise').arguments).toContain(
+      'tools.web_search={mode="live",blocked_domains=["google.com","example.com"]}',
+    );
+  });
+
+  test('traduz allow de domínios específicos da busca web', () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+
+    provider.applyPermissions(
+      {
+        default: 'deny',
+        allow: {
+          web: [
+            {
+              operations: ['*'],
+              domains: ['openai.com', '*.anthropic.com'],
+            },
+          ],
+        },
+      },
+      undefined,
+    );
+
+    expect(provider.createCommand('pesquise').arguments).toContain(
+      'tools.web_search={mode="live",allowed_domains=["openai.com","anthropic.com"]}',
+    );
+  });
+
+  test('recusa política web que o Codex não representa', () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+
+    expect(() =>
+      provider.applyPermissions(
+        {
+          default: 'deny',
+          requireApproval: {
+            web: [{ operations: ['*'], domains: ['openai.com'] }],
+          },
+        },
+        undefined,
+      ),
+    ).toThrow('sem requireApproval');
   });
 
   test('publica o identificador da sessão do Codex', async () => {

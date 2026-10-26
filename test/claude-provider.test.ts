@@ -4,11 +4,11 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import { clearConfigCache, loadConfig } from '../src/config/index.js';
-import { closeLogger, openLogger } from '../src/log/index.js';
-import type { ProgramOutput } from '../src/execute/types.js';
-import { ClaudeProvider } from '../src/providers/claude-provider.js';
-import { readLogRecords } from './support/log-records.js';
+import { clearConfigCache, loadConfig } from '../src/config/index';
+import { closeLogger, openLogger } from '../src/logger/index';
+import type { ProgramOutput } from '../src/execute/types';
+import type { AgentPolicy } from '../src/policy/index';
+import { ClaudeProvider } from '../src/providers/claude/claude-provider';
 
 beforeEach(() => {
   clearConfigCache();
@@ -18,6 +18,14 @@ afterEach(() => {
   closeLogger();
   clearConfigCache();
 });
+
+function apply(permissions: AgentPolicy): () => readonly string[] {
+  return () =>
+    new ClaudeProvider({ model: 'modelo' }).applyPermissions(
+      permissions,
+      undefined,
+    );
+}
 
 describe('ClaudeProvider', () => {
   test('descreve o comando sem executá-lo', () => {
@@ -61,26 +69,22 @@ describe('ClaudeProvider', () => {
     ]);
   });
 
-  test('traduz permissions.execution para settings do claude', () => {
+  test('com execution liga o hook do gate e roda em dontAsk', () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
-    provider.applyPermissions({
-      default: 'deny',
-      allow: {
-        filesystem: [
-          { operations: ['read', 'write'], paths: ['/workspace/**'] },
-        ],
-        execution: [
-          {
-            commands: ['bun *', 'git status'],
-            ignores: { commands: ['bun publish**'] },
-          },
-        ],
+    const protectedFiles = provider.applyPermissions(
+      {
+        default: 'deny',
+        allow: { execution: [{ commands: ['bun *'] }] },
       },
-      deny: { execution: [{ commands: ['sudo *'] }] },
-    });
+      {
+        hookCommand: ['/bin/bun', "/gate/hook's", '/gate/s.sock'],
+        root: '/w',
+      },
+    );
 
     const args = provider.createCommand('pergunta').arguments ?? [];
 
+    expect(protectedFiles).toEqual([]);
     expect(args.slice(6, 10)).toEqual([
       '--permission-mode',
       'dontAsk',
@@ -89,29 +93,38 @@ describe('ClaudeProvider', () => {
     ]);
     expect(JSON.parse(args[args.indexOf('--settings') + 1] ?? '')).toEqual({
       permissions: {
-        allow: [
-          'Read',
-          'Edit',
-          'Write',
-          'Glob',
-          'Grep',
-          'NotebookEdit',
-          'Bash(bun *)',
-          'Bash(git status)',
+        allow: ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'NotebookEdit'],
+        deny: [],
+      },
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: 'Bash',
+            hooks: [
+              {
+                type: 'command',
+                command: `'/bin/bun' '/gate/hook'\\''s' '/gate/s.sock'`,
+                timeout: 3600,
+                onFailure: 'block',
+              },
+            ],
+          },
         ],
-        deny: ['Bash(bun publish*)', 'Bash(sudo *)'],
       },
     });
   });
 
   test('sem execution não altera o comando', () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
-    provider.applyPermissions({
-      default: 'deny',
-      allow: {
-        filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+    provider.applyPermissions(
+      {
+        default: 'deny',
+        allow: {
+          filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+        },
       },
-    });
+      undefined,
+    );
 
     expect(provider.createCommand('pergunta').arguments).not.toContain(
       '--settings',
@@ -121,37 +134,161 @@ describe('ClaudeProvider', () => {
     );
   });
 
-  test('recusa o que não tem tradução exata', () => {
-    const execution = { commands: ['bun *'] };
+  test('recusa categoria que não aplica', () => {
+    expect(() =>
+      new ClaudeProvider({ model: 'modelo' }).applyPermissions(
+        {
+          default: 'deny',
+          allow: {
+            communication: [{ operations: ['send_email'], channels: ['*'] }],
+          },
+        },
+        undefined,
+      ),
+    ).toThrow('categoria communication');
+  });
 
+  test('traduz web em regras de WebFetch e WebSearch', () => {
+    const provider = new ClaudeProvider({ model: 'modelo' });
+    provider.applyPermissions(
+      {
+        default: 'deny',
+        allow: {
+          web: [
+            { operations: ['*'], domains: ['*'] },
+            { operations: ['read_text', 'search'], domains: ['bun.sh'] },
+          ],
+        },
+        deny: { web: [{ operations: ['*'], domains: ['evil.com'] }] },
+      },
+      undefined,
+    );
+
+    const args = provider.createCommand('pergunta').arguments ?? [];
+
+    expect(args).toContain('dontAsk');
+    expect(JSON.parse(args[args.indexOf('--settings') + 1] ?? '')).toEqual({
+      permissions: {
+        allow: [
+          'Read',
+          'Edit',
+          'Write',
+          'Glob',
+          'Grep',
+          'NotebookEdit',
+          'Bash',
+          'WebFetch',
+          'WebSearch',
+          'WebFetch(domain:bun.sh)',
+        ],
+        deny: ['WebFetch(domain:evil.com)', 'WebSearch'],
+      },
+    });
+  });
+
+  test('ignores de web viram negações, sem WebSearch', () => {
+    const provider = new ClaudeProvider({ model: 'modelo' });
+    provider.applyPermissions(
+      {
+        default: 'deny',
+        allow: {
+          web: [
+            {
+              operations: ['*'],
+              domains: ['*'],
+              ignores: { domains: ['google.com'] },
+            },
+          ],
+        },
+      },
+      undefined,
+    );
+
+    const args = provider.createCommand('pergunta').arguments ?? [];
+    const settings: unknown = JSON.parse(
+      args[args.indexOf('--settings') + 1] ?? '',
+    );
+
+    expect(settings).toMatchObject({
+      permissions: {
+        allow: expect.arrayContaining(['WebFetch']),
+        deny: ['WebFetch(domain:google.com)'],
+      },
+    });
+    // A search cannot leave google.com out, so it is not allowed.
+    expect(JSON.stringify(settings)).not.toContain('WebSearch');
+  });
+
+  test('*.dominio vira a mesma regra de subdomínios no Claude', () => {
+    const provider = new ClaudeProvider({ model: 'modelo' });
+    provider.applyPermissions(
+      {
+        default: 'deny',
+        allow: {
+          web: [
+            {
+              operations: ['read_text'],
+              domains: ['*'],
+              ignores: { domains: ['google.com', '*.google.com'] },
+            },
+          ],
+        },
+      },
+      undefined,
+    );
+
+    const args = provider.createCommand('pergunta').arguments ?? [];
+    expect(
+      JSON.parse(args[args.indexOf('--settings') + 1] ?? ''),
+    ).toMatchObject({
+      permissions: {
+        deny: ['WebFetch(domain:google.com)', 'WebFetch(domain:*.google.com)'],
+      },
+    });
+  });
+
+  test('recusa em web o que o Claude não aplica exatamente', () => {
     expect(
       apply({
         default: 'deny',
-        allow: { web: [{ operations: ['search'], domains: ['*'] }] },
+        allow: { web: [{ operations: ['*'], domains: ['bun.*'] }] },
       }),
-    ).toThrow('categoria web');
+    ).toThrow('domínios exatos, "*.dominio" ou "*"');
     expect(
       apply({
         default: 'deny',
-        requireApproval: { execution: [execution] },
+        allow: {
+          web: [
+            {
+              operations: ['*'],
+              domains: ['*'],
+              ignores: { domains: ['evil.com'] },
+            },
+            { operations: ['read_text'], domains: ['evil.com'] },
+          ],
+        },
       }),
-    ).toThrow('aprovação');
-    expect(
-      apply({
-        default: 'deny',
-        allow: { execution: [{ commands: ['bun [a-z]*'] }] },
-      }),
-    ).toThrow('não tem equivalente');
+    ).toThrow('outra regra web o libera');
     expect(
       apply({
         default: 'deny',
         deny: {
-          execution: [
-            { commands: ['rm *'], ignores: { commands: ['rm tmp'] } },
+          web: [
+            {
+              operations: ['*'],
+              domains: ['*'],
+              ignores: { domains: ['bun.sh'] },
+            },
           ],
         },
       }),
-    ).toThrow('ignores');
+    ).toThrow('ignores em deny.web');
+    expect(
+      apply({
+        default: 'deny',
+        requireApproval: { web: [{ operations: ['*'], domains: ['*'] }] },
+      }),
+    ).toThrow('requireApproval em web');
   });
 
   test('interpreta mensagens JSON fragmentadas do Claude', async () => {
@@ -212,19 +349,19 @@ describe('ClaudeProvider', () => {
     ]);
   });
 
-  test('registra o erro de uma ferramenta em logDir/erros, mesmo sem debug', async () => {
+  test('entrega a chamada e o erro de uma ferramenta como eventos', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 
     try {
       writeFileSync(
         join(cwd, 'goiaba.config.ts'),
-        `export default { logDir: 'logs', debug: false };\n`,
+        `export default { logger: { dir: 'logs' }, debug: false };\n`,
       );
       await loadConfig({ cwd });
       openLogger();
 
       const provider = new ClaudeProvider({ model: 'modelo' });
-      await collect(
+      const events = await collect(
         provider.parseOutput(
           source([
             {
@@ -261,41 +398,47 @@ describe('ClaudeProvider', () => {
         ),
       );
 
-      const error = {
-        level: 'error',
-        type: 'tool_error',
-        provider: 'claude',
-        call_id: 'tool-1',
-        tool: 'Bash',
-        args: { command: 'npm create vite@latest' },
-        message: 'EROFS: read-only file system',
-      };
-
-      // debug: false drops the tool_use record but keeps the error.
-      expect(readLogRecords(join(cwd, 'logs'))).toEqual([
-        expect.objectContaining(error),
-      ]);
-      expect(readLogRecords(join(cwd, 'logs', 'erros'))).toEqual([
-        expect.objectContaining(error),
+      // The agent logs them (tool_error at level error, even without debug).
+      expect(events).toEqual([
+        {
+          type: 'tool',
+          phase: 'call',
+          detail: {
+            call_id: 'tool-1',
+            tool: 'Bash',
+            args: { command: 'npm create vite@latest' },
+          },
+        },
+        {
+          type: 'tool',
+          phase: 'error',
+          detail: {
+            provider: 'claude',
+            call_id: 'tool-1',
+            tool: 'Bash',
+            args: { command: 'npm create vite@latest' },
+            message: 'EROFS: read-only file system',
+          },
+        },
       ]);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
   });
 
-  test('debug registra tool_use sem o conteúdo dos arquivos', async () => {
+  test('entrega tool_use sem o conteúdo dos arquivos', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 
     try {
       writeFileSync(
         join(cwd, 'goiaba.config.ts'),
-        `export default { logDir: 'logs', debug: true };\n`,
+        `export default { logger: { dir: 'logs' }, debug: true };\n`,
       );
       await loadConfig({ cwd });
       openLogger();
 
       const provider = new ClaudeProvider({ model: 'modelo' });
-      await collect(
+      const events = await collect(
         provider.parseOutput(
           source([
             {
@@ -321,31 +464,23 @@ describe('ClaudeProvider', () => {
         ),
       );
 
-      const records = readLogRecords(join(cwd, 'logs'));
-
-      expect(records).toEqual([
-        expect.objectContaining({
-          level: 'debug',
+      expect(events).toEqual([
+        {
           type: 'tool',
-          call_id: 'tool-1',
-          tool: 'Write',
-          args: { file_path: '/tmp/a.txt', content: { bytes: 14 } },
-        }),
+          phase: 'call',
+          detail: {
+            call_id: 'tool-1',
+            tool: 'Write',
+            args: { file_path: '/tmp/a.txt', content: { bytes: 14 } },
+          },
+        },
       ]);
-      expect(JSON.stringify(records)).not.toContain('secret-content');
+      expect(JSON.stringify(events)).not.toContain('secret-content');
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
   });
 });
-
-function apply(
-  permissions: Parameters<ClaudeProvider['applyPermissions']>[0],
-): () => void {
-  return () => {
-    new ClaudeProvider({ model: 'modelo' }).applyPermissions(permissions);
-  };
-}
 
 async function* source(
   values: readonly ProgramOutput[],

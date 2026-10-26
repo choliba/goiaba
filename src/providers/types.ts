@@ -1,5 +1,5 @@
-import type { ProgramCommand, ProgramOutput } from '../execute/types.js';
-import type { AgentPermissions } from '../policy/types.js';
+import type { ProgramCommand, ProgramOutput } from '../execute/types';
+import type { AgentPolicy } from '../policy/policy.interface';
 
 export type AgentEvent<TOutput> =
   | {
@@ -16,7 +16,19 @@ export type ProviderEvent<TOutput> =
   | {
       readonly type: 'session';
       readonly id: string;
-    };
+    }
+  | ToolEvent;
+
+/**
+ * A tool the CLI used: its call, its result or its failure, with what the
+ * CLI reported about it (tool, args, command, exit code…). The agent logs it
+ * and hands it to its subscribers.
+ */
+export interface ToolEvent {
+  readonly type: 'tool';
+  readonly phase: 'call' | 'result' | 'error';
+  readonly detail: Readonly<Record<string, unknown>>;
+}
 
 /**
  * Every provider takes the same options: an agent is configured the same way
@@ -28,16 +40,40 @@ export interface ProviderOptions {
   readonly executable?: string;
 }
 
+/**
+ * Where execution decisions are made. The provider wires its CLI's PreToolUse
+ * hook to `hookCommand`; the hook asks Goiaba's policy engine, so every CLI
+ * enforces the same `permissions.execution`.
+ */
+export interface ExecutionGate {
+  /** argv of the hook, runnable inside the sandbox. */
+  readonly hookCommand: readonly string[];
+  /** Workspace root, for CLI state kept per workspace. */
+  readonly root: string;
+}
+
+/** Which provider, model and CLI an agent runs on; every record of it says so. */
+export interface ProviderDescription {
+  readonly name: string;
+  readonly model: string;
+  /** The CLI it drives, when the provider can drive more than one. */
+  readonly cli?: string;
+}
+
 export interface Provider<TInput, TOutput> {
   readonly id: string;
+  describe?(): ProviderDescription;
   /**
-   * Translates the categories the sandbox cannot enforce (web, execution,
-   * communication) into the CLI's own permission mechanism. Must throw a
-   * UsageError for anything it cannot apply exactly. Providers without it
-   * refuse those categories.
+   * Applies the categories the sandbox cannot enforce (web, execution,
+   * communication) through the CLI. `gate` is given when there are execution
+   * rules. Returns CLI files that must stay read-only in the sandbox (e.g. its
+   * hook config). Must throw a UsageError for anything it cannot apply
+   * exactly; providers without it refuse those categories.
    */
-  applyPermissions?(permissions: AgentPermissions): void;
-  close?(): void | Promise<void>;
+  applyPermissions?(
+    permissions: AgentPolicy,
+    gate: ExecutionGate | undefined,
+  ): readonly string[];
   createCommand(
     input: TInput,
     sessionId?: string,

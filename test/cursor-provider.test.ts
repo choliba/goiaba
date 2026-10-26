@@ -4,11 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import { clearConfigCache, loadConfig } from '../src/config/index.js';
-import { closeLogger, openLogger } from '../src/log/index.js';
-import type { ProgramOutput } from '../src/execute/types.js';
-import { CursorProvider } from '../src/providers/cursor-provider.js';
-import { readLogRecords } from './support/log-records.js';
+import { clearConfigCache, loadConfig } from '../src/config/index';
+import { closeLogger, openLogger } from '../src/logger/index';
+import type { ProgramOutput } from '../src/execute/types';
+import { CursorProvider } from '../src/providers/cursor-provider';
 
 beforeEach(() => {
   clearConfigCache();
@@ -130,19 +129,19 @@ describe('CursorProvider', () => {
     ]);
   });
 
-  test('debug registra tool calls de shell sem stdout', async () => {
+  test('entrega tool calls de shell sem stdout', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 
     try {
       writeFileSync(
         join(cwd, 'goiaba.config.ts'),
-        `export default { logDir: 'logs', debug: true };\n`,
+        `export default { logger: { dir: 'logs' }, debug: true };\n`,
       );
       await loadConfig({ cwd });
       openLogger();
 
       const provider = new CursorProvider({ model: 'modelo' });
-      await collect(
+      const events = await collect(
         provider.parseOutput(
           source([
             {
@@ -172,22 +171,22 @@ describe('CursorProvider', () => {
         ),
       );
 
-      const records = readLogRecords(join(cwd, 'logs'));
-
-      expect(records).toEqual([
-        expect.objectContaining({
-          level: 'debug',
+      expect(events).toEqual([
+        {
           type: 'tool',
-          subtype: 'completed',
-          call_id: 'tool-1',
-          tool: 'shell',
-          args: {
-            command: 'ping -c 1 google.com',
-            workingDirectory: cwd,
-          },
-        }),
+          phase: 'call',
+          detail: expect.objectContaining({
+            subtype: 'completed',
+            call_id: 'tool-1',
+            tool: 'shell',
+            args: {
+              command: 'ping -c 1 google.com',
+              workingDirectory: cwd,
+            },
+          }),
+        },
       ]);
-      expect(JSON.stringify(records)).not.toContain('secret-output');
+      expect(JSON.stringify(events)).not.toContain('secret-output');
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }

@@ -1,7 +1,5 @@
-import type { ChildProcess } from 'node:child_process';
-
-import type { ProgramCommand } from '../../execute/types.js';
-import type { FilesystemAccess } from '../../policy/index.js';
+import type { ProgramCommand } from '../../execute/types';
+import type { FilesystemAccess } from '../../policy/index';
 
 /**
  * Defines how a program command is placed inside an execution boundary.
@@ -9,7 +7,14 @@ import type { FilesystemAccess } from '../../policy/index.js';
  */
 export interface Sandbox {
   configureFilesystem(access: FilesystemAccess): void;
+  /**
+   * Mounts paths outside the workspace read-only on top of the writable ones
+   * (e.g. the execution gate's hook inside `~/.cache`), so the agent cannot
+   * rewrite what enforces its own policy.
+   */
+  protect(paths: readonly string[]): void;
   prepare(command: ProgramCommand): ProgramCommand | Promise<ProgramCommand>;
-  started?(process: ChildProcess): void | Promise<void>;
+  /** The agent's CLI started inside the sandbox (for debug logging). */
+  started?(pid: number | undefined): void | Promise<void>;
   close?(): void | Promise<void>;
 }

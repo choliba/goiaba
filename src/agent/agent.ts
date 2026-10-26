@@ -1,29 +1,80 @@
-import type { AgentAsk, AgentOptions, AgentProvider } from './types.js';
-import { Executor, ProgramExecutionError } from '../execute/index.js';
+import { randomUUID } from 'node:crypto';
+
+import type {
+  AgentAsk,
+  AgentOptions,
+  AgentProvider,
+  AgentStatus,
+  AgentSubscriber,
+} from './types';
+import { ApprovalBroker } from '../approval/broker';
+import type { CommandApprover } from '../approval/gate';
+import { humanApprover } from '../approval/human';
+import { ApprovalReview } from '../approval/review';
+import { WorkspaceLock } from './lock';
+import { AgentOutput } from './output';
+import { getConfig, isConfigLoaded } from '../config/index';
+import { Executor, ProgramExecutionError } from '../execute/index';
 import {
   closeLogger,
-  getLogger,
+  isDebug,
   isLoggerOpen,
-  logFailure,
   openLogger,
-} from '../log/index.js';
-import type { AgentEvent } from '../providers/types.js';
-import { delegatedCategories, type AgentPermissions } from '../policy/index.js';
-import { UsageError } from '../errors.js';
-import { StandardOutput, type OutputAdapter } from '../output/index.js';
-import { scriptSignal } from '../usage.js';
-import type { Workspace } from '../workspace/index.js';
+} from '../logger/index';
+import {
+  asAgent,
+  currentRun,
+  type AgentScope,
+  onActivity,
+  report,
+  reportDebug,
+  reportError,
+  reportFailure,
+} from '../output/activity';
+import type { AgentEvent, ExecutionGate, ToolEvent } from '../providers/types';
+import { Store, type StoredApproval } from '../store/index';
+import {
+  delegatedCategories,
+  type AgentPolicy,
+  type PolicyCategory,
+} from '../policy/index';
+import { UsageError } from '../errors';
+import { StandardOutput, type OutputAdapter } from '../output/index';
+import { scriptSignal } from '../usage';
+import type { Workspace } from '../workspace/index';
+import { currentProcessCommand, environment } from '../execute/process';
 
 export class Agent {
+  /** Identifies the agent in its activity, logs and sessions. */
+  public readonly name: string;
   public readonly prompt: string;
 
-  private readonly provider: AgentProvider;
+  public readonly provider: AgentProvider;
   private readonly executor: Executor;
-  private readonly workspace: Workspace;
+  public readonly workspace: Workspace;
   private readonly output: OutputAdapter;
   private readonly signal: AbortSignal | undefined;
+  private readonly store: Store | undefined;
+  private readonly broker: ApprovalBroker | undefined;
+  /** One running agent per workspace, across programs. */
+  private readonly lock: WorkspaceLock;
+  /** A session to continue on the next run (resume(), GOIABA_RESUME_SESSION). */
+  private forced: string | undefined;
+  private readonly conversation: boolean;
+  private readonly permissions: AgentPolicy | undefined;
+  private readonly subscribers: readonly AgentSubscriber[];
+  /** What the agent said while the approvals screen was open; shown after. */
+  private held: string[] | undefined;
+  private state: AgentStatus = 'idle';
+  /** The run in progress; `run()` while running returns it. */
+  private current: Promise<void> | undefined;
+  /** Stops the run in progress (pause, stop). */
+  private controller: AbortController | undefined;
+  /** Pausing: the run ends but the sandbox and the gate stay open. */
+  private keepOpen = false;
 
   public constructor({
+    name,
     prompt,
     provider,
     workspace,
@@ -32,7 +83,15 @@ export class Agent {
     interaction = new StandardOutput(),
     permissions,
     signal = scriptSignal(),
+    approve,
+    store,
+    conversation = false,
+    subscribe = [],
   }: AgentOptions) {
+    if (name.trim().length === 0) {
+      throw new Error('O nome do agente não pode estar vazio.');
+    }
+
     if (prompt.trim().length === 0) {
       throw new Error('O prompt do agente não pode estar vazio.');
     }
@@ -42,30 +101,207 @@ export class Agent {
     }
 
     this.prompt = prompt;
+    this.name = name;
     this.provider = provider;
     this.workspace = workspace;
+    this.lock = new WorkspaceLock(workspace.root, name);
     this.executor =
       executor ?? new Executor(output === undefined ? {} : { output });
     this.output = interaction;
     this.signal = signal;
-    if (permissions !== undefined) {
-      workspace.applyPermissions(permissions);
-      applyProviderPermissions(provider, permissions);
+    this.conversation = conversation;
+    this.permissions = permissions;
+    this.subscribers = subscribe;
+    // Forces one session (e.g. relaunched by `approvals`); otherwise the store
+    // decides whether to continue (see `resumableSession`).
+    this.forced = forcedSession();
+    this.store = store ?? defaultStore();
+    this.broker =
+      permissions === undefined
+        ? undefined
+        : enforcePermissions({
+            permissions,
+            provider,
+            workspace,
+            approve: approve ?? humanApprover(interaction, signal),
+            store: this.store,
+          });
+  }
+
+  /** idle, running, paused, stopped or destroyed. */
+  public status(): AgentStatus {
+    return this.state;
+  }
+
+  /**
+   * Starts the conversation; while it runs, returns the run in progress. An
+   * interrupted task of the same prompt is continued automatically.
+   */
+  public run(): Promise<void> {
+    this.assertUsable();
+    return this.current ?? this.start();
+  }
+
+  /**
+   * Interrupts the current turn and keeps the sandbox and the gate open;
+   * `resume()` continues it.
+   */
+  public async pause(): Promise<void> {
+    if (this.current === undefined) return;
+
+    this.keepOpen = true;
+    this.state = 'paused';
+    await this.interrupt();
+  }
+
+  /**
+   * Continues the agent's last unfinished session (after `pause()`, `stop()`
+   * or an interrupted run), whatever its prompt; starts one if there is none.
+   */
+  public resume(): Promise<void> {
+    this.assertUsable();
+    if (this.current !== undefined) return this.current;
+
+    this.forced =
+      this.store?.openSession(this.provider.id, this.workspace.root) ??
+      undefined;
+    return this.start();
+  }
+
+  /** Ends the run and closes the sandbox and the gate; the session stays open. */
+  public async stop(): Promise<void> {
+    if (this.current !== undefined) {
+      this.state = 'stopped';
+      await this.interrupt();
+      return;
+    }
+
+    if (this.state === 'paused') {
+      await this.closeResources();
+      this.state = 'stopped';
     }
   }
 
-  public async run(): Promise<void> {
+  /** Stops and drops the open sessions: the next run starts from scratch. */
+  public async reset(): Promise<void> {
+    this.assertUsable();
+    await this.stop();
+    this.store?.abandonOtherSessions(this.provider.id, this.workspace.root, '');
+    this.forced = undefined;
+    this.state = 'idle';
+  }
+
+  /** Stops and releases everything; the agent cannot be used again. */
+  public async destroy(): Promise<void> {
+    if (this.state === 'destroyed') return;
+
+    await this.stop();
+    this.store?.close();
+    this.state = 'destroyed';
+  }
+
+  private start(): Promise<void> {
+    this.controller = new AbortController();
+    this.state = 'running';
+    // Deferred so `current` is set before the first report: a subscriber
+    // calling `run()` gets this run instead of starting another.
+    const run = Promise.resolve()
+      .then(() => asAgent(this.scope(), () => this.runConversation()))
+      .finally(() => {
+        this.current = undefined;
+        this.controller = undefined;
+        if (this.state === 'running') this.state = 'idle';
+      });
+    this.current = run;
+    return run;
+  }
+
+  private async interrupt(): Promise<void> {
+    const run = this.current;
+    this.controller?.abort();
     try {
-      for await (const event of this.interact(this.prompt, (question) =>
-        this.output.ask(question, this.signal),
-      )) {
+      await run;
+    } catch {
+      // The run reports its own failure.
+    } finally {
+      this.keepOpen = false;
+    }
+  }
+
+  /** Who reports: this agent and the provider, model and CLI it runs on. */
+  private scope(): AgentScope {
+    const provider = this.provider.describe?.();
+    return provider === undefined
+      ? { name: this.name }
+      : { name: this.name, provider };
+  }
+
+  /** The whole configuration this agent runs with; secrets are masked by the log. */
+  private configuration(): Record<string, unknown> {
+    const config = isConfigLoaded() ? getConfig() : undefined;
+
+    return {
+      name: this.name,
+      prompt: this.prompt,
+      provider: this.provider.describe?.() ?? { name: this.provider.id },
+      workspace: this.workspace.options,
+      permissions: this.permissions ?? null,
+      gate: this.broker !== undefined,
+      conversation: this.conversation,
+      subscribers: this.subscribers.length,
+      goiaba:
+        config === undefined
+          ? null
+          : {
+              configPath: config.configPath ?? null,
+              debug: config.debug,
+              logger: {
+                dir: config.logger.dir,
+                use: config.logger.use !== undefined,
+              },
+              databasePath: config.databasePath,
+              env: config.env?.vars ?? {},
+            },
+    };
+  }
+
+  private assertUsable(): void {
+    if (this.state === 'destroyed') {
+      throw new UsageError(`O agente ${this.name} foi destruído.`);
+    }
+  }
+
+  /** The external signal (Ctrl+C) or this run's own (pause, stop). */
+  private runSignal(): AbortSignal | undefined {
+    return anySignal(this.signal, this.controller?.signal);
+  }
+
+  private takeForcedSession(): string | undefined {
+    const session = this.forced;
+    this.forced = undefined;
+    return session;
+  }
+
+  private async closeResources(): Promise<void> {
+    await this.broker?.close();
+    await this.workspace.close();
+    this.lock.release();
+  }
+
+  private async runConversation(): Promise<void> {
+    try {
+      const answer: AgentAsk = (question, signal) =>
+        this.output.ask(question, anySignal(this.runSignal(), signal));
+      const listen = this.output.listen?.bind(this.output);
+
+      for await (const event of this.interact(this.prompt, answer, listen)) {
         if (event.type === 'output') {
-          this.output.write(event.value);
+          this.say(event.value);
         }
       }
     } catch (error) {
       if (isAbortError(error)) {
-        this.output.write('\n');
+        this.show('\n');
         return;
       }
 
@@ -73,7 +309,7 @@ export class Agent {
         error instanceof UsageError ||
         error instanceof ProgramExecutionError
       ) {
-        this.output.write(error.message);
+        this.show(error.message);
         return;
       }
 
@@ -81,51 +317,151 @@ export class Agent {
     }
   }
 
+  /**
+   * The conversation, run as this agent: everything reported on the way
+   * (commands, sandbox, tools, decisions…) carries `agent: name`.
+   */
   public async *interact(
     input: string,
     answer: AgentAsk,
+    listen?: (signal?: AbortSignal) => Promise<string>,
+  ): AsyncIterable<AgentEvent<string>> {
+    const turns = this.converse(input, answer, listen)[Symbol.asyncIterator]();
+    // One run for the whole conversation, also when called outside `run()`.
+    const run = currentRun(this.name) ?? randomUUID();
+
+    for (;;) {
+      const next = await asAgent(this.scope(), () => turns.next(), run);
+      if (next.done === true) return;
+      yield next.value;
+    }
+  }
+
+  private async *converse(
+    input: string,
+    answer: AgentAsk,
+    listen?: (signal?: AbortSignal) => Promise<string>,
   ): AsyncIterable<AgentEvent<string>> {
     // runScript owns the log of the whole script; outside it, the agent does.
     const ownsLogger = !isLoggerOpen();
-    const logger = ownsLogger ? openLogger() : getLogger();
-    logger.log({ type: 'input', value: input });
+    if (ownsLogger) openLogger();
+    // The subscribers hear everything this agent reports, not other agents'.
+    const stopSubscribers = onActivity((activity) => {
+      if (activity.agent !== this.name) return;
+      const output = new AgentOutput(activity, this);
+      for (const subscriber of this.subscribers) subscriber(output);
+    });
+    // With debug, everything this run uses, so the log says how it ran.
+    if (isDebug()) {
+      reportDebug({ type: 'agent_config', config: this.configuration() });
+    }
+    report({ type: 'input', value: input });
 
     let nextInput = input;
     let sessionId: string | undefined;
 
     try {
+      // Before the sandbox and the gate: another run here would only wait.
+      this.lock.acquire();
+      await this.broker?.start();
+      sessionId = this.resumedSession(input);
+
+      if (sessionId !== undefined) {
+        this.broker?.setSession(sessionId);
+        // The task is already in the session's history: only what changed.
+        nextInput = this.continuation(sessionId);
+        report({ type: 'resume', session: sessionId, input: nextInput });
+      }
+
       while (true) {
         let pendingAnswer: Promise<string> | undefined;
+        const question = new AbortController();
+        const typed = listenInput(
+          listen,
+          anySignal(this.runSignal(), question.signal),
+          (value) => this.dispatchLiveInput(value, sessionId),
+        );
 
-        for await (const event of this.executor.run(
-          this.provider,
-          this.workspace,
-          nextInput,
-          sessionId,
-          this.signal,
-        )) {
-          if (event.type === 'session') {
-            sessionId = event.id;
-            logger.log({ type: 'session', id: event.id });
-            continue;
+        // The loop runs while the CLI does (it ends when the process exits):
+        // a long silence meanwhile gets a line saying it is still at work.
+        const silence = watchSilence(() => {
+          if (this.held === undefined) this.show(BACKGROUND_MESSAGE);
+        });
+
+        try {
+          for await (const event of this.executor.run(
+            this.provider,
+            this.workspace,
+            nextInput,
+            sessionId,
+            this.runSignal(),
+          )) {
+            if (event.type === 'session') {
+              // A brand-new session replaces the open ones it cannot resume.
+              if (sessionId === undefined) {
+                this.store?.abandonOtherSessions(
+                  this.provider.id,
+                  this.workspace.root,
+                  event.id,
+                );
+              }
+              sessionId = event.id;
+              this.broker?.setSession(event.id);
+              this.store?.recordSession({
+                id: event.id,
+                provider: this.provider.id,
+                root: this.workspace.root,
+                prompt: input,
+                agent: this.name,
+                command: currentProcessCommand(),
+              });
+              report({ type: 'session', id: event.id });
+              continue;
+            }
+
+            if (event.type === 'tool') {
+              // Reaches the subscribers and the log, not the conversation.
+              logTool(event);
+              continue;
+            }
+            report({ ...event });
+            silence.touch();
+
+            if (event.type === 'ask') {
+              yield { type: 'output', value: event.question };
+            }
+
+            yield event;
+
+            if (event.type === 'ask' && pendingAnswer === undefined) {
+              pendingAnswer =
+                typed?.promise ?? answer(event.question, question.signal);
+              // Keep the rejection handled until this turn finishes and awaits it.
+              void pendingAnswer.catch(() => undefined);
+            }
           }
-
-          logger.log({ ...event });
-
-          if (event.type === 'ask') {
-            yield { type: 'output', value: event.question };
-          }
-
-          yield event;
-
-          if (event.type === 'ask' && pendingAnswer === undefined) {
-            pendingAnswer = Promise.resolve(answer(event.question));
-            // Keep the rejection handled until this turn finishes and awaits it.
-            void pendingAnswer.catch(() => undefined);
-          }
+        } finally {
+          silence.stop();
         }
 
-        if (pendingAnswer === undefined) {
+        const waiting =
+          sessionId === undefined ? 0 : this.pendingDenials(sessionId);
+
+        pendingAnswer ??= typed?.submitted();
+
+        // A conversation never ends on its own: wait for the next message.
+        if (pendingAnswer === undefined && this.conversation) {
+          pendingAnswer = typed?.promise ?? answer('', question.signal);
+        }
+
+        if (pendingAnswer === undefined && waiting > 0) {
+          pendingAnswer = typed?.promise;
+        }
+
+        if (pendingAnswer === undefined && waiting === 0) {
+          typed?.cancel();
+          // Ended on its own (not interrupted): the next run starts over.
+          if (sessionId !== undefined) this.store?.finishSession(sessionId);
           return;
         }
 
@@ -133,21 +469,338 @@ export class Agent {
           throw new Error('O provider não informou o identificador da sessão.');
         }
 
-        nextInput = await abortable(pendingAnswer, this.signal);
-        logger.log({ type: 'answer', value: nextInput });
+        if (waiting > 0)
+          yield { type: 'output', value: waitingMessage(waiting) };
+
+        const next = await this.nextTurn(sessionId, pendingAnswer, waiting > 0);
+        question.abort();
+        const resolved = await this.resolveLocalInput(sessionId, next, listen);
+        nextInput = resolved.input;
+        const turn = {
+          type: resolved.approved ? 'approved' : 'answer',
+          value: nextInput,
+        } as const;
+        report(turn);
       }
     } catch (error) {
       if (!isAbortError(error)) {
-        logFailure(error);
+        reportFailure(error);
       }
 
       throw error;
     } finally {
       if (ownsLogger) closeLogger();
-      await this.provider.close?.();
-      await this.workspace.close();
+      // Paused: the sandbox and the gate wait for resume().
+      if (!this.keepOpen) await this.closeResources();
+      // Releases the terminal; it is taken again on the next run.
+      this.output.close?.();
+      stopSubscribers();
     }
   }
+
+  /**
+   * Continues the same task when it was interrupted or something was approved
+   * for it since; a different prompt is a new task.
+   */
+  private resumedSession(prompt: string): string | undefined {
+    return (
+      this.takeForcedSession() ??
+      this.store?.resumableSession(
+        this.provider.id,
+        this.workspace.root,
+        prompt,
+      )
+    );
+  }
+
+  /** Commands denied in this session that nobody has approved yet. */
+  private pendingDenials(session: string): number {
+    return (
+      this.store
+        ?.deniedDecisions(this.workspace.root)
+        .filter((decision) => decision.session === session).length ?? 0
+    );
+  }
+
+  /** Executes terminal-local commands instead of forwarding them to the model. */
+  private async resolveLocalInput(
+    session: string,
+    next: NextTurn,
+    listen: ((signal?: AbortSignal) => Promise<string>) | undefined,
+  ): Promise<NextTurn> {
+    if (listen === undefined) return next;
+
+    let current = next;
+
+    while (isLocalApprovalResult(current.input)) {
+      if (isApprovalsCommand(current.input)) {
+        await this.reviewApprovals();
+      }
+      const notices =
+        this.store?.pendingNotices(this.workspace.root, session) ?? [];
+      if (notices.length > 0) {
+        return { input: this.continuation(session), approved: true };
+      }
+
+      this.show('Nenhuma aprovação foi adicionada.');
+      const typed = listenInput(listen, this.runSignal(), (value) =>
+        this.dispatchLiveInput(value, session),
+      );
+      current = await this.nextTurn(
+        session,
+        typed?.promise,
+        this.pendingDenials(session) > 0,
+      );
+    }
+
+    return current;
+  }
+
+  /** The approvals screen, on the agent's own input and output. */
+  private async reviewApprovals(): Promise<void> {
+    if (this.store === undefined) return;
+
+    // The screen owns the terminal: the agent's output waits until it closes.
+    this.held = [];
+    try {
+      await new ApprovalReview(this.store, this.output).run(
+        this.workspace.root,
+      );
+    } finally {
+      const held = this.held;
+      this.held = undefined;
+      for (const value of held) this.show(value);
+    }
+  }
+
+  private say(value: string): void {
+    if (this.held === undefined) this.show(value);
+    else this.held.push(value);
+  }
+
+  /** Shows text through the interaction and tells the subscribers. */
+  private show(text: string): void {
+    this.output.write(text);
+    report({ type: 'message', level: 'debug', text });
+  }
+
+  /**
+   * Runs approvals immediately when its local command is submitted. Without
+   * a new approval, `undefined`: the terminal keeps listening (Ctrl+A again).
+   */
+  private async dispatchLiveInput(
+    input: string,
+    session: string | undefined,
+  ): Promise<string | undefined> {
+    if (!isApprovalsCommand(input)) return input;
+
+    if ((this.store?.deniedDecisions(this.workspace.root).length ?? 0) === 0) {
+      this.show(
+        'Nenhum comando negado para aprovar. De volta ao agente: digite sua mensagem.',
+      );
+      return undefined;
+    }
+
+    await this.reviewApprovals();
+    const notices =
+      session === undefined
+        ? []
+        : (this.store?.pendingNotices(this.workspace.root, session) ?? []);
+    if (notices.length > 0) return APPROVALS_FINISHED;
+
+    this.show(
+      'Nenhuma aprovação foi adicionada. De volta ao agente: digite sua mensagem.',
+    );
+    return undefined;
+  }
+
+  /**
+   * The next input: the person's answer, or, if denials are pending, the
+   * approvals given meanwhile in `bun run approvals`, whichever comes first.
+   */
+  private async nextTurn(
+    session: string,
+    answer: Promise<string> | undefined,
+    awaitApproval: boolean,
+  ): Promise<NextTurn> {
+    const polling = new AbortController();
+    const candidates: Promise<{ input: string; approved: boolean }>[] = [];
+
+    if (answer !== undefined) {
+      candidates.push(answer.then((input) => ({ input, approved: false })));
+    }
+
+    if (awaitApproval) {
+      candidates.push(
+        this.approvalArrived(session, polling.signal).then(() => ({
+          input: this.continuation(session),
+          approved: true,
+        })),
+      );
+    }
+
+    try {
+      return await abortable(Promise.race(candidates), this.runSignal());
+    } finally {
+      polling.abort();
+    }
+  }
+
+  /** Resolves when an approval for this session shows up in the store. */
+  private async approvalArrived(
+    session: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    while (!signal.aborted) {
+      const notices =
+        this.store?.pendingNotices(this.workspace.root, session) ?? [];
+      if (notices.length > 0) return;
+      await delay(APPROVAL_POLL_MS, signal);
+    }
+
+    // Lost the race (an answer came first): never resolve.
+    return new Promise(() => undefined);
+  }
+
+  /** What the resumed agent is told: approvals since it stopped, then go on. */
+  private continuation(session: string): string {
+    const notices =
+      this.store?.pendingNotices(this.workspace.root, session) ?? [];
+    this.store?.markNotified(notices.map((notice) => notice.id));
+
+    return [...describeNotices(notices), CONTINUE].join('\n');
+  }
+}
+
+interface NextTurn {
+  readonly input: string;
+  readonly approved: boolean;
+}
+
+interface PendingInput {
+  readonly promise: Promise<string>;
+  submitted(): Promise<string> | undefined;
+  cancel(): void;
+}
+
+/**
+ * Reads the terminal while the provider works and remembers the first
+ * message. `map` returns `undefined` for input handled locally: then it reads
+ * again. Approvals given before anyone awaits the input do not end the
+ * reading either; whoever awaits it later gets them first.
+ */
+export function listenInput(
+  listen: ((signal?: AbortSignal) => Promise<string>) | undefined,
+  signal: AbortSignal | undefined,
+  map: (input: string) => Promise<string | undefined> = (input) =>
+    Promise.resolve(input),
+): PendingInput | undefined {
+  if (listen === undefined) return undefined;
+
+  const controller = new AbortController();
+  const combined = anySignal(signal, controller.signal);
+  let received: string | undefined;
+  /** Approvals given while nobody waited for this input yet. */
+  let approved = false;
+  /** Someone awaits the input (a question, the end of the turn). */
+  let claimed = false;
+
+  const read = async (): Promise<string> => {
+    for (;;) {
+      const input = await listen(combined);
+      // A bare Enter says nothing (e.g. one left in the terminal by the
+      // previous program): keep listening instead of ending the turn's input.
+      if (input.trim().length === 0) continue;
+      const mapped = await map(input);
+      if (mapped === undefined) continue;
+      // Approved while the CLI still works: keep reading the terminal
+      // (Ctrl+A again, a message); the end of the turn goes on with them.
+      if (mapped === APPROVALS_FINISHED && !claimed) {
+        approved = true;
+        continue;
+      }
+      received = input;
+      return mapped;
+    }
+  };
+  const reading = read();
+  void reading.catch(() => undefined);
+
+  const take = (): Promise<string> => {
+    claimed = true;
+    if (approved && received === undefined) {
+      controller.abort();
+      return Promise.resolve(APPROVALS_FINISHED);
+    }
+    return reading;
+  };
+
+  return {
+    get promise() {
+      return take();
+    },
+    submitted: () => (received !== undefined || approved ? take() : undefined),
+    cancel: () => controller.abort(),
+  };
+}
+
+const APPROVAL_COMMANDS: ReadonlySet<string> = new Set([
+  ':approvals',
+  'bun run approvals',
+]);
+export const APPROVALS_FINISHED = '\u0000goiaba:approvals-finished';
+
+function isApprovalsCommand(input: string): boolean {
+  return APPROVAL_COMMANDS.has(input.trim().toLowerCase());
+}
+
+function isLocalApprovalResult(input: string): boolean {
+  return input === APPROVALS_FINISHED || isApprovalsCommand(input);
+}
+
+const CONTINUE = 'Continue a tarefa de onde parou.';
+
+const APPROVAL_POLL_MS = 1000;
+
+function waitingMessage(count: number): string {
+  return `⏸ Aguardando aprovação de ${String(count)} comando(s) negado(s): aperte Ctrl+A (ou rode \`bun run approvals\` em outro terminal). O agente continua sozinho quando aprovar (Ctrl+C para sair).`;
+}
+
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+function anySignal(
+  ...signals: (AbortSignal | undefined)[]
+): AbortSignal | undefined {
+  const defined = signals.filter(
+    (signal): signal is AbortSignal => signal !== undefined,
+  );
+  return defined.length === 0 ? undefined : AbortSignal.any(defined);
+}
+
+function describeNotices(notices: readonly StoredApproval[]): string[] {
+  if (notices.length === 0) return [];
+
+  return [
+    'Permissões atualizadas: estes comandos, que foram bloqueados, agora estão permitidos.',
+    'Execute-os de novo, exatamente como estão, antes de seguir:',
+    ...notices.map((notice) =>
+      notice.kind === 'once'
+        ? `- (uma vez) ${notice.pattern}`
+        : `- (neste workspace) ${notice.pattern}`,
+    ),
+  ];
 }
 
 /** Rejects as soon as the signal aborts, without waiting for the answer. */
@@ -179,20 +832,147 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
+/** `GOIABA_RESUME_SESSION`, if set and not empty. */
+function forcedSession(): string | undefined {
+  const session = environment()['GOIABA_RESUME_SESSION']?.trim();
+  return session === undefined || session.length === 0 ? undefined : session;
+}
+
+function defaultStore(): Store | undefined {
+  return isConfigLoaded() ? Store.open(getConfig().databasePath) : undefined;
+}
+
+/**
+ * Filesystem goes to the sandbox; execution to Goiaba's own gate, the same for
+ * every CLI (the provider only wires its CLI's hook to it). Returns the gate,
+ * if there are execution rules.
+ */
+function enforcePermissions({
+  permissions,
+  provider,
+  workspace,
+  approve,
+  store,
+}: {
+  readonly permissions: AgentPolicy;
+  readonly provider: AgentProvider;
+  readonly workspace: Workspace;
+  readonly approve: CommandApprover;
+  readonly store: Store | undefined;
+}): ApprovalBroker | undefined {
+  rejectUnenforced(permissions);
+  workspace.applyPermissions(permissions);
+
+  const broker = needsGate(permissions, provider)
+    ? new ApprovalBroker({
+        permissions,
+        provider: provider.id,
+        root: workspace.root,
+        approve,
+        ...(store === undefined ? {} : { store }),
+      })
+    : undefined;
+  const gate: ExecutionGate | undefined =
+    broker === undefined
+      ? undefined
+      : { hookCommand: broker.hookCommand(), root: workspace.root };
+  const cliFiles = applyProviderPermissions(provider, permissions, gate);
+
+  // What enforces the policy stays read-only for the agent.
+  workspace.protect([
+    ...(broker === undefined ? [] : [broker.dir]),
+    ...cliFiles,
+  ]);
+  return broker;
+}
+
+/** Categories of `AgentPolicy` that Goiaba does not enforce yet. */
+const UNENFORCED: readonly PolicyCategory[] = [
+  'network',
+  'tools',
+  'agents',
+  'secrets',
+];
+
+/**
+ * Rules Goiaba cannot enforce would be ignored silently: refuse to start
+ * instead, as for a category the provider does not apply.
+ */
+function rejectUnenforced(policy: AgentPolicy): void {
+  const category = UNENFORCED.find((name) =>
+    (['allow', 'requireApproval', 'deny'] as const).some(
+      (source) => (policy[source]?.[name]?.length ?? 0) > 0,
+    ),
+  );
+
+  if (category !== undefined) {
+    throw new UsageError(
+      `O Goiaba ainda não aplica a categoria ${category}: tire essas regras do agente.`,
+    );
+  }
+}
+
+function needsGate(permissions: AgentPolicy, provider: AgentProvider): boolean {
+  return (
+    delegatedCategories(permissions).includes('execution') &&
+    provider.applyPermissions !== undefined
+  );
+}
+
 function applyProviderPermissions(
   provider: AgentProvider,
-  permissions: AgentPermissions,
-): void {
+  permissions: AgentPolicy,
+  gate: ExecutionGate | undefined,
+): readonly string[] {
   if (provider.applyPermissions !== undefined) {
-    provider.applyPermissions(permissions);
-    return;
+    return provider.applyPermissions(permissions, gate);
   }
 
-  const [category] = delegatedCategories(permissions);
+  const category = delegatedCategories(permissions).at(0);
 
   if (category !== undefined) {
     throw new UsageError(
       `O provider ${provider.id} não aplica a categoria ${category}.`,
     );
   }
+
+  return [];
+}
+
+/** Tools are reported as before: calls and results in debug, failures as errors. */
+function logTool({ phase, detail }: ToolEvent): void {
+  if (phase === 'error') reportError({ type: 'tool_error', ...detail });
+  else
+    reportDebug({ type: phase === 'call' ? 'tool' : 'tool_result', ...detail });
+}
+
+const BACKGROUND_MESSAGE = '⏳ rodando em background…';
+/** Silence, while the CLI runs, before saying it is still at work. */
+const SILENCE_MS = 5000;
+const SILENCE_CHECK_MS = 1000;
+
+/**
+ * Calls `onSilent` once after `ms` without `touch()`, and again after each
+ * new silence; `stop()` ends it. The timer never keeps the program alive.
+ */
+export function watchSilence(
+  onSilent: () => void,
+  { ms = SILENCE_MS, every = SILENCE_CHECK_MS } = {},
+): { touch(): void; stop(): void } {
+  let last = Date.now();
+  let told = false;
+  const timer = setInterval(() => {
+    if (told || Date.now() - last < ms) return;
+    told = true;
+    onSilent();
+  }, every);
+  timer.unref();
+
+  return {
+    touch: () => {
+      last = Date.now();
+      told = false;
+    },
+    stop: () => clearInterval(timer),
+  };
 }

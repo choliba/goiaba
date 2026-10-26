@@ -4,14 +4,14 @@ import { join } from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
 
-import { UsageError } from '../src/errors.js';
+import { UsageError } from '../src/errors';
 import {
   compileFilesystemAccess,
   delegatedCategories,
   PolicyEngine,
   wildmatch,
-} from '../src/policy/index.js';
-import type { AgentPermissions } from '../src/policy/types.js';
+} from '../src/policy/index';
+import type { AgentPolicy } from '../src/policy/index';
 
 describe('Git wildmatch', () => {
   test('distingue estrela simples de globstar', () => {
@@ -216,7 +216,7 @@ describe('filesystem enforcement compiler', () => {
 
   test('rejeita aprovação e padrão sem enforcement', () => {
     const root = mkdtempSync(join(tmpdir(), 'goiaba-policy-'));
-    const base: AgentPermissions = {
+    const base: AgentPolicy = {
       default: 'deny',
       allow: { filesystem: [rule('/workspace/**')] },
     };
@@ -285,3 +285,85 @@ function checkPath(engine: PolicyEngine, path: string) {
   return engine.check({ category: 'filesystem', operation: 'read', path })
     .policy;
 }
+
+describe('PolicyEngine: categorias novas', () => {
+  const engine = new PolicyEngine({
+    default: 'deny',
+    allow: {
+      network: [{ operations: ['connect'], hosts: ['*.github.com'] }],
+      tools: [
+        {
+          operations: ['call'],
+          tools: ['github/*'],
+          ignores: { tools: ['github/delete_repository'] },
+        },
+      ],
+      agents: [{ operations: ['spawn'], agents: ['revisor'] }],
+      secrets: [{ operations: ['read'], secrets: ['DATABASE_*'] }],
+    },
+    requireApproval: {
+      secrets: [{ operations: ['read'], secrets: ['DATABASE_PASSWORD'] }],
+    },
+  });
+
+  const policy = (action: Parameters<PolicyEngine['check']>[0]) =>
+    engine.check(action).policy;
+
+  test('decide network, tools, agents e secrets pelos alvos de cada uma', () => {
+    expect(
+      policy({
+        category: 'network',
+        operation: 'connect',
+        host: 'api.github.com',
+      }),
+    ).toBe('allow');
+    expect(
+      policy({
+        category: 'network',
+        operation: 'connect',
+        host: 'example.com',
+      }),
+    ).toBe('deny');
+    expect(
+      policy({
+        category: 'tools',
+        operation: 'call',
+        tool: 'github/create_issue',
+      }),
+    ).toBe('allow');
+    expect(
+      policy({
+        category: 'tools',
+        operation: 'call',
+        tool: 'github/delete_repository',
+      }),
+    ).toBe('deny');
+    expect(
+      policy({ category: 'agents', operation: 'spawn', agent: 'revisor' }),
+    ).toBe('allow');
+    expect(
+      policy({
+        category: 'secrets',
+        operation: 'read',
+        secret: 'DATABASE_URL',
+      }),
+    ).toBe('allow');
+    expect(
+      policy({
+        category: 'secrets',
+        operation: 'read',
+        secret: 'DATABASE_PASSWORD',
+      }),
+    ).toBe('require_approval');
+  });
+
+  test('regra sem alvos é recusada', () => {
+    expect(
+      () =>
+        new PolicyEngine({
+          default: 'deny',
+          allow: { network: [{ operations: ['connect'], hosts: [] }] },
+        }),
+    ).toThrow('Uma regra network precisa ter alvos.');
+  });
+});

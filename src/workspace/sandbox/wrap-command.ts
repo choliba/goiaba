@@ -1,4 +1,4 @@
-import type { ProgramCommand } from '../../execute/types.js';
+import type { ProgramCommand } from '../../execute/types';
 
 export function wrapCommand(
   wrapper: string,

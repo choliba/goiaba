@@ -1,16 +1,57 @@
-import { existsSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { UsageError } from '../errors.js';
+import {
+  modifiedAt,
+  pathExists,
+  dirname,
+  isAbsolute,
+  join,
+  resolve,
+} from '../filesystem/index';
+import { UsageError } from '../errors';
+import {
+  currentDirectory,
+  environment,
+  setEnvironmentDefault,
+} from '../execute/process';
 
 export interface GoiabaEnv {
   readonly [key: string]: string | boolean | number | undefined;
 }
 
+/** Where the SQLite database (sessions, decisions, approvals) is kept. */
+export interface GoiabaDatabaseConfig {
+  /** Directory, relative to the config file; defaults to `.goiaba`. */
+  readonly dir?: string;
+  /** File name; defaults to `goiaba.db`. */
+  readonly name?: string;
+}
+
+/** What `logger.use` receives to open its files. */
+export interface LoggerTarget {
+  /** Absolute `logger.dir`. */
+  readonly dir: string;
+  /** Names this run's files: one log per open. */
+  readonly session: string;
+}
+
+/**
+ * Creates the log package's instance: pino, winston, LogTape or any object
+ * with `debug/info/warn/error`. Swapping packages changes only this function.
+ */
+export type LoggerFactory = (target: LoggerTarget) => object;
+
+export interface GoiabaLoggerConfig {
+  /** Directory, relative to the config file; defaults to `.goiaba/logs`. */
+  readonly dir?: string;
+  /** Without it, Goiaba writes ECS JSONL in `dir` with no package. */
+  readonly use?: LoggerFactory;
+}
+
 export interface GoiabaConfig {
-  readonly logDir?: string;
   readonly debug?: boolean;
+  readonly logger?: GoiabaLoggerConfig;
+  readonly database?: GoiabaDatabaseConfig;
   readonly envs?: readonly GoiabaEnv[];
 }
 
@@ -19,7 +60,13 @@ export interface ResolvedGoiabaEnv {
 }
 
 export interface ResolvedGoiabaConfig {
-  readonly logDir: string;
+  readonly logger: {
+    /** Absolute directory of the log. */
+    readonly dir: string;
+    readonly use: LoggerFactory | undefined;
+  };
+  /** Absolute path of the SQLite database file. */
+  readonly databasePath: string;
   readonly debug: boolean;
   readonly configPath: string | undefined;
   readonly env: ResolvedGoiabaEnv | undefined;
@@ -42,16 +89,27 @@ const CONFIG_FILES = [
 ] as const;
 
 const DEFAULT_LOG_DIR = '.goiaba/logs';
+const DEFAULT_DATABASE_DIR = '.goiaba';
+const DEFAULT_DATABASE_NAME = 'goiaba.db';
 
 const cache = new Map<string, Promise<ResolvedGoiabaConfig>>();
 let current: ResolvedGoiabaConfig | undefined;
 
-export function defineConfig<T extends GoiabaConfigFactory>(config: T): T {
+/**
+ * Typed config. Not generic on purpose: an object literal checked against
+ * `GoiabaConfig` gets excess-property errors (`databasePath` is flagged).
+ */
+// The object overload goes last: TypeScript reports the last one's error.
+export function defineConfig(
+  config: () => GoiabaConfig | Promise<GoiabaConfig>,
+): () => GoiabaConfig | Promise<GoiabaConfig>;
+export function defineConfig(config: GoiabaConfig): GoiabaConfig;
+export function defineConfig(config: GoiabaConfigFactory): GoiabaConfigFactory {
   return config;
 }
 
 export function getConfig(): ResolvedGoiabaConfig {
-  return current ?? resolveConfig({}, process.cwd(), undefined);
+  return current ?? resolveConfig({}, currentDirectory(), undefined);
 }
 
 export function isConfigLoaded(): boolean {
@@ -76,7 +134,7 @@ export function clearConfigCache(): void {
 export function loadConfig(
   options: LoadConfigOptions = {},
 ): Promise<ResolvedGoiabaConfig> {
-  const cwd = resolve(options.cwd ?? process.cwd());
+  const cwd = resolve(options.cwd ?? currentDirectory());
   const key = `${cwd}::${options.path ?? ''}`;
   const cached = cache.get(key);
 
@@ -106,14 +164,14 @@ async function readConfig(
     return resolveConfig({}, cwd, undefined);
   }
 
-  if (!existsSync(configPath)) {
+  if (!pathExists(configPath)) {
     throw new UsageError(`O arquivo de configuração ${configPath} não existe.`);
   }
 
   let source: unknown;
 
   try {
-    const { mtimeMs } = statSync(configPath);
+    const mtimeMs = modifiedAt(configPath);
     const href = `${pathToFileURL(configPath).href}?t=${mtimeMs}`;
     const module: unknown = await import(href);
     source = isRecord(module) ? module['default'] : undefined;
@@ -133,7 +191,7 @@ function findConfigFile(from: string): string | undefined {
     for (const name of CONFIG_FILES) {
       const candidate = join(dir, name);
 
-      if (existsSync(candidate)) {
+      if (pathExists(candidate)) {
         return candidate;
       }
     }
@@ -164,19 +222,129 @@ async function normalizeConfig(
     );
   }
 
-  if (value['logDir'] !== undefined && typeof value['logDir'] !== 'string') {
-    throw new UsageError(`logDir em ${configPath} deve ser uma string.`);
-  }
+  rejectUnknownKeys(value, configPath);
 
   if (value['debug'] !== undefined && typeof value['debug'] !== 'boolean') {
     throw new UsageError(`debug em ${configPath} deve ser um boolean.`);
   }
 
+  const database = normalizeDatabase(value['database'], configPath);
+  const logger = normalizeLogger(value['logger'], configPath);
+
   return {
-    ...(value['logDir'] === undefined ? {} : { logDir: value['logDir'] }),
     ...(value['debug'] === undefined ? {} : { debug: value['debug'] }),
+    ...(database === undefined ? {} : { database }),
+    ...(logger === undefined ? {} : { logger }),
     envs: normalizeEnvs(value['envs'], configPath),
   };
+}
+
+const KNOWN_KEYS: ReadonlySet<string> = new Set([
+  'debug',
+  'database',
+  'envs',
+  'logger',
+]);
+
+/** Common mistakes, with the option meant. */
+const RENAMED: Readonly<Partial<Record<string, string>>> = {
+  databasePath: 'database: { dir, name }',
+  database_path: 'database: { dir, name }',
+  dbPath: 'database: { dir, name }',
+  logDir: 'logger: { dir }',
+  logsDir: 'logger: { dir }',
+  env: 'envs',
+};
+
+/** An unknown key is a typo or a renamed option: say so instead of ignoring it. */
+function rejectUnknownKeys(
+  value: Record<string, unknown>,
+  configPath: string,
+): void {
+  const unknown = Object.keys(value).find((key) => !KNOWN_KEYS.has(key));
+  if (unknown === undefined) return;
+
+  const hint = RENAMED[unknown];
+  throw new UsageError(
+    hint === undefined
+      ? `Opção desconhecida "${unknown}" em ${configPath}. Opções: ${[...KNOWN_KEYS].join(', ')}.`
+      : `Opção desconhecida "${unknown}" em ${configPath}. Use ${hint}.`,
+  );
+}
+
+function normalizeLogger(
+  logger: unknown,
+  configPath: string,
+): GoiabaLoggerConfig | undefined {
+  if (logger === undefined) return undefined;
+
+  if (!isRecord(logger)) {
+    throw new UsageError(`logger em ${configPath} deve ser um objeto.`);
+  }
+
+  const { dir, use } = logger;
+
+  if (dir !== undefined && (typeof dir !== 'string' || dir.trim() === '')) {
+    throw new UsageError(
+      `logger.dir em ${configPath} deve ser uma string não vazia.`,
+    );
+  }
+
+  if (use !== undefined && !isLoggerFactory(use)) {
+    throw new UsageError(
+      `logger.use em ${configPath} deve ser uma função que cria o logger.`,
+    );
+  }
+
+  return {
+    ...(dir === undefined ? {} : { dir }),
+    ...(use === undefined ? {} : { use }),
+  };
+}
+
+function isLoggerFactory(value: unknown): value is LoggerFactory {
+  return typeof value === 'function';
+}
+
+function normalizeDatabase(
+  database: unknown,
+  configPath: string,
+): GoiabaDatabaseConfig | undefined {
+  if (database === undefined) return undefined;
+
+  if (!isRecord(database)) {
+    throw new UsageError(`database em ${configPath} deve ser um objeto.`);
+  }
+
+  const { dir, name } = database;
+
+  if (dir !== undefined && (typeof dir !== 'string' || dir.trim() === '')) {
+    throw new UsageError(
+      `database.dir em ${configPath} deve ser uma string não vazia.`,
+    );
+  }
+
+  if (name !== undefined && !isFileName(name)) {
+    throw new UsageError(
+      `database.name em ${configPath} deve ser um nome de arquivo, sem barras.`,
+    );
+  }
+
+  return {
+    ...(dir === undefined ? {} : { dir }),
+    ...(name === undefined ? {} : { name }),
+  };
+}
+
+function isFileName(name: unknown): name is string {
+  return (
+    typeof name === 'string' &&
+    name.trim() !== '' &&
+    !name.includes('/') &&
+    !name.includes('\\') &&
+    name !== '.' &&
+    name !== '..'
+  );
 }
 
 function normalizeEnvs(envs: unknown, configPath: string): GoiabaEnv[] {
@@ -222,16 +390,29 @@ function resolveConfig(
   configPath: string | undefined,
 ): ResolvedGoiabaConfig {
   const envOverrides = readEnvOverrides();
-  const logDir = envOverrides.logDir ?? file.logDir ?? DEFAULT_LOG_DIR;
   const envs = (file.envs ?? []).map(resolveEnvEntry);
 
   return {
-    logDir: isAbsolute(logDir) ? logDir : resolve(baseDir, logDir),
+    logger: {
+      dir: absolute(
+        baseDir,
+        envOverrides.logDir ?? file.logger?.dir ?? DEFAULT_LOG_DIR,
+      ),
+      use: file.logger?.use,
+    },
+    databasePath: join(
+      absolute(baseDir, file.database?.dir ?? DEFAULT_DATABASE_DIR),
+      file.database?.name ?? DEFAULT_DATABASE_NAME,
+    ),
     debug: envOverrides.debug ?? file.debug ?? false,
     configPath,
     envs,
     env: envs[0],
   };
+}
+
+function absolute(baseDir: string, path: string): string {
+  return isAbsolute(path) ? path : resolve(baseDir, path);
 }
 
 function resolveEnvEntry(entry: GoiabaEnv): ResolvedGoiabaEnv {
@@ -248,7 +429,7 @@ function resolveEnvEntry(entry: GoiabaEnv): ResolvedGoiabaEnv {
 
 function applyEnvVars(vars: Readonly<Record<string, string>>): void {
   for (const [key, value] of Object.entries(vars)) {
-    process.env[key] ??= value;
+    setEnvironmentDefault(key, value);
   }
 }
 
@@ -256,8 +437,8 @@ function readEnvOverrides(): {
   readonly debug?: boolean;
   readonly logDir?: string;
 } {
-  const debug = parseFlag(process.env['GOIABA_DEBUG']);
-  const logDir = process.env['GOIABA_LOG_DIR']?.trim();
+  const debug = parseFlag(environment()['GOIABA_DEBUG']);
+  const logDir = environment()['GOIABA_LOG_DIR']?.trim();
 
   return {
     ...(debug === undefined ? {} : { debug }),

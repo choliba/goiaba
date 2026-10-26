@@ -1,8 +1,9 @@
-import { loadConfig, type LoadConfigOptions } from './config/index.js';
-import { UsageError } from './errors.js';
-import { listenForInterrupt } from './execute/interrupt.js';
-import { closeLogger, logFailure, openLogger } from './log/index.js';
-import { StandardOutput, type OutputAdapter } from './output/index.js';
+import { loadConfig, type LoadConfigOptions } from './config/index';
+import { UsageError } from './errors';
+import { listenForInterrupt } from './execute/interrupt';
+import { closeLogger, openLogger } from './logger/index';
+import { reportFailure } from './output/activity';
+import { StandardOutput, type OutputAdapter } from './output/index';
 
 export { UsageError };
 
@@ -38,7 +39,7 @@ export async function runScript(
     openLogger();
     await start({ signal: interrupt.signal });
   } catch (error) {
-    logFailure(error);
+    reportFailure(error);
 
     if (error instanceof UsageError) {
       output.write(error.message);

@@ -1,4 +1,17 @@
-export { Agent } from './agent/agent.js';
+export { Agent } from './agent/agent';
+export { AgentOutput } from './agent/output';
+export { humanApprover } from './approval/human';
+export type { CommandApprover, CommandApprovalRequest } from './approval/gate';
+export type { ApprovalScope } from './store/index';
+export {
+  dirname,
+  ensureDirectory,
+  isAbsolute,
+  join,
+  pathExists,
+  relative,
+  resolve,
+} from './filesystem/index';
 export {
   clearConfigCache,
   defineConfig,
@@ -6,29 +19,37 @@ export {
   getEnv,
   isConfigLoaded,
   loadConfig,
-} from './config/index.js';
+} from './config/index';
 export type {
   GoiabaConfig,
+  GoiabaDatabaseConfig,
   GoiabaConfigFactory,
   GoiabaEnv,
   LoadConfigOptions,
   ResolvedGoiabaConfig,
   ResolvedGoiabaEnv,
-} from './config/index.js';
+} from './config/index';
 export {
   runScript,
   UsageError,
   type RunScriptOptions,
   type ScriptContext,
-} from './usage.js';
-export type { AgentAsk, AgentOptions, AgentProvider } from './agent/types.js';
-export { Executor, ProgramExecutionError } from './execute/index.js';
-export type { ExecutorOptions, SpawnProcess } from './execute/index.js';
-export type { ProgramCommand, ProgramOutput } from './execute/types.js';
-export { PolicyEngine, wildmatch } from './policy/index.js';
+} from './usage';
+export type {
+  AgentAsk,
+  AgentOptions,
+  AgentProvider,
+  AgentStatus,
+  AgentSubscriber,
+} from './agent/types';
+export { Executor, ProgramExecutionError } from './execute/index';
+export type { ExecutorOptions, SpawnProcess } from './execute/index';
+export type { ProgramCommand, ProgramOutput } from './execute/types';
+export { PolicyEngine, wildmatch } from './policy/index';
 export type {
   ActionPolicy,
-  AgentPermissions,
+  AgentAction,
+  AgentPolicy,
   ApprovalHandler,
   ApprovalRequest,
   CommunicationOperation,
@@ -36,38 +57,45 @@ export type {
   ExecutionRule,
   FilesystemOperation,
   FilesystemRule,
-  PermissionGroups,
-  PolicyAction,
+  NetworkOperation,
+  NetworkRule,
+  PolicyCategory,
   PolicyDecision,
+  PolicyGroups,
+  PolicyRule,
+  SecretOperation,
+  SecretRule,
+  SubagentOperation,
+  SubagentRule,
+  ToolOperation,
+  ToolRule,
   WebOperation,
   WebRule,
-} from './policy/index.js';
-export {
-  OutputDispatcher,
-  OutputStream,
-  StandardOutput,
-} from './output/index.js';
-export type { OutputAdapter, OutputEvent } from './output/index.js';
+} from './policy/index';
+export { OutputDispatcher, OutputStream, StandardOutput } from './output/index';
+export type { OutputAdapter, OutputEvent } from './output/index';
+export type { Activity } from './output/activity';
 export type {
   AgentEvent,
   Provider,
   ProviderEvent,
   ProviderOptions,
-} from './providers/types.js';
-export { Workspace } from './workspace/index.js';
-export type { WorkspaceOptions, WorkspaceType } from './workspace/index.js';
+  ToolEvent,
+} from './providers/types';
+export { Workspace } from './workspace/index';
+export type { WorkspaceOptions, WorkspaceType } from './workspace/index';
 export {
   BubblewrapSandbox,
   bubblewrapEnterCommand,
   DEFAULT_DOCKER_IMAGE,
   DockerSandbox,
   type Sandbox,
-} from './workspace/sandbox/index.js';
-export { CodexProvider } from './providers/codex-provider.js';
-export { CursorProvider } from './providers/cursor-provider.js';
+} from './workspace/sandbox/index';
+export { CodexProvider } from './providers/codex-provider';
+export { CursorProvider } from './providers/cursor-provider';
 export {
   OllamaProvider,
   type OllamaCli,
   type OllamaProviderOptions,
-} from './providers/ollama-provider.js';
-export { ClaudeProvider } from './providers/claude-provider.js';
+} from './providers/ollama-provider';
+export { ClaudeProvider } from './providers/claude/claude-provider';

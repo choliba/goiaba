@@ -34,7 +34,7 @@
     "typescript/consistent-type-imports": "error",
     "eslint/no-await-in-loop": "off"
   },
-  "ignorePatterns": ["app/**", "node_modules/**", "logs/**", ".goiaba/**"],
+  "ignorePatterns": ["storage/**", "node_modules/**", "logs/**", ".goiaba/**"],
   "overrides": [
     {
       "files": ["test/**/*.ts"],

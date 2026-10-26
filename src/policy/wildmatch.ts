@@ -1,4 +1,4 @@
-import { UsageError } from '../errors.js';
+import { UsageError } from '../errors';
 
 const cache = new Map<string, RegExp>();
 
@@ -29,7 +29,7 @@ function compileWildmatch(pattern: string): RegExp {
     const character = pattern.charAt(index);
 
     if (character === '\\') {
-      const escaped = pattern[index + 1];
+      const escaped = pattern.at(index + 1);
 
       if (escaped === undefined) {
         throw new UsageError(`Padrão inválido: ${pattern}`);

@@ -4,10 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { clearConfigCache } from '../src/config/index.js';
-import type { OutputAdapter } from '../src/output/index.js';
-import { runScript, UsageError } from '../src/usage.js';
-import { readLogRecords } from './support/log-records.js';
+import { clearConfigCache } from '../src/config/index';
+import type { OutputAdapter } from '../src/output/index';
+import { runScript, UsageError } from '../src/usage';
+import { readLogRecords } from './support/log-records';
 
 let cwd: string;
 
@@ -16,7 +16,7 @@ beforeEach(() => {
   cwd = mkdtempSync(join(tmpdir(), 'goiaba-usage-'));
   writeFileSync(
     join(cwd, 'goiaba.config.ts'),
-    `export default { logDir: 'logs' };\n`,
+    `export default { logger: { dir: 'logs' } };\n`,
   );
 });
 
@@ -38,11 +38,12 @@ test('runScript mostra UsageError pelo output, registra e não relança', async 
   });
 
   expect(written).toEqual(['use docker build']);
-  expect(readLogRecords(join(cwd, 'logs', 'erros'))).toEqual([
+  expect(errorRecords(join(cwd, 'logs'))).toEqual([
     expect.objectContaining({
-      level: 'error',
-      type: 'error',
+      'log.level': 'error',
+      event: { name: 'error' },
       message: 'use docker build',
+      error: { message: 'use docker build' },
     }),
   ]);
 });
@@ -54,7 +55,7 @@ test('runScript registra e relança outros erros', async () => {
     }),
   ).rejects.toThrow('falha interna');
 
-  expect(readLogRecords(join(cwd, 'logs', 'erros'))).toEqual([
+  expect(errorRecords(join(cwd, 'logs'))).toEqual([
     expect.objectContaining({ message: 'falha interna' }),
   ]);
 });
@@ -83,3 +84,10 @@ test('runScript trata o SIGINT repetido do mesmo Ctrl+C como um só', async () =
 
   expect(exits).toEqual([]);
 });
+
+/** Error records of the log: told apart by level, not by folder. */
+function errorRecords(logDir: string): Record<string, unknown>[] {
+  return readLogRecords(logDir).filter(
+    (record) => record['log.level'] === 'error',
+  );
+}

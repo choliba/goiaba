@@ -9,8 +9,8 @@ import {
   clearConfigCache,
   defineConfig,
   loadConfig,
-} from '../src/config/index.js';
-import { UsageError } from '../src/usage.js';
+} from '../src/config/index';
+import { UsageError } from '../src/usage';
 
 const defineConfigHref = pathToFileURL(
   resolve(import.meta.dir, '../src/config/index.ts'),
@@ -55,14 +55,94 @@ afterEach(() => {
 
 test('defineConfig devolve a configuração', () => {
   const config = defineConfig({
-    logDir: 'logs',
+    logger: { dir: 'logs' },
     debug: true,
   });
 
   expect(config).toEqual({
-    logDir: 'logs',
+    logger: { dir: 'logs' },
     debug: true,
   });
+});
+
+test('database: diretório e nome configuráveis, padrão próprio em .goiaba', async () => {
+  const cwds: string[] = [];
+  // One directory per config: imports are cached by file and mtime.
+  const load = async (config: string) => {
+    const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
+    cwds.push(cwd);
+    writeFileSync(join(cwd, 'goiaba.config.ts'), `export default ${config};\n`);
+    clearConfigCache();
+    return { cwd, config: loadConfig({ cwd }) };
+  };
+
+  try {
+    const custom = await load(
+      "{ logger: { dir: 'logs' }, database: { dir: 'dados', name: 'agentes.db' } }",
+    );
+    expect((await custom.config).databasePath).toBe(
+      resolve(custom.cwd, 'dados/agentes.db'),
+    );
+
+    const nameOnly = await load(
+      "{ logger: { dir: 'logs' }, database: { name: 'x.db' } }",
+    );
+    expect((await nameOnly.config).databasePath).toBe(
+      resolve(nameOnly.cwd, '.goiaba/x.db'),
+    );
+
+    const outside = await load("{ database: { name: '../fora.db' } }");
+    await expect(outside.config).rejects.toThrow('database.name');
+  } finally {
+    for (const cwd of cwds) rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('opção desconhecida para o carregamento e aponta a certa', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
+
+  try {
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { databasePath: '/x/db' };\n`,
+    );
+    await expect(loadConfig({ cwd })).rejects.toThrow(
+      'Opção desconhecida "databasePath"',
+    );
+    await expect(loadConfig({ cwd })).rejects.toThrow(
+      'database: { dir, name }',
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('logDir antigo aponta para logger.dir', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
+
+  try {
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { logDir: 'logs' };\n`,
+    );
+    await expect(loadConfig({ cwd })).rejects.toThrow('logger: { dir }');
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('logger.use precisa ser uma função', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
+
+  try {
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { logger: { use: {} } };\n`,
+    );
+    await expect(loadConfig({ cwd })).rejects.toThrow('logger.use');
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });
 
 test('loadConfig usa defaults quando não há arquivo', async () => {
@@ -72,7 +152,8 @@ test('loadConfig usa defaults quando não há arquivo', async () => {
     const config = await loadConfig({ cwd });
 
     expect(config).toEqual({
-      logDir: resolve(cwd, '.goiaba/logs'),
+      logger: { dir: resolve(cwd, '.goiaba/logs'), use: undefined },
+      databasePath: resolve(cwd, '.goiaba/goiaba.db'),
       debug: false,
       configPath: undefined,
       env: undefined,
@@ -92,7 +173,7 @@ test('loadConfig lê goiaba.config.ts', async () => {
       `import { defineConfig } from ${JSON.stringify(defineConfigHref)};
 
 export default defineConfig({
-  logDir: 'out/logs',
+  logger: { dir: 'out/logs' },
   debug: true,
 });
 `,
@@ -101,7 +182,7 @@ export default defineConfig({
     const config = await loadConfig({ cwd });
 
     expect(config.debug).toBe(true);
-    expect(config.logDir).toBe(resolve(cwd, 'out/logs'));
+    expect(config.logger.dir).toBe(resolve(cwd, 'out/logs'));
     expect(config.configPath).toBe(join(cwd, 'goiaba.config.ts'));
   } finally {
     rmSync(cwd, { recursive: true, force: true });
@@ -114,14 +195,14 @@ test('loadConfig aceita factory assíncrona', async () => {
   try {
     writeFileSync(
       join(cwd, 'goiaba.config.ts'),
-      `export default async () => ({ debug: true, logDir: 'async-logs' });
+      `export default async () => ({ debug: true, logger: { dir: 'async-logs' } });
 `,
     );
 
     const config = await loadConfig({ cwd });
 
     expect(config.debug).toBe(true);
-    expect(config.logDir).toBe(resolve(cwd, 'async-logs'));
+    expect(config.logger.dir).toBe(resolve(cwd, 'async-logs'));
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
@@ -135,14 +216,14 @@ test('loadConfig sobe diretórios até achar o arquivo', async () => {
   try {
     writeFileSync(
       join(cwd, 'goiaba.config.ts'),
-      `export default { debug: true, logDir: 'root-logs' };
+      `export default { debug: true, logger: { dir: 'root-logs' } };
 `,
     );
 
     const config = await loadConfig({ cwd: nested });
 
     expect(config.debug).toBe(true);
-    expect(config.logDir).toBe(resolve(cwd, 'root-logs'));
+    expect(config.logger.dir).toBe(resolve(cwd, 'root-logs'));
     expect(config.configPath).toBe(join(cwd, 'goiaba.config.ts'));
   } finally {
     rmSync(cwd, { recursive: true, force: true });
@@ -155,7 +236,7 @@ test('variáveis GOIABA_* têm prioridade sobre o arquivo', async () => {
   try {
     writeFileSync(
       join(cwd, 'goiaba.config.ts'),
-      `export default { debug: false, logDir: 'file-logs' };
+      `export default { debug: false, logger: { dir: 'file-logs' } };
 `,
     );
     process.env['GOIABA_DEBUG'] = 'true';
@@ -164,7 +245,7 @@ test('variáveis GOIABA_* têm prioridade sobre o arquivo', async () => {
     const config = await loadConfig({ cwd });
 
     expect(config.debug).toBe(true);
-    expect(config.logDir).toBe('/tmp/goiaba-env-logs');
+    expect(config.logger.dir).toBe('/tmp/goiaba-env-logs');
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }

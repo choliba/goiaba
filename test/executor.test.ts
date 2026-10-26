@@ -2,11 +2,11 @@ import { spawn } from 'node:child_process';
 
 import { afterAll, describe, expect, test } from 'bun:test';
 
-import { Executor, ProgramExecutionError } from '../src/execute/index.js';
-import { OutputDispatcher } from '../src/output/index.js';
-import type { Provider, ProviderEvent } from '../src/providers/types.js';
-import { Workspace } from '../src/workspace/index.js';
-import type { ProgramCommand, ProgramOutput } from '../src/execute/types.js';
+import { Executor, ProgramExecutionError } from '../src/execute/index';
+import { OutputDispatcher } from '../src/output/index';
+import type { Provider, ProviderEvent } from '../src/providers/types';
+import { Workspace } from '../src/workspace/index';
+import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
 
 const workspace = new Workspace({
   type: 'bubblewrap',
@@ -173,6 +173,10 @@ function readOutput(event: ProviderEvent<string>): string {
 
   if (event.type === 'session') {
     return `session:${event.id}`;
+  }
+
+  if (event.type === 'tool') {
+    return `tool:${event.phase}`;
   }
 
   return event.value;
