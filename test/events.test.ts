@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { asAgent } from '../src/agent/scope';
+import { asAgent } from '../src/scope/index';
 import { emit, onEvent, type GoiabaEvent } from '../src/events/index';
 
 test('emit chega a quem ouve, com ts e o agente que estava rodando', () => {

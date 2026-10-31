@@ -1,4 +1,4 @@
-import type { ScopeFields } from '../agent/scope';
+import type { ScopeFields } from '../scope/index';
 
 /**
  * The log contract, whatever package writes it: ECS for the record

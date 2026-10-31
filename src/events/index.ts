@@ -4,7 +4,7 @@
  * delivering is the output's job, recording is the logger's.
  */
 
-import { currentScope, type ScopeFields } from '../agent/scope';
+import { currentScope, type ScopeFields } from '../scope/index';
 
 interface EventBase extends ScopeFields {
   /** Where it came from: `agent` today; `network`, `provider`… later. */

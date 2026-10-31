@@ -4,7 +4,7 @@ import { userInfo } from 'node:os';
 import { ensureDirectory, readText } from '../filesystem/index';
 import { getConfig, isConfigLoaded } from '../config/index';
 import { UsageError } from '../errors';
-import { currentScope } from '../agent/scope';
+import { currentScope } from '../scope/index';
 import { adaptLogger, type LogSink } from './adapt';
 import { createJsonlSink } from './jsonl';
 import { maskRecord } from './mask';

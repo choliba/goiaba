@@ -24,7 +24,7 @@ import {
   openLogger,
   type LogInput,
 } from '../logger/index';
-import { asAgent, currentRun, type AgentScope } from './scope';
+import { asAgent, currentRun, type AgentScope } from '../scope/index';
 import type { AgentEvent, ExecutionGate, ToolEvent } from '../providers/types';
 import { Store, type StoredApproval } from '../store/index';
 import {
