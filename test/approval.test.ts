@@ -15,7 +15,6 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import {
   ApprovalBroker,
-  suggestPattern,
   type CommandApprovalRequest,
 } from '../src/approval/broker';
 import { ApprovalReview } from '../src/approval/review';
@@ -169,13 +168,6 @@ describe('ApprovalBroker', () => {
       store.deniedDecisions('/w').map((d) => [d.command, d.source]),
     ).toEqual([['touch y', 'human']]);
     await gate.close();
-  });
-
-  test('sugere padrão só para comando simples', () => {
-    expect(suggestPattern('mkdir -p src/pages')).toBe('mkdir *');
-    expect(suggestPattern('cd a && rm b')).toBe('cd a && rm b');
-    expect(suggestPattern('cat > a')).toBe('cat > a');
-    expect(suggestPattern('pwd')).toBe('pwd');
   });
 });
 

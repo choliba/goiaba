@@ -1,7 +1,7 @@
 import type { OutputAdapter } from '../output/index';
-import { parseSelection } from '../cli/selection';
+import { parseSelection } from './selection';
 import type { Store, StoredDecision } from '../store/index';
-import { suggestPattern } from './gate';
+import { suggestPattern } from '../policy/index';
 
 const QUIT = 'q';
 const NEXT = 'r';

@@ -26,6 +26,10 @@ import { wrapCommand } from './wrap-command';
 import type { FilesystemAccess } from '../../policy/index';
 
 export interface DockerSandboxOptions {
+  /**
+   * `FROM nome:tag` comes from the registry (Docker Hub) when missing here;
+   * `nome:tag` alone is an image built on this machine, never pulled.
+   */
   readonly image: string;
   readonly root: string;
   readonly env?: NodeJS.ProcessEnv;
@@ -36,13 +40,20 @@ export const DEFAULT_DOCKER_IMAGE = 'FROM oven/bun:latest';
 
 const HOST_ROOT = '/host';
 const FROM_IMAGE = /^FROM\s+(\S+)$/i;
+const LOCAL_IMAGE = /^\S+$/;
+
+interface DockerImage {
+  readonly name: string;
+  /** `docker run --pull`: from the registry, or only what is here. */
+  readonly pull: 'missing' | 'never';
+}
 
 /**
  * Jails the host executable inside the image: the host filesystem is read-only,
  * except for the workspace root and generic CLI state directories.
  */
 export class DockerSandbox implements Sandbox {
-  private readonly image: string;
+  private readonly image: DockerImage;
   private readonly root: string;
   private readonly env: NodeJS.ProcessEnv;
   private readonly writable: readonly string[];
@@ -107,11 +118,13 @@ export class DockerSandbox implements Sandbox {
       [
         ...(host?.state ?? hostStateDirs(this.env)),
         ...this.writable,
+        ...(this.filesystem?.writable ?? []),
         // The bridge creates the published ports' sockets there.
         ...(network === undefined ? [] : [network.portsDir()]),
       ],
       {
         workspaceAccess: this.filesystem?.workspaceAccess ?? 'readwrite',
+        writable: this.filesystem?.writable ?? [],
         masks: [
           ...(this.filesystem?.masks ?? []),
           ...protectedMasks(this.protectedPaths),
@@ -130,7 +143,8 @@ export class DockerSandbox implements Sandbox {
 
     logSandbox('docker', command, {
       isolation: true,
-      image: this.image,
+      image: this.image.name,
+      pull: this.image.pull,
       container: { name: containerName, autoRemove: true, interactive: true },
       network: { mode: network === undefined ? 'host' : 'none' },
       workingDir: innerRoot,
@@ -164,7 +178,9 @@ export class DockerSandbox implements Sandbox {
         '-w',
         innerRoot,
         ...envArgs,
-        this.image,
+        '--pull',
+        this.image.pull,
+        this.image.name,
         'chroot',
         HOST_ROOT,
         ...innerUserCommand(),
@@ -371,16 +387,18 @@ function innerUserCommand(): readonly string[] {
   ];
 }
 
-function readDockerImage(image: string): string {
-  const match = FROM_IMAGE.exec(image.trim());
-
-  if (match === null) {
-    throw new UsageError(
-      `A imagem do workspace Docker deve ser FROM <imagem>. Exemplo:\n\n  ${DEFAULT_DOCKER_IMAGE}`,
-    );
+function readDockerImage(image: string): DockerImage {
+  const value = image.trim();
+  const remote = FROM_IMAGE.exec(value)?.[1];
+  if (remote !== undefined) return { name: remote, pull: 'missing' };
+  // `FROM` without a name is a mistake, not an image called FROM.
+  if (LOCAL_IMAGE.test(value) && !/^FROM$/i.test(value)) {
+    return { name: value, pull: 'never' };
   }
 
-  return match[1];
+  throw new UsageError(
+    `A imagem do workspace Docker deve ser FROM <imagem> (do Docker Hub) ou <imagem> (construída nesta máquina). Exemplo:\n\n  ${DEFAULT_DOCKER_IMAGE}`,
+  );
 }
 
 async function inspectContainer(

@@ -1,6 +1,10 @@
 import { log } from '../logger/index';
 import { commandMatches, parseCommand } from '../policy/command';
-import { PolicyEngine, type AgentPolicy } from '../policy/index';
+import {
+  PolicyEngine,
+  suggestPattern,
+  type AgentPolicy,
+} from '../policy/index';
 import type { ApprovalScope, DecisionCategory, Store } from '../store/index';
 
 export interface CommandApprovalRequest {
@@ -246,21 +250,6 @@ function reportDecision(entry: CommandDecisionEvent): void {
   }
 
   log.debug(record);
-}
-
-/**
- * `mkdir -p src/pages` → `mkdir *`: what a broader approval would cover. Only
- * a single simple command is broadened; anything else stays exact.
- */
-export function suggestPattern(command: string): string {
-  const trimmed = command.trim();
-  const { parts, complex } = parseCommand(trimmed);
-  const program = trimmed.split(/\s+/).at(0);
-  const simple = !complex && parts.length === 1;
-
-  if (!simple || program === undefined || program === trimmed) return trimmed;
-
-  return `${program} *`;
 }
 
 /** A default denial, as the agent reads it: wait for a person, do not retry. */

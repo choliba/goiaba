@@ -177,7 +177,11 @@ export class BubblewrapSandbox implements Sandbox {
     }
     const writable = writableBinds(
       this.root,
-      [...(this.host?.state ?? hostStateDirs(this.env)), ...this.writable],
+      [
+        ...(this.host?.state ?? hostStateDirs(this.env)),
+        ...this.writable,
+        ...(this.filesystem?.writable ?? []),
+      ],
       this.filesystem?.workspaceAccess !== 'readonly',
     );
     const readonly = [

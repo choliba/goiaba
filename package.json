@@ -17,6 +17,7 @@
     "approvals": "bun src/cli/approvals.ts",
     "issue": "bun scripts/issue.ts",
     "clear": "bun scripts/clear.ts",
+    "generate-guides": "bun scripts/generate-guides.ts",
     "test": "bun test test/"
   },
   "devDependencies": {

@@ -25,7 +25,6 @@ import {
 } from './gate';
 
 export {
-  suggestPattern,
   type CommandApprovalRequest,
   type CommandApprover,
   type CommandDecision,

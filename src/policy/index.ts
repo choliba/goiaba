@@ -30,6 +30,7 @@ import {
 import { validateWildmatch, wildmatch } from './wildmatch';
 
 export * from './policy.interface';
+export { suggestPattern } from './command';
 export { wildmatch } from './wildmatch';
 
 /** Reason of a decision taken by `default`, when no rule matched. */
@@ -151,14 +152,20 @@ export function compileFilesystemAccess(
   }
 
   const allow = permissions.allow?.filesystem ?? [];
+  const writable: string[] = [];
 
   for (const rule of allow) {
     for (const pattern of rule.paths) {
-      if (pattern !== '/workspace/**') {
-        throw new UsageError(
-          `O allow não pode ser compilado com segurança pela sandbox: ${pattern}`,
-        );
+      if (pattern === '/workspace/**') continue;
+      // A folder of its own, only to write: mounted writable over the
+      // read-only workspace. Reading is the whole tree or nothing.
+      if (isWriteOnly(rule) && isFolderTree(pattern)) {
+        writable.push(writableFolder(pattern, workspaceRoot));
+        continue;
       }
+      throw new UsageError(
+        `O allow não pode ser compilado com segurança pela sandbox: ${pattern}`,
+      );
     }
   }
 
@@ -211,8 +218,36 @@ export function compileFilesystemAccess(
 
   return {
     workspaceAccess: rootWrite ? 'readwrite' : 'readonly',
+    // The whole workspace is writable already.
+    writable: rootWrite ? [] : [...new Set(writable)],
     masks: [...masks].map(([path, access]) => ({ path, access })),
   };
+}
+
+function isWriteOnly(rule: FilesystemRule): boolean {
+  return (
+    rule.operations.length > 0 && rule.operations.every((op) => op === 'write')
+  );
+}
+
+/** `/workspace/<folder>/**`, with no pattern in the folder's name. */
+function isFolderTree(pattern: string): boolean {
+  return (
+    pattern.startsWith('/workspace/') &&
+    pattern.endsWith('/**') &&
+    !hasMagic(pattern.slice(0, -3))
+  );
+}
+
+function writableFolder(pattern: string, root: string): string {
+  const folder = resolve(root, pattern.slice('/workspace/'.length, -3));
+  // A bind needs the folder: created by whoever runs the agent, not here.
+  if (!pathExists(folder) || !isDirectory(folder)) {
+    throw new UsageError(
+      `A pasta com escrita liberada precisa existir antes do agente: ${pattern}`,
+    );
+  }
+  return compileMaskPath(pattern, root);
 }
 
 /** Rewrites filesystem patterns written with the real root to the /workspace alias. */

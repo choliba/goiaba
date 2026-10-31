@@ -178,5 +178,7 @@ export interface FilesystemMask {
 /** `filesystem` as the sandbox enforces it. */
 export interface FilesystemAccess {
   readonly workspaceAccess: 'readonly' | 'readwrite';
+  /** Folders writable over a read-only workspace (`write /workspace/guides/**`). */
+  readonly writable: readonly string[];
   readonly masks: readonly FilesystemMask[];
 }

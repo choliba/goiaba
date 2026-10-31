@@ -244,13 +244,13 @@ O que muda de um provider para outro:
 
 Onde a CLI roda: a sandbox e a pasta do projeto (`root`).
 
-| Opção      | Tipo                         | Obrigatória  | Descrição                                                                                                      |
-| ---------- | ---------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
-| `type`     | `'bubblewrap'` ou `'docker'` | sim          | A sandbox.                                                                                                     |
-| `root`     | `string`                     | sim          | A pasta do projeto: a única do host que o agente vê com escrita. Não pode ser `/`.                             |
-| `image`    | `string`                     | só no docker | A imagem, escrita como `'FROM nome:tag'`.                                                                      |
-| `writable` | `string[]`                   | não          | Outras pastas do host graváveis lá dentro (por exemplo, caches do bun e do npm).                               |
-| `ports`    | `number[]`                   | não          | Portas da sandbox abertas no `127.0.0.1` do host: um servidor que o agente sobe, para você abrir no navegador. |
+| Opção      | Tipo                         | Obrigatória  | Descrição                                                                                                                |
+| ---------- | ---------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `type`     | `'bubblewrap'` ou `'docker'` | sim          | A sandbox.                                                                                                               |
+| `root`     | `string`                     | sim          | A pasta do projeto: a única do host que o agente vê com escrita. Não pode ser `/`.                                       |
+| `image`    | `string`                     | só no docker | `'FROM nome:tag'` vem do Docker Hub (baixa se faltar); `'nome:tag'` é uma imagem construída nesta máquina (nunca baixa). |
+| `writable` | `string[]`                   | não          | Outras pastas do host graváveis lá dentro (por exemplo, caches do bun e do npm).                                         |
+| `ports`    | `number[]`                   | não          | Portas da sandbox abertas no `127.0.0.1` do host: um servidor que o agente sobe, para você abrir no navegador.           |
 
 - **bubblewrap**: uma jaula que vive enquanto o agente roda; um servidor que o agente sobe continua no
   ar entre os turnos.

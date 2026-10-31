@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { parseSelection } from '../src/cli/selection';
+import { parseSelection } from '../src/approval/selection';
 
 describe('seleção interativa de aprovações', () => {
   test('aceita itens, listas e intervalos sem duplicar', () => {

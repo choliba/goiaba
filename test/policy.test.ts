@@ -15,6 +15,7 @@ import {
   compileFilesystemAccess,
   delegatedCategories,
   PolicyEngine,
+  suggestPattern,
   wildmatch,
 } from '../src/policy/index';
 import type { AgentPolicy } from '../src/policy/index';
@@ -37,6 +38,15 @@ describe('Git wildmatch', () => {
   test('rejeita padrões inválidos', () => {
     expect(() => wildmatch('x', '[abc')).toThrow(UsageError);
     expect(() => wildmatch('x', 'abc\\')).toThrow(UsageError);
+  });
+});
+
+describe('suggestPattern', () => {
+  test('sugere padrão só para comando simples', () => {
+    expect(suggestPattern('mkdir -p src/pages')).toBe('mkdir *');
+    expect(suggestPattern('cd a && rm b')).toBe('cd a && rm b');
+    expect(suggestPattern('cat > a')).toBe('cat > a');
+    expect(suggestPattern('pwd')).toBe('pwd');
   });
 });
 
@@ -160,6 +170,7 @@ describe('filesystem enforcement compiler', () => {
 
       expect(access).toEqual({
         workspaceAccess: 'readwrite',
+        writable: [],
         masks: [{ path: modules, access: 'hidden' }],
       });
     } finally {
@@ -191,6 +202,7 @@ describe('filesystem enforcement compiler', () => {
 
       expect(access).toEqual({
         workspaceAccess: 'readwrite',
+        writable: [],
         masks: [{ path: git, access: 'hidden' }],
       });
       expect(() =>
@@ -202,6 +214,67 @@ describe('filesystem enforcement compiler', () => {
           root,
         ),
       ).toThrow('não pode ser compilado');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('compila leitura do workspace inteiro e escrita só numa pasta', () => {
+    const root = mkdtempSync(join(tmpdir(), 'goiaba-policy-'));
+    const guides = join(root, 'guides');
+    mkdirSync(guides);
+
+    try {
+      const access = compileFilesystemAccess(
+        {
+          default: 'deny',
+          allow: {
+            filesystem: [
+              { operations: ['read'], paths: ['/workspace/**'] },
+              { operations: ['write'], paths: ['/workspace/guides/**'] },
+            ],
+          },
+        },
+        root,
+      );
+
+      expect(access).toEqual({
+        workspaceAccess: 'readonly',
+        writable: [guides],
+        masks: [],
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('recusa pasta gravável que não existe, com padrão ou com leitura', () => {
+    const root = mkdtempSync(join(tmpdir(), 'goiaba-policy-'));
+    mkdirSync(join(root, 'guides'));
+    const compile = (operations: ('read' | 'write')[], path: string) =>
+      compileFilesystemAccess(
+        {
+          default: 'deny',
+          allow: {
+            filesystem: [
+              { operations: ['read'], paths: ['/workspace/**'] },
+              { operations, paths: [path] },
+            ],
+          },
+        },
+        root,
+      );
+
+    try {
+      expect(() => compile(['write'], '/workspace/docs/**')).toThrow(
+        'precisa existir',
+      );
+      expect(() => compile(['write'], '/workspace/gui*/**')).toThrow(
+        'não pode ser compilado',
+      );
+      expect(() => compile(['read', 'write'], '/workspace/guides/**')).toThrow(
+        'não pode ser compilado',
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

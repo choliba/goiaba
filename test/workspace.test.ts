@@ -34,6 +34,14 @@ const command: ProgramCommand = {
   input: 'prompt do agente',
 };
 
+/** What `docker run --pull` gets for `image`. */
+async function pullOf(image: string): Promise<string | undefined> {
+  const args =
+    (await new Workspace({ type: 'docker', root, image }).prepare(command))
+      .arguments ?? [];
+  return args.at(args.indexOf('--pull') + 1);
+}
+
 describe('Workspace', () => {
   test('rejeita uma raiz vazia', () => {
     expect(
@@ -45,16 +53,21 @@ describe('Workspace', () => {
     ).toThrow('A raiz do workspace não pode estar vazia.');
   });
 
-  test('rejeita imagem Docker sem FROM e sugere um exemplo', () => {
-    const message = `A imagem do workspace Docker deve ser FROM <imagem>. Exemplo:\n\n  ${DEFAULT_DOCKER_IMAGE}`;
+  test('rejeita imagem Docker inválida e sugere um exemplo', () => {
+    const message = `A imagem do workspace Docker deve ser FROM <imagem> (do Docker Hub) ou <imagem> (construída nesta máquina). Exemplo:\n\n  ${DEFAULT_DOCKER_IMAGE}`;
 
-    for (const image of ['', 'oven/bun:latest']) {
+    for (const image of ['', 'oven/bun latest', 'FROM']) {
       const create = (): Workspace =>
         new Workspace({ type: 'docker', root, image });
 
       expect(create).toThrow(UsageError);
       expect(create).toThrow(message);
     }
+  });
+
+  test('docker: FROM baixa do registry se faltar; sem FROM, só a imagem local', async () => {
+    expect(await pullOf('FROM oven/bun:latest')).toBe('missing');
+    expect(await pullOf('choliba-agent:latest')).toBe('never');
   });
 
   test('docker envolve o comando em docker run', async () => {
