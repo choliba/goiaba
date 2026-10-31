@@ -15,7 +15,7 @@ import { WorkspaceLock } from './lock';
 import { AgentOutput } from './output';
 import { getConfig, isConfigLoaded } from '../config/index';
 import { Executor, ProgramExecutionError } from '../execute/index';
-import { emit, onEvent } from '../events/index';
+import { createConsumer, createProducer } from '../events/index';
 import {
   closeLogger,
   isDebug,
@@ -379,11 +379,12 @@ export class Agent {
     const ownsLogger = !isLoggerOpen();
     if (ownsLogger) openLogger();
     // The subscribers hear everything this agent reports, not other agents'.
-    const stopSubscribers = onEvent((event) => {
+    const subscribers = createConsumer((event) => {
       if (event.agent !== this.name) return;
       const output = new AgentOutput(event, this);
       for (const subscriber of this.subscribers) subscriber(output);
     });
+    subscribers.subscribe(AGENT_SOURCE);
     // With debug, everything this run uses, so the log says how it ran.
     if (isDebug()) {
       log.debug({ type: 'agent_config', config: this.configuration() });
@@ -428,7 +429,7 @@ export class Agent {
             if (phase === 'end') this.setStatus(undefined);
             const record = { type: 'thinking', phase, seconds };
             // A tick is a clock, not something that happened: not logged.
-            if (phase === 'tick') emit({ source: 'agent', ...record });
+            if (phase === 'tick') agentEvents.emit(record);
             else publish(record, 'debug');
           },
           { paused: () => this.approving > 0 },
@@ -559,8 +560,7 @@ export class Agent {
     } catch (error) {
       if (!isAbortError(error)) {
         log.failure(error);
-        emit({
-          source: 'agent',
+        agentEvents.emit({
           type: 'error',
           message: error instanceof Error ? error.message : String(error),
         });
@@ -573,7 +573,7 @@ export class Agent {
       if (!this.keepOpen) await this.closeResources();
       // Releases the terminal; it is taken again on the next run.
       this.output.close?.();
-      stopSubscribers();
+      subscribers.unsubscribeAll();
     }
   }
 
@@ -1197,9 +1197,13 @@ function logTool({ phase, detail }: ToolEvent): void {
     log.debug({ type: phase === 'call' ? 'tool' : 'tool_result', ...detail });
 }
 
+/** The producer of every agent's events; each event carries its `agent`. */
+const AGENT_SOURCE = 'agent';
+const agentEvents = createProducer(AGENT_SOURCE);
+
 /** The conversation: for the subscribers and the log. */
 function publish(record: LogInput, level?: 'debug' | 'error'): void {
-  emit({ source: 'agent', ...record });
+  agentEvents.emit(record);
   if (level === undefined) log.info(record);
   else log[level](record);
 }

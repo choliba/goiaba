@@ -13,7 +13,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { Agent } from '../src/agent/agent';
 import { clearConfigCache, loadConfig } from '../src/config/index';
-import { emit } from '../src/events/index';
+import { createProducer } from '../src/events/index';
 import { closeLogger, log, openLogger } from '../src/logger/index';
 import { DockerSandbox } from '../src/workspace/sandbox/docker';
 import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
@@ -106,7 +106,11 @@ test('o log não ouve os eventos: só grava o que lhe é enviado', async () => {
     await loadConfig({ cwd });
     openLogger();
 
-    emit({ source: 'agent', type: 'thinking', phase: 'tick', seconds: 2 });
+    createProducer('agent').emit({
+      type: 'thinking',
+      phase: 'tick',
+      seconds: 2,
+    });
     log.debug({ type: 'thinking', phase: 'end', seconds: 3 });
 
     expect(
