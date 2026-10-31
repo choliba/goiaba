@@ -50,6 +50,48 @@ describe('suggestPattern', () => {
   });
 });
 
+describe('checkCommand com padrões aprovados', () => {
+  const policy = new PolicyEngine({
+    default: 'deny',
+    allow: { execution: [{ commands: ['ls *'] }] },
+    requireApproval: { execution: [{ commands: ['rm *'] }] },
+    deny: { execution: [{ commands: ['sudo *'] }] },
+  });
+  const check = (command: string, approved: string[] = []) =>
+    policy.checkCommand(command, { approved });
+
+  test('aprovado vence requireApproval e diz que veio da aprovação', () => {
+    expect(check('rm -r build').policy).toBe('require_approval');
+    expect(check('rm -r build', ['rm *'])).toMatchObject({
+      policy: 'allow',
+      source: 'approved',
+    });
+  });
+
+  test('aprovado vence o default', () => {
+    expect(check('cat a').source).toBe('default');
+    expect(check('cat a', ['cat *']).source).toBe('approved');
+  });
+
+  test('o deny explícito vence o aprovado', () => {
+    expect(check('sudo id', ['sudo *']).source).toBe('deny');
+  });
+
+  test('a linha só passa se toda parte passar', () => {
+    expect(check('ls src && rm x', ['rm *']).policy).toBe('allow');
+    expect(check('ls src && rm x').policy).toBe('require_approval');
+    expect(check('rm x && sudo id', ['rm *']).source).toBe('deny');
+  });
+
+  test('linha complexa não é coberta por padrão', () => {
+    expect(check('rm x > out.txt', ['rm *']).policy).toBe('require_approval');
+  });
+
+  test('sem aprovação, partes da política mantêm a fonte da regra', () => {
+    expect(check('ls src', ['rm *']).source).toBe('allow');
+  });
+});
+
 describe('PolicyEngine', () => {
   test('aplica deny sobre approval e allow', () => {
     const engine = new PolicyEngine({

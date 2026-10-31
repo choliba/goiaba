@@ -1,5 +1,4 @@
 import { log } from '../logger/index';
-import { commandMatches, parseCommand } from '../policy/command';
 import {
   PolicyEngine,
   suggestPattern,
@@ -71,9 +70,12 @@ export class CommandGate {
   }
 
   public async decide(command: string): Promise<CommandDecision> {
-    const decision = this.policy.checkCommand(command);
+    // Approved patterns are allow rules the policy weighs with its own.
+    const decision = this.policy.checkCommand(command, {
+      approved: this.approvals.patterns(),
+    });
 
-    if (decision.policy === 'allow') {
+    if (decision.policy === 'allow' && decision.source !== 'approved') {
       return this.record(command, 'allow', 'policy', decision.reason);
     }
 
@@ -82,11 +84,14 @@ export class CommandGate {
       return this.record(command, 'deny', 'policy', decision.reason);
     }
 
-    // requireApproval, or the `default` deny: what was approved since counts.
-    const saved = this.approvals.cover(command, this.policy);
+    // An approval of this exact line covers it, even a complex one.
+    const exact = this.approvals.exact(command);
+    if (exact !== undefined) {
+      return this.record(command, 'allow', 'saved', exact);
+    }
 
-    if (saved !== undefined) {
-      return this.record(command, 'allow', 'saved', saved);
+    if (decision.policy === 'allow') {
+      return this.record(command, 'allow', 'saved', decision.reason);
     }
 
     if (decision.policy === 'deny') {
@@ -189,28 +194,15 @@ class SavedApprovals {
   }
 
   /**
-   * A saved approval covers a line only if every part is allowed by the
-   * policy or matches an approved pattern. A line with redirection or
-   * substitution is only covered by an exact one-time approval.
+   * An approval of this exact line: a one-time one (used up) or a saved
+   * pattern equal to it. Covers even a complex line (a heredoc, a redirect).
    */
-  public cover(command: string, policy: PolicyEngine): string | undefined {
+  public exact(command: string): string | undefined {
     if (this.consumeOnce(command)) return 'Aprovado uma vez.';
-    // An exact approval covers even a complex line (a heredoc, a redirect).
     if (this.patterns().includes(command.trim())) {
       return 'Aprovado para este workspace.';
     }
-
-    const { parts, complex } = parseCommand(command);
-    if (complex) return undefined;
-
-    const patterns = this.patterns();
-    const covered = parts.every(
-      (part) =>
-        isAllowed(policy, part) ||
-        patterns.some((pattern) => commandMatches(part, pattern)),
-    );
-
-    return covered ? 'Coberto por uma aprovação salva.' : undefined;
+    return undefined;
   }
 
   private consumeOnce(command: string): boolean {
@@ -225,7 +217,8 @@ class SavedApprovals {
     return true;
   }
 
-  private patterns(): string[] {
+  /** This session's and the workspace's patterns, for the policy to weigh. */
+  public patterns(): string[] {
     const workspace = this.active()
       .filter((approval) => approval.kind === 'workspace')
       .map((approval) => approval.pattern);
@@ -235,10 +228,6 @@ class SavedApprovals {
   private active(): ReturnType<Store['activeApprovals']> {
     return this.store?.activeApprovals(this.root, this.currentSession) ?? [];
   }
-}
-
-function isAllowed(policy: PolicyEngine, command: string): boolean {
-  return policy.check({ category: 'execution', command }).policy === 'allow';
 }
 
 function reportDecision(entry: CommandDecisionEvent): void {

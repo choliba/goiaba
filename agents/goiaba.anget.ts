@@ -1,6 +1,6 @@
 import {
   Agent,
-  AgentOutput,
+  type AgentOutput,
   ensureDirectory,
   OllamaProvider,
   Workspace,

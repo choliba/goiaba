@@ -96,19 +96,29 @@ export class PolicyEngine {
    * and the most restrictive decision wins. A permitted line with redirection
    * or substitution still needs approval, since its effect is not readable
    * from the parts.
+   *
+   * `approved` are patterns approved while running: allow rules above
+   * `requireApproval` and the `default`, below an explicit `deny`.
    */
-  public checkCommand(command: string): PolicyDecision {
+  public checkCommand(
+    command: string,
+    { approved = [] }: { readonly approved?: readonly string[] } = {},
+  ): PolicyDecision {
     const { parts, complex } = parseCommand(command);
 
     if (parts.length === 0) {
       return { policy: 'deny', source: 'default', reason: 'Comando vazio.' };
     }
 
-    const decision = parts
-      .map((part) => this.check({ category: 'execution', command: part }))
-      .reduce((strictest, next) =>
-        stricter(next, strictest) ? next : strictest,
-      );
+    const decisions = parts.map((part) => this.checkPart(part, approved));
+    const strictest = decisions.reduce((current, next) =>
+      stricter(next, current) ? next : current,
+    );
+    // All parts allowed and one only by an approval: the approval decided.
+    const decision =
+      strictest.policy === 'allow'
+        ? (decisions.find((part) => part.source === 'approved') ?? strictest)
+        : strictest;
 
     if (complex && decision.policy === 'allow') {
       return {
@@ -120,6 +130,24 @@ export class PolicyEngine {
     }
 
     return decision;
+  }
+
+  private checkPart(
+    command: string,
+    approved: readonly string[],
+  ): PolicyDecision {
+    const decision = this.check({ category: 'execution', command });
+    if (decision.source === 'deny' || decision.policy === 'allow') {
+      return decision;
+    }
+
+    return approved.some((pattern) => commandMatches(command, pattern))
+      ? {
+          policy: 'allow',
+          source: 'approved',
+          reason: 'Coberto por uma aprovação salva.',
+        }
+      : decision;
   }
 
   public async authorize(

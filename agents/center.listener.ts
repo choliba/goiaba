@@ -8,6 +8,6 @@ import type { AgentOutput } from '../src/index';
  * A listener only observes: calling `agent.run()` here starts the agent again
  * on every report.
  */
-export function centerListener(output: AgentOutput): void {
+export function centerListener(_output: AgentOutput): void {
   // console.log("centerListener >>>>>>>>>>>>>    ", output.toJSON())
 }

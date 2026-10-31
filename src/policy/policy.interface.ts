@@ -157,7 +157,9 @@ export type PolicyRule =
 /** What a policy decided for one action, and why. */
 export interface PolicyDecision {
   readonly policy: ActionPolicy;
-  readonly source: 'allow' | 'deny' | 'requireApproval' | 'default';
+  /** `approved`: a pattern approved while running (see `checkCommand`). */
+  readonly source:
+    'allow' | 'deny' | 'requireApproval' | 'default' | 'approved';
   readonly rule?: PolicyRule;
   readonly reason: string;
 }
