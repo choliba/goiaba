@@ -55,7 +55,7 @@ await runScript(async ({ signal }) => {
     provider: new ClaudeProvider({ model: 'claude-haiku-5-5' }),
     workspace: new Workspace({
       type: 'docker',
-      image: 'from choliba-agent:latest',
+      image: 'choliba-agent:latest',
       root,
       // Package manager caches, so bun/npm install work inside the sandbox.
       writable: [

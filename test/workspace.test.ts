@@ -67,7 +67,7 @@ describe('Workspace', () => {
 
   test('docker: FROM baixa do registry se faltar; sem FROM, só a imagem local', async () => {
     expect(await pullOf('FROM oven/bun:latest')).toBe('missing');
-    expect(await pullOf('choliba-agent:latest')).toBe('never');
+    expect(await pullOf('goiaba-agent:latest')).toBe('never');
   });
 
   test('docker envolve o comando em docker run', async () => {
