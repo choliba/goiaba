@@ -8,8 +8,7 @@ import {
 import type { Readable, Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 
-import { truncateError } from '../logger/index';
-import { reportCommand } from '../output/activity';
+import { log, truncateError } from '../logger/index';
 import { OutputDispatcher, OutputStream } from '../output/index';
 import type { ProgramCommand, ProgramOutput } from './types';
 import type { Provider, ProviderEvent } from '../providers/types';
@@ -176,6 +175,7 @@ export class Executor<TOutput = string> {
       [...(command.arguments ?? [])],
       {
         ...(command.cwd === undefined ? {} : { cwd: command.cwd }),
+        ...(command.env === undefined ? {} : { env: { ...command.env } }),
         shell: false,
         stdio: ['pipe', 'pipe', 'pipe'],
       },
@@ -285,6 +285,18 @@ function terminate(process: ChildProcess): void {
     }
   }, KILL_GRACE_MS);
   timer.unref();
+}
+
+/** What was run, sent to the log (in debug). */
+function reportCommand(record: {
+  readonly phase: string;
+  readonly executable: string;
+  readonly arguments?: readonly string[] | undefined;
+  readonly cwd?: string | undefined;
+  readonly [key: string]: unknown;
+}): void {
+  // Without `arguments` the record has none: `[]` would say "no arguments".
+  log.debug({ type: 'command', ...record });
 }
 
 function toError(error: unknown): Error {

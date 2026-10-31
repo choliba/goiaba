@@ -3,6 +3,11 @@ export interface ProgramCommand {
   readonly arguments?: readonly string[];
   readonly cwd?: string;
   readonly input?: string;
+  /**
+   * The program's whole environment; without it, it inherits Goiaba's. Set
+   * by the sandbox, so secrets it does not let in are not there at all.
+   */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 export interface ProgramOutput {

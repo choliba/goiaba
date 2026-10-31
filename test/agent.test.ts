@@ -28,6 +28,7 @@ test('Agent recusa categoria que o provider não aplica', () => {
     expect(
       () =>
         new Agent({
+          conversation: false,
           name: 'teste',
           prompt: 'mensagem',
           provider: new EchoProvider(),
@@ -46,8 +47,10 @@ test('Agent recusa categoria que o provider não aplica', () => {
   }
 });
 
-test('Agent entrega a saída pelo interact', async () => {
+test('Agent entrega a saída pelo interaction', async () => {
+  const written: string[] = [];
   const agent = new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'mensagem',
     provider: new EchoProvider(),
@@ -55,19 +58,18 @@ test('Agent entrega a saída pelo interact', async () => {
       type: 'bubblewrap',
       root: process.cwd(),
     }),
+    interaction: { ask: unusedAsk, write: (value) => written.push(value) },
   });
-  const events: ProviderEvent<string>[] = [];
 
-  for await (const event of agent.interact('mensagem', unusedAsk)) {
-    events.push(event);
-  }
+  await agent.run();
 
-  expect(events).toEqual([{ type: 'output', value: 'mensagem' }]);
+  expect(written).toEqual([THINKING, 'mensagem']);
 });
 
 test('Agent.run escreve output e ask pelos ports injetados', async () => {
   const values: string[] = [];
   const agent = new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'início',
     provider: new InteractiveProvider(),
@@ -88,15 +90,22 @@ test('Agent.run escreve output e ask pelos ports injetados', async () => {
 
   await agent.run();
 
-  expect(values).toEqual(['Qual é o seu nome?', 'Olá, dev']);
+  expect(values).toEqual([
+    THINKING,
+    'Qual é o seu nome?',
+    THINKING,
+    'Olá, dev',
+  ]);
 });
 
-const INFRASTRUCTURE: ReadonlySet<string> = new Set(['command', 'sandbox']);
+/** The line shown when the model starts working on a turn. */
+const THINKING = '⏳ pensando…';
 
-test('Agent entrega toda a saída aos subscribers', async () => {
+test('Agent entrega a conversa aos subscribers, sem os detalhes do log', async () => {
   const received: AgentOutput[] = [];
 
   await new Agent({
+    conversation: false,
     name: 'construtor',
     prompt: 'início',
     provider: new ToolProvider(),
@@ -105,19 +114,23 @@ test('Agent entrega toda a saída aos subscribers', async () => {
     subscribe: [(output) => received.push(output)],
   }).run();
 
-  const conversation = received
-    .filter((output) => !INFRASTRUCTURE.has(output.type()))
-    .map((output) => [output.type(), output.level(), output.data()]);
+  const conversation = received.map((output) => [output.type(), output.data()]);
 
+  // Tools, commands and sandboxes go to the log only.
   expect(conversation).toEqual([
-    ['input', undefined, { value: 'início' }],
-    ['session', undefined, { id: 'tool-session' }],
-    ['tool', 'debug', { tool: 'Bash' }],
-    ['tool_error', 'error', { tool: 'Bash', message: 'x' }],
-    ['output', undefined, { value: 'feito' }],
-    ['message', 'debug', { text: 'feito' }],
+    ['input', { value: 'início' }],
+    // What the screen shows while the model works, emitted by the agent.
+    ['status', { text: THINKING }],
+    ['message', { text: THINKING }],
+    ['thinking', { phase: 'start', seconds: 0 }],
+    ['session', { id: 'tool-session' }],
+    ['status', { text: '⏳ rodando em background…' }],
+    ['status', { text: THINKING }],
+    ['output', { value: 'feito' }],
+    ['status', { text: null }],
+    ['thinking', { phase: 'end', seconds: 0 }],
+    ['message', { text: 'feito' }],
   ]);
-  // All of it, commands and sandboxes too, comes from this agent.
   expect(received.every((output) => output.agent().name === 'construtor')).toBe(
     true,
   );
@@ -125,9 +138,8 @@ test('Agent entrega toda a saída aos subscribers', async () => {
   expect(agent).toBeInstanceOf(Agent);
   expect(agent.provider.id).toBe('tool');
   expect(agent.workspace.root).toBe(process.cwd());
-  expect(received.some((output) => output.type() === 'command')).toBe(true);
-  expect(received.some((output) => output.type() === 'sandbox')).toBe(true);
   expect(JSON.parse(JSON.stringify(received[0]))).toMatchObject({
+    source: 'agent',
     type: 'input',
     agent: 'construtor',
   });
@@ -139,6 +151,7 @@ test('Agent.run envia na mesma sessão uma linha digitada durante o turno', asyn
   const messages = ['mude também o menu'];
 
   await new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'início',
     provider,
@@ -159,7 +172,12 @@ test('Agent.run envia na mesma sessão uma linha digitada durante o turno', asyn
     { input: 'início', session: undefined },
     { input: 'mude também o menu', session: 'proactive-session' },
   ]);
-  expect(values).toEqual(['primeiro turno', 'segundo turno']);
+  expect(values).toEqual([
+    THINKING,
+    'primeiro turno',
+    THINKING,
+    'segundo turno',
+  ]);
 });
 
 test('Agent.run ignora Enter vazio durante o turno e continua escutando', async () => {
@@ -168,6 +186,7 @@ test('Agent.run ignora Enter vazio durante o turno e continua escutando', async 
   const messages = ['', '   ', 'mude também o menu'];
 
   await new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'início',
     provider,
@@ -192,6 +211,7 @@ test('Agent.run ignora Enter vazio durante o turno e continua escutando', async 
 
 test('Agent.run encerra em silêncio quando o ask aborta', async () => {
   const agent = new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'início',
     provider: new InteractiveProvider(),
@@ -213,6 +233,7 @@ test('Agent.run encerra em silêncio quando o ask aborta', async () => {
 test('Agent.run imprime falha do programa sem relançar', async () => {
   const values: string[] = [];
   const agent = new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'mensagem',
     provider: new ExitProvider(7),
@@ -235,7 +256,9 @@ test('Agent.run imprime falha do programa sem relançar', async () => {
 
 test('Agent espera a resposta e retoma a sessão após ask', async () => {
   const provider = new InteractiveProvider();
+  const written: string[] = [];
   const agent = new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'início',
     provider,
@@ -243,20 +266,22 @@ test('Agent espera a resposta e retoma a sessão após ask', async () => {
       type: 'bubblewrap',
       root: process.cwd(),
     }),
+    interaction: {
+      ask: (question) => {
+        expect(question).toBe('Qual é o seu nome?');
+        return Promise.resolve('dev');
+      },
+      write: (value) => written.push(value),
+    },
   });
-  const events: ProviderEvent<string>[] = [];
 
-  for await (const event of agent.interact('início', async (question) => {
-    expect(question).toBe('Qual é o seu nome?');
-    return 'dev';
-  })) {
-    events.push(event);
-  }
+  await agent.run();
 
-  expect(events).toEqual([
-    { type: 'output', value: 'Qual é o seu nome?' },
-    { type: 'ask', question: 'Qual é o seu nome?' },
-    { type: 'output', value: 'Olá, dev' },
+  expect(written).toEqual([
+    THINKING,
+    'Qual é o seu nome?',
+    THINKING,
+    'Olá, dev',
   ]);
   expect(provider.sessions).toEqual([undefined, 'session-1']);
 });
@@ -272,6 +297,7 @@ test('Agent.run para em silêncio quando o signal aborta e fecha o workspace', a
   };
 
   await new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'mensagem',
     provider: new HangingProvider(),
@@ -280,7 +306,7 @@ test('Agent.run para em silêncio quando o signal aborta e fecha o workspace', a
     signal: AbortSignal.timeout(100),
   }).run();
 
-  expect(values).toEqual(['\n']);
+  expect(values).toEqual([THINKING, '\n']);
   expect(closed).toBe(true);
 });
 
@@ -288,6 +314,7 @@ test('Agent.run para enquanto espera a resposta de um ask', async () => {
   const controller = new AbortController();
 
   await new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'início',
     provider: new InteractiveProvider(),
@@ -368,6 +395,7 @@ test('continua sozinho a tarefa interrompida, com o que foi aprovado', async () 
   const provider = new RecordingProvider();
 
   await new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'crie o site',
     provider,
@@ -418,6 +446,7 @@ test('o aviso de uma aprovação por padrão manda repetir o comando negado, nã
   const provider = new RecordingProvider();
 
   await new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'crie o site',
     provider,
@@ -450,6 +479,7 @@ test('tarefa que terminou ou prompt novo começam uma sessão nova', async () =>
   const provider = new RecordingProvider();
 
   await new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'crie o site agora em vue',
     provider,
@@ -490,6 +520,7 @@ test('com comando negado pendente, espera a aprovação e continua sozinho', asy
   }, 800);
 
   await new Agent({
+    conversation: false,
     name: 'teste',
     prompt: 'crie as páginas',
     provider,
@@ -514,6 +545,103 @@ test('com comando negado pendente, espera a aprovação e continua sozinho', asy
     },
   ]);
 });
+
+test('por padrão o agente conversa: depois da resposta espera a próxima mensagem', async () => {
+  const provider = new SessionProvider('s1');
+  const stop = new AbortController();
+  const answers = ['segunda mensagem'];
+
+  const run = new Agent({
+    name: 'teste',
+    prompt: 'primeira',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    store: Store.memory(),
+    signal: stop.signal,
+    interaction: {
+      ask: () => {
+        const next = answers.shift();
+        if (next !== undefined) return Promise.resolve(next);
+        // Waiting for a third message: enough, end the conversation.
+        stop.abort();
+        return new Promise<string>(() => undefined);
+      },
+      write: () => undefined,
+    },
+  }).run();
+
+  await run;
+  expect(provider.calls).toEqual([
+    { session: undefined, input: 'primeira' },
+    { session: 's1', input: 'segunda mensagem' },
+  ]);
+});
+
+test('se a CLI não tem mais a sessão guardada, começa uma nova em vez de parar', async () => {
+  const store = Store.memory();
+  store.recordSession({
+    id: 'esquecida',
+    provider: 'forgetful',
+    root: process.cwd(),
+    prompt: 'início',
+  });
+  const provider = new ForgetfulProvider();
+  const written: string[] = [];
+
+  await new Agent({
+    conversation: false,
+    name: 'teste',
+    prompt: 'início',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    interaction: { ask: unusedAsk, write: (value) => written.push(value) },
+    store,
+  }).run();
+
+  expect(provider.calls.map((call) => call.session)).toEqual([
+    'esquecida',
+    undefined,
+  ]);
+  // A tarefa começa de novo: o prompt, não o aviso de continuar.
+  expect(provider.calls.at(1)?.input).toBe('início');
+  expect(written).toContain(
+    'A conversa anterior não existe mais na CLI: começando uma nova.',
+  );
+  expect(written).toContain('nova');
+  // A esquecida foi abandonada; a nova terminou (conversation: false).
+  expect(store.openSession('forgetful', process.cwd())).toBeUndefined();
+});
+
+/** Fails to resume any session (its history is gone); a new one works. */
+class ForgetfulProvider implements Provider<string, string> {
+  public readonly id = 'forgetful';
+  public readonly calls: { session: string | undefined; input: string }[] = [];
+
+  public createCommand(input: string, sessionId?: string): ProgramCommand {
+    this.calls.push({ session: sessionId, input });
+    return {
+      executable: process.execPath,
+      arguments: [
+        '-e',
+        sessionId === undefined
+          ? 'process.stdout.write("nova")'
+          : 'process.exit(1)',
+      ],
+    };
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    let first = true;
+    for await (const { channel, chunk } of output) {
+      if (channel !== 'stdout') continue;
+      if (first) yield { type: 'session', id: 'nova-sessao' };
+      first = false;
+      yield { type: 'output', value: chunk };
+    }
+  }
+}
 
 class SessionProvider implements Provider<string, string> {
   public readonly id = 'session';
@@ -664,6 +792,7 @@ test('Agent exige um nome', () => {
   expect(
     () =>
       new Agent({
+        conversation: false,
         name: ' ',
         prompt: 'mensagem',
         provider: new EchoProvider(),
@@ -674,6 +803,7 @@ test('Agent exige um nome', () => {
 
 test('run com o agente rodando devolve a execução em curso', async () => {
   const agent = new Agent({
+    conversation: false,
     name: 'lento',
     prompt: 'início',
     provider: new SlowProvider(),
@@ -690,11 +820,12 @@ test('run com o agente rodando devolve a execução em curso', async () => {
   expect(agent.status()).toBe('stopped');
 });
 
-test('pause mantém a sessão aberta e resume continua nela', async () => {
+test('pause mantém a sessão aberta e run continua nela', async () => {
   const provider = new SlowProvider();
   const store = Store.memory();
   const started = Promise.withResolvers<void>();
   const agent = new Agent({
+    conversation: false,
     name: 'lento',
     prompt: 'início',
     provider,
@@ -715,7 +846,7 @@ test('pause mantém a sessão aberta e resume continua nela', async () => {
   expect(agent.status()).toBe('paused');
   expect(store.openSession('slow', process.cwd())).toBe('slow-session');
 
-  const resumed = agent.resume();
+  const resumed = agent.run();
   await Bun.sleep(50);
   expect(provider.sessions).toEqual([undefined, 'slow-session']);
 
@@ -723,6 +854,65 @@ test('pause mantém a sessão aberta e resume continua nela', async () => {
   await resumed;
   expect(agent.status()).toBe('destroyed');
   expect(() => agent.run()).toThrow('O agente lento foi destruído.');
+});
+
+test('destroy encerra a sessão: a próxima execução começa do zero', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'goiaba-destroy-'));
+  const path = join(dir, 'goiaba.db');
+  try {
+    const store = Store.open(path);
+    store.recordSession({
+      id: 'antiga',
+      provider: 'slow',
+      root: process.cwd(),
+      prompt: 'início',
+    });
+    const agent = new Agent({
+      conversation: false,
+      name: 'lento',
+      prompt: 'início',
+      provider: new SlowProvider(),
+      workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+      interaction: { ask: unusedAsk, write: () => undefined },
+      store,
+    });
+
+    await agent.destroy();
+
+    const reopened = Store.open(path);
+    expect(reopened.openSession('slow', process.cwd())).toBeUndefined();
+    reopened.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('interrompido pelo signal (Ctrl+C), o agente fica em stopped', async () => {
+  const provider = new SlowProvider();
+  const started = Promise.withResolvers<void>();
+  const interrupt = new AbortController();
+  const agent = new Agent({
+    conversation: false,
+    name: 'lento',
+    prompt: 'início',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    interaction: { ask: unusedAsk, write: () => undefined },
+    store: Store.memory(),
+    signal: interrupt.signal,
+    subscribe: [
+      (output) => {
+        if (output.type() === 'session') started.resolve();
+      },
+    ],
+  });
+
+  const run = agent.run();
+  await started.promise;
+  interrupt.abort();
+  await run;
+
+  expect(agent.status()).toBe('stopped');
 });
 
 test('reset abandona a sessão aberta: o próximo run começa do zero', async () => {
@@ -734,6 +924,7 @@ test('reset abandona a sessão aberta: o próximo run começa do zero', async ()
     prompt: 'início',
   });
   const agent = new Agent({
+    conversation: false,
     name: 'lento',
     prompt: 'início',
     provider: new SlowProvider(),
@@ -773,6 +964,7 @@ test('Agent aceita regras de rede no docker', () => {
   expect(
     () =>
       new Agent({
+        conversation: false,
         name: 'teste',
         prompt: 'início',
         provider: new EchoProvider(),
@@ -797,11 +989,11 @@ test('Agent recusa regras de categorias que o Goiaba ainda não aplica', () => {
   for (const policy of [
     { tools: [{ operations: ['call' as const], tools: ['github/*'] }] },
     { agents: [{ operations: ['spawn' as const], agents: ['revisor'] }] },
-    { secrets: [{ operations: ['read' as const], secrets: ['*_TOKEN'] }] },
   ]) {
     expect(
       () =>
         new Agent({
+          conversation: false,
           name: 'teste',
           prompt: 'início',
           provider: new EchoProvider(),

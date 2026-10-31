@@ -1,6 +1,6 @@
 import { UsageError } from '../errors';
 import type { ProgramCommand, ProgramOutput } from '../execute/types';
-import { reportDebug } from '../output/activity';
+import { log } from '../logger/index';
 import type { AgentPolicy } from '../policy/index';
 import { wrapCommand } from '../workspace/sandbox/wrap-command';
 import { ClaudeProvider } from './claude/claude-provider';
@@ -11,6 +11,7 @@ import type {
   ProviderDescription,
   ProviderEvent,
   ProviderOptions,
+  HostAccess,
 } from './types';
 
 export type OllamaCli = 'claude' | 'codex';
@@ -80,7 +81,8 @@ export class OllamaProvider implements Provider<string, string> {
       this.inner = new ClaudeProvider(providerOptions);
       this.env = claudeEnv(baseUrl, options.model, this.contextWindow);
     } else {
-      this.inner = new CodexProvider(providerOptions);
+      // Ollama needs no OpenAI login: the user's stays out of the sandbox.
+      this.inner = new CodexProvider({ ...providerOptions, login: false });
       this.env = [
         `CODEX_OSS_BASE_URL=${baseUrl}/v1`,
         // Codex 0.163 tries to decode Ollama's /models response as its own
@@ -92,6 +94,18 @@ export class OllamaProvider implements Provider<string, string> {
 
   public describe(): ProviderDescription {
     return { name: 'ollama', model: this.model, cli: this.cli };
+  }
+
+  /**
+   * The CLI's state, but none of its credentials: the model is local, so
+   * no login, token or key reaches the sandbox.
+   */
+  public hostAccess(): HostAccess {
+    return {
+      state: this.inner.hostAccess().state,
+      credentialFiles: [],
+      credentialEnv: [],
+    };
   }
 
   /** Only Ollama: the CLI is pointed at it instead of its own API. */
@@ -251,7 +265,7 @@ async function* withoutOllamaNoise(
 
     const kept = value.chunk.split('\n').filter((line) => {
       const noise = OLLAMA_NOISE.some((pattern) => pattern.test(line));
-      if (noise) reportDebug({ type: 'provider-noise', line });
+      if (noise) log.debug({ type: 'provider-noise', line });
       return !noise;
     });
 

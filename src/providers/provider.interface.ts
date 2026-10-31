@@ -20,6 +20,12 @@ export interface Provider<TInput, TOutput, TPermissions> {
    * the model is local). Denied without asking: nobody should approve them.
    */
   networkBlocked?(): readonly string[];
+  /**
+   * What of the host its CLI needs: the paths where it keeps state (mounted
+   * in the sandbox; nothing else of the home is), and its own credentials,
+   * files and variables. Any other known credential stays out of the sandbox.
+   */
+  hostAccess?(): HostAccess;
 
   /**
    * The policy in this provider's own language (CLI settings, flags, rules
@@ -118,4 +124,14 @@ export interface UnsupportedRule {
    * applying refuses it).
    */
   readonly effect: 'stricter' | 'looser';
+}
+
+/** What of the host a provider's CLI needs (see `Provider.hostAccess`). */
+export interface HostAccess {
+  /** Host paths (dirs or files) where the CLI keeps state; mounted writable. */
+  readonly state: readonly string[];
+  /** Credential files among them the CLI uses to log in. */
+  readonly credentialFiles: readonly string[];
+  /** Environment variables with the CLI's own credentials. */
+  readonly credentialEnv: readonly string[];
 }

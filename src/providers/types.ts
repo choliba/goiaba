@@ -74,6 +74,12 @@ export interface Provider<TInput, TOutput> {
    */
   networkBlocked?(): readonly string[];
   /**
+   * What of the host its CLI needs: the paths where it keeps state (mounted
+   * in the sandbox; nothing else of the home is), and its own credentials,
+   * files and variables. Any other known credential stays out of the sandbox.
+   */
+  hostAccess?(): HostAccess;
+  /**
    * Applies the categories the sandbox cannot enforce (web, execution,
    * communication) through the CLI. `gate` is given when there are execution
    * rules. Returns CLI files that must stay read-only in the sandbox (e.g. its
@@ -92,4 +98,14 @@ export interface Provider<TInput, TOutput> {
   parseOutput(
     output: AsyncIterable<ProgramOutput>,
   ): AsyncIterable<ProviderEvent<TOutput>>;
+}
+
+/** What of the host a provider's CLI needs (see `Provider.hostAccess`). */
+export interface HostAccess {
+  /** Host paths (dirs or files) where the CLI keeps state; mounted writable. */
+  readonly state: readonly string[];
+  /** Credential files among them the CLI uses to log in. */
+  readonly credentialFiles: readonly string[];
+  /** Environment variables with the CLI's own credentials. */
+  readonly credentialEnv: readonly string[];
 }

@@ -12,7 +12,7 @@ import { UsageError } from '../../errors';
 import { goiabaCacheDir } from '../../execute/process';
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
 import { truncateError } from '../../logger/index';
-import { reportDebug } from '../../output/activity';
+import { log } from '../../logger/index';
 import { delegatedCategories, type AgentPolicy } from '../../policy/index';
 import { buildCodexPermissions, type CodexPermissions } from './permissions';
 import type {
@@ -27,6 +27,7 @@ import type {
   ProviderDescription,
   ProviderEvent,
   ProviderOptions,
+  HostAccess,
 } from '../types';
 
 /** Long enough for a person to answer an approval prompt. */
@@ -38,6 +39,14 @@ const HOOK_TIMEOUT_SECONDS = 3600;
  */
 const GATE_DENIAL = /codex_core::tools::router: .*blocked by PreToolUse hook/;
 
+export interface CodexProviderOptions extends ProviderOptions {
+  /**
+   * The user's Codex login (~/.codex/auth.json) reaches the CLI. Default
+   * true; false for a model that needs none (Ollama), so it is not there.
+   */
+  readonly login?: boolean;
+}
+
 export class CodexProvider
   implements
     Provider<string, string>,
@@ -47,21 +56,38 @@ export class CodexProvider
 
   private readonly executable: string;
   private readonly model: string;
+  /** Uses the user's login (auth.json); off when the model is not OpenAI's. */
+  private readonly login: boolean;
   /** Per-workspace CODEX_HOME carrying the gate's hook, when gated. */
   private codexHome: string | undefined;
   private webSearchConfig: string | undefined;
 
-  public constructor({ executable = 'codex', model }: ProviderOptions) {
+  public constructor({
+    executable = 'codex',
+    model,
+    login = true,
+  }: CodexProviderOptions) {
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
     }
 
     this.executable = executable;
     this.model = model;
+    this.login = login;
   }
 
   public describe(): ProviderDescription {
     return { name: 'codex', model: this.model };
+  }
+
+  /** Its state (sessions, config) and its login. */
+  public hostAccess(): HostAccess {
+    const home = homedir();
+    return {
+      state: [join(home, '.codex')],
+      credentialFiles: this.login ? [join(home, '.codex/auth.json')] : [],
+      credentialEnv: this.login ? ['OPENAI_API_KEY', 'CODEX_API_KEY'] : [],
+    };
   }
 
   /** The OpenAI API, and ChatGPT for a ChatGPT login (and its token). */
@@ -101,7 +127,7 @@ export class CodexProvider
     const rules = join(home, 'rules');
     ensureDirectory(rules);
     const hooks = writeHooks(home, gate.hookCommand);
-    linkCredentials(home);
+    if (this.login) linkCredentials(home);
     this.codexHome = home;
 
     // Read-only in the sandbox: the agent must not drop the hook or add rules.
@@ -401,7 +427,7 @@ function shellJoin(argv: readonly string[]): string {
 function withoutGateDenials(chunk: string): string | undefined {
   const kept = chunk.split('\n').filter((line) => {
     const denial = GATE_DENIAL.test(line);
-    if (denial) reportDebug({ type: 'provider-noise', line });
+    if (denial) log.debug({ type: 'provider-noise', line });
     return !denial;
   });
 

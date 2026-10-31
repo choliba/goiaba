@@ -10,7 +10,7 @@ import type { Store } from '../store/index';
 
 export type AgentProvider = Provider<string, string>;
 
-/** Where the agent is in its life: see run, pause, resume, stop, destroy. */
+/** Where the agent is in its life: see run, pause, stop, reset, destroy. */
 export type AgentStatus =
   'idle' | 'running' | 'paused' | 'stopped' | 'destroyed';
 
@@ -50,8 +50,9 @@ export interface AgentOptions {
   /** Sessions, decisions and approvals; defaults to the config's `database`. */
   readonly store?: Store;
   /**
-   * Waits for the next message after every turn instead of ending when the
-   * agent stops asking (e.g. a chat). Ends only when stopped.
+   * Waits for the next message after every turn (a chat), ending only when
+   * stopped. Default `true`; `false` ends when the agent stops asking (a
+   * one-shot task).
    */
   readonly conversation?: boolean;
   /** Functions that receive everything the agent reports, as it happens. */

@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 
 import {
+  ensureDirectory,
   isDirectory,
   isSymlink,
   pathExists,
@@ -14,14 +15,20 @@ import {
   processName,
   processNamespace,
 } from '../../execute/proc';
-import { environment, startHelper, type Helper } from '../../execute/process';
+import {
+  environment,
+  goiabaCacheDir,
+  startHelper,
+  type Helper,
+} from '../../execute/process';
 import type { ProgramCommand } from '../../execute/types';
 import { UsageError } from '../../errors';
 import { isDebug } from '../../logger/index';
-import { reportDebug } from '../../output/activity';
+import { log } from '../../logger/index';
 import { logSandbox } from './debug';
 import { hostStateDirs } from './host-state';
 import type { NetworkExit, Sandbox } from './types';
+import type { SandboxHost } from './host-access';
 import { wrapCommand } from './wrap-command';
 import type { FilesystemAccess, FilesystemMask } from '../../policy/index';
 import { protectedMasks } from './protect';
@@ -58,6 +65,7 @@ export class BubblewrapSandbox implements Sandbox {
   private filesystem: FilesystemAccess | undefined;
   private protectedPaths: readonly string[] = [];
   private network: NetworkExit | undefined;
+  private host: SandboxHost | undefined;
 
   public constructor({
     root,
@@ -89,6 +97,14 @@ export class BubblewrapSandbox implements Sandbox {
     this.protectedPaths = [...this.protectedPaths, ...paths];
   }
 
+  public useHost(host: SandboxHost): void {
+    if (this.keeper !== undefined) {
+      throw new UsageError('O host deve ser configurado antes da execução.');
+    }
+
+    this.host = host;
+  }
+
   public isolateNetwork(exit: NetworkExit): void {
     if (this.keeper !== undefined) {
       throw new UsageError('A rede deve ser configurada antes da execução.');
@@ -101,13 +117,17 @@ export class BubblewrapSandbox implements Sandbox {
     const pid = await this.ensureJail();
     const network = this.network;
 
-    return wrapCommand(
+    const prepared = wrapCommand(
       'nsenter',
       bubblewrapNsenterArgs(pid, this.root, network !== undefined),
       network === undefined
         ? command
         : wrapCommand('env', network.environment(), command),
     );
+    // nsenter hands its environment to the CLI: only what was let in.
+    return this.host === undefined
+      ? prepared
+      : { ...prepared, env: this.host.env };
   }
 
   public async started(pid: number | undefined): Promise<void> {
@@ -115,7 +135,7 @@ export class BubblewrapSandbox implements Sandbox {
       return;
     }
 
-    reportDebug({
+    log.debug({
       type: 'sandbox',
       sandbox: 'bubblewrap',
       phase: 'command',
@@ -151,9 +171,13 @@ export class BubblewrapSandbox implements Sandbox {
       throw new UsageError(`A raiz do workspace não existe: ${this.root}`);
     }
 
+    for (const path of this.host?.state ?? []) {
+      // Goiaba's own cache (gate, bridge) is created here if missing.
+      if (path === goiabaCacheDir()) ensureDirectory(path);
+    }
     const writable = writableBinds(
       this.root,
-      [...hostStateDirs(this.env), ...this.writable],
+      [...(this.host?.state ?? hostStateDirs(this.env)), ...this.writable],
       this.filesystem?.workspaceAccess !== 'readonly',
     );
     const readonly = [
@@ -170,6 +194,11 @@ export class BubblewrapSandbox implements Sandbox {
       ...bubblewrapMaskArgs([
         ...(this.filesystem?.masks ?? []),
         ...protectedMasks(this.protectedPaths),
+        // Logins the provider does not use: not in the jail.
+        ...(this.host?.hidden ?? []).map((path) => ({
+          path,
+          access: 'hidden' as const,
+        })),
       ]),
     ];
 
@@ -246,7 +275,7 @@ export class BubblewrapSandbox implements Sandbox {
     this.jailPid = pid;
 
     if (isDebug()) {
-      reportDebug({
+      log.debug({
         type: 'sandbox',
         sandbox: 'bubblewrap',
         phase: 'process',

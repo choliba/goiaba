@@ -1,12 +1,12 @@
 import type { ProgramCommand } from '../../execute/types';
-import { reportDebug } from '../../output/activity';
+import { log } from '../../logger/index';
 
 export function logSandbox(
   sandbox: string,
   command: ProgramCommand,
   extra: Record<string, unknown> = {},
 ): void {
-  reportDebug({
+  log.debug({
     type: 'sandbox',
     sandbox,
     command: {

@@ -1,4 +1,7 @@
+import { homedir } from 'node:os';
+
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
+import { join } from '../../filesystem/index';
 import { UsageError } from '../../errors';
 import { truncateError } from '../../logger/index';
 import { wrapCommand } from '../../workspace/sandbox/wrap-command';
@@ -15,6 +18,7 @@ import type {
   ProviderEvent,
   ProviderOptions,
   ToolEvent,
+  HostAccess,
 } from '../types';
 
 // Tools that touch files; the sandbox decides which paths they reach.
@@ -70,6 +74,24 @@ export class ClaudeProvider
 
   public describe(): ProviderDescription {
     return { name: 'claude', model: this.model };
+  }
+
+  /** Its state (sessions, settings), its install, and its login. */
+  public hostAccess(): HostAccess {
+    const home = homedir();
+    return {
+      state: [
+        join(home, '.claude'),
+        join(home, '.claude.json'),
+        join(home, '.local/share/claude'),
+      ],
+      credentialFiles: [join(home, '.claude/.credentials.json')],
+      credentialEnv: [
+        'CLAUDE_CODE_OAUTH_TOKEN',
+        'ANTHROPIC_API_KEY',
+        'ANTHROPIC_AUTH_TOKEN',
+      ],
+    };
   }
 
   /** The Messages API, and where a claude.ai login refreshes its token. */

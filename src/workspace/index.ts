@@ -1,7 +1,9 @@
 import type { ProgramCommand } from '../execute/types';
 import { UsageError } from '../errors';
+import { resolve } from '../filesystem/index';
 import { compileFilesystemAccess, type AgentPolicy } from '../policy/index';
 import { validatePorts, type NetworkBoundary } from '../network/index';
+import type { SandboxHost } from './sandbox/host-access';
 import {
   BubblewrapSandbox,
   DockerSandbox,
@@ -47,6 +49,13 @@ export class Workspace {
     if (options.root.trim().length === 0) {
       throw new UsageError('A raiz do workspace não pode estar vazia.');
     }
+    // The root is mounted writable over everything: `/` would hand the agent
+    // the whole host (and the host's /dev, where the CLIs' terminals fail).
+    if (resolve(options.root) === '/') {
+      throw new UsageError(
+        'A raiz do workspace não pode ser /: o agente teria escrita no sistema inteiro. Use a pasta do projeto.',
+      );
+    }
 
     validatePorts(options.ports ?? []);
     this.root = options.root;
@@ -72,6 +81,11 @@ export class Workspace {
     boundary.publish(this.options.ports ?? []);
     this.sandbox.isolateNetwork(boundary);
     this.network = boundary;
+  }
+
+  /** See {@link Sandbox.useHost}; sandboxes without it get the whole host share. */
+  public useHost(host: SandboxHost): void {
+    this.sandbox.useHost?.(host);
   }
 
   /** See {@link Sandbox.protect}. */

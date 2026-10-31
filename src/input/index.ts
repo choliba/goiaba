@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createInterface, type Interface } from 'node:readline';
 
 import { interruptProgram } from '../execute/process';
-import { reportDebug } from '../output/activity';
+import { log } from '../logger/index';
 import { writeOut } from '../output/terminal';
 
 const CTRL_A = '\u0001';
@@ -422,7 +422,7 @@ function remove<T>(values: T[], value: T): void {
 
 /** What was typed reaches the log through the activity channel. */
 function recordInput(type: string, fields: Record<string, unknown> = {}): void {
-  reportDebug({ type, ...fields });
+  log.debug({ type, ...fields });
 }
 
 function abortError(message: string): DOMException {

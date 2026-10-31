@@ -1,10 +1,9 @@
 import type { AgentOutput } from '../src/index';
 
 /**
- * Everything the agent reports passes here (`subscribe`), with `ts`:
- * `output.type` says what it is — input, resume, session, output, ask, tool,
- * tool_result, tool_error, command_decision, command, sandbox,
- * provider-noise, answer, approved, message, error.
+ * Every event of the agent passes here (`subscribe`), with `ts`:
+ * `output.type` says what it is — input, resume, session, output, ask,
+ * answer, approved, message, status, thinking, error.
  *
  * A listener only observes: calling `agent.run()` here starts the agent again
  * on every report.

@@ -252,6 +252,19 @@ describe('Workspace', () => {
     },
   );
 
+  test('recusa / como raiz: seria escrita no sistema inteiro', () => {
+    for (const type of ['bubblewrap', 'docker'] as const) {
+      expect(
+        () =>
+          new Workspace(
+            type === 'docker'
+              ? { type, root: '/', image: 'FROM oven/bun:latest' }
+              : { type, root: '/' },
+          ),
+      ).toThrow('A raiz do workspace não pode ser /');
+    }
+  });
+
   test('bubblewrap não monta o filesystem do host inteiro', () => {
     const args = bubblewrapJailArgs(root, [root]);
 

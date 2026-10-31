@@ -15,38 +15,35 @@ import { WorkspaceLock } from './lock';
 import { AgentOutput } from './output';
 import { getConfig, isConfigLoaded } from '../config/index';
 import { Executor, ProgramExecutionError } from '../execute/index';
+import { emit, onEvent } from '../events/index';
 import {
   closeLogger,
   isDebug,
   isLoggerOpen,
+  log,
   openLogger,
+  type LogInput,
 } from '../logger/index';
-import {
-  asAgent,
-  currentRun,
-  type AgentScope,
-  onActivity,
-  report,
-  reportDebug,
-  reportError,
-  reportFailure,
-} from '../output/activity';
+import { asAgent, currentRun, type AgentScope } from './scope';
 import type { AgentEvent, ExecutionGate, ToolEvent } from '../providers/types';
 import { Store, type StoredApproval } from '../store/index';
 import {
   delegatedCategories,
+  PolicyEngine,
   type AgentPolicy,
   type PolicyCategory,
 } from '../policy/index';
 import { UsageError } from '../errors';
 import { StandardOutput, type OutputAdapter } from '../output/index';
+import { listenForInterrupt } from '../execute/interrupt';
 import { scriptSignal } from '../usage';
 import type { Workspace } from '../workspace/index';
 import { currentProcessCommand, environment } from '../execute/process';
+import { sandboxHost } from '../workspace/sandbox/host-access';
 import { NetworkBoundary, type NetworkApprovalRequest } from '../network/index';
 
 export class Agent {
-  /** Identifies the agent in its activity, logs and sessions. */
+  /** Identifies the agent in its events, logs and sessions. */
   public readonly name: string;
   public readonly prompt: string;
 
@@ -55,6 +52,8 @@ export class Agent {
   public readonly workspace: Workspace;
   private readonly output: OutputAdapter;
   private readonly signal: AbortSignal | undefined;
+  /** Ctrl+C while it runs, when nobody gave it a signal (no runScript). */
+  private interrupted: AbortSignal | undefined;
   private readonly store: Store | undefined;
   private readonly broker: ApprovalBroker | undefined;
   private readonly network: NetworkBoundary | undefined;
@@ -67,9 +66,10 @@ export class Agent {
   private readonly subscribers: readonly AgentSubscriber[];
   /** What the agent said while the approvals screen was open; shown after. */
   private held: string[] | undefined;
+  /** The status line it should show now (`pensando`, `rodando`…). */
+  private wantedStatus: string | undefined;
   /** Approvals being asked right now: the CLI waits on them, it is not silent. */
   private approving = 0;
-  private silence: { touch(): void } | undefined;
   private state: AgentStatus = 'idle';
   /** The run in progress; `run()` while running returns it. */
   private current: Promise<void> | undefined;
@@ -90,7 +90,7 @@ export class Agent {
     signal = scriptSignal(),
     approve,
     store,
-    conversation = false,
+    conversation = true,
     subscribe = [],
   }: AgentOptions) {
     if (name.trim().length === 0) {
@@ -135,12 +135,12 @@ export class Agent {
           });
     this.broker = enforced?.broker;
     this.network = enforced?.network;
+    shareHost(workspace, provider, permissions);
   }
 
   /**
-   * While a question is open the CLI is waiting for the person, not working
-   * in the background: no silence notice over the prompt, and the silence is
-   * counted again from the answer.
+   * While a question is open the CLI is waiting for the person, not
+   * thinking: no `pensando` over the prompt meanwhile.
    */
   private whileApproving(approve: CommandApprover): CommandApprover {
     return async (request) => {
@@ -149,7 +149,7 @@ export class Agent {
         return await approve(request);
       } finally {
         this.approving -= 1;
-        this.silence?.touch();
+        this.renderStatus();
       }
     };
   }
@@ -170,7 +170,7 @@ export class Agent {
 
   /**
    * Interrupts the current turn and keeps the sandbox and the gate open;
-   * `resume()` continues it.
+   * `run()` continues it.
    */
   public async pause(): Promise<void> {
     if (this.current === undefined) return;
@@ -181,20 +181,9 @@ export class Agent {
   }
 
   /**
-   * Continues the agent's last unfinished session (after `pause()`, `stop()`
-   * or an interrupted run), whatever its prompt; starts one if there is none.
+   * Ends the run and closes the sandbox and the gate; the session stays open
+   * in the database, and the next `run()` continues it.
    */
-  public resume(): Promise<void> {
-    this.assertUsable();
-    if (this.current !== undefined) return this.current;
-
-    this.forced =
-      this.store?.openSession(this.provider.id, this.workspace.root) ??
-      undefined;
-    return this.start();
-  }
-
-  /** Ends the run and closes the sandbox and the gate; the session stays open. */
   public async stop(): Promise<void> {
     if (this.current !== undefined) {
       this.state = 'stopped';
@@ -217,11 +206,15 @@ export class Agent {
     this.state = 'idle';
   }
 
-  /** Stops and releases everything; the agent cannot be used again. */
+  /**
+   * Stops, ends the open sessions and releases everything: the agent cannot
+   * be used again, and the next run of it starts from scratch.
+   */
   public async destroy(): Promise<void> {
     if (this.state === 'destroyed') return;
 
     await this.stop();
+    this.store?.abandonOtherSessions(this.provider.id, this.workspace.root, '');
     this.store?.close();
     this.state = 'destroyed';
   }
@@ -229,14 +222,23 @@ export class Agent {
   private start(): Promise<void> {
     this.controller = new AbortController();
     this.state = 'running';
+    // Without a signal (an agent file without runScript), Ctrl+C is its own.
+    const interrupt =
+      this.signal === undefined ? listenForInterrupt() : undefined;
+    this.interrupted = interrupt?.signal;
     // Deferred so `current` is set before the first report: a subscriber
     // calling `run()` gets this run instead of starting another.
     const run = Promise.resolve()
       .then(() => asAgent(this.scope(), () => this.runConversation()))
       .finally(() => {
+        interrupt?.dispose();
         this.current = undefined;
         this.controller = undefined;
-        if (this.state === 'running') this.state = 'idle';
+        // Interrupted from outside (Ctrl+C): stopped, the session stays open.
+        if (this.state === 'running') {
+          this.state =
+            this.outerSignal()?.aborted === true ? 'stopped' : 'idle';
+        }
       });
     this.current = run;
     return run;
@@ -297,9 +299,14 @@ export class Agent {
     }
   }
 
+  /** Who stops it from outside: the given signal, or its own Ctrl+C. */
+  private outerSignal(): AbortSignal | undefined {
+    return this.signal ?? this.interrupted;
+  }
+
   /** The external signal (Ctrl+C) or this run's own (pause, stop). */
   private runSignal(): AbortSignal | undefined {
-    return anySignal(this.signal, this.controller?.signal);
+    return anySignal(this.outerSignal(), this.controller?.signal);
   }
 
   private takeForcedSession(): string | undefined {
@@ -347,7 +354,7 @@ export class Agent {
    * The conversation, run as this agent: everything reported on the way
    * (commands, sandbox, tools, decisions…) carries `agent: name`.
    */
-  public async *interact(
+  private async *interact(
     input: string,
     answer: AgentAsk,
     listen?: (signal?: AbortSignal) => Promise<string>,
@@ -372,19 +379,21 @@ export class Agent {
     const ownsLogger = !isLoggerOpen();
     if (ownsLogger) openLogger();
     // The subscribers hear everything this agent reports, not other agents'.
-    const stopSubscribers = onActivity((activity) => {
-      if (activity.agent !== this.name) return;
-      const output = new AgentOutput(activity, this);
+    const stopSubscribers = onEvent((event) => {
+      if (event.agent !== this.name) return;
+      const output = new AgentOutput(event, this);
       for (const subscriber of this.subscribers) subscriber(output);
     });
     // With debug, everything this run uses, so the log says how it ran.
     if (isDebug()) {
-      reportDebug({ type: 'agent_config', config: this.configuration() });
+      log.debug({ type: 'agent_config', config: this.configuration() });
     }
-    report({ type: 'input', value: input });
+    publish({ type: 'input', value: input });
 
     let nextInput = input;
     let sessionId: string | undefined;
+    /** The stored session this run tries to continue, until the CLI confirms it. */
+    let resuming: string | undefined;
 
     try {
       // Before the sandbox and the gate: another run here would only wait.
@@ -397,7 +406,8 @@ export class Agent {
         this.network?.setSession(sessionId);
         // The task is already in the session's history: only what changed.
         nextInput = this.continuation(sessionId);
-        report({ type: 'resume', session: sessionId, input: nextInput });
+        publish({ type: 'resume', session: sessionId, input: nextInput });
+        resuming = sessionId;
       }
 
       while (true) {
@@ -409,14 +419,20 @@ export class Agent {
           (value) => this.dispatchLiveInput(value, sessionId),
         );
 
-        // The loop runs while the CLI does (it ends when the process exits):
-        // a long silence meanwhile gets a line saying it is still at work.
-        const silence = watchSilence(() => {
-          if (this.held === undefined && this.approving === 0) {
-            this.show(BACKGROUND_MESSAGE);
-          }
-        });
-        this.silence = silence;
+        // The loop runs while the CLI does (it ends when the process exits).
+        // While the model works: one line on screen when it starts, and
+        // every phase (start, ticks, end) for the subscribers.
+        const thinking = watchThinking(
+          (phase, seconds) => {
+            if (phase === 'start') this.setStatus(THINKING_MESSAGE);
+            if (phase === 'end') this.setStatus(undefined);
+            const record = { type: 'thinking', phase, seconds };
+            // A tick is a clock, not something that happened: not logged.
+            if (phase === 'tick') emit({ source: 'agent', ...record });
+            else publish(record, 'debug');
+          },
+          { paused: () => this.approving > 0 },
+        );
 
         try {
           for await (const event of this.executor.run(
@@ -427,6 +443,7 @@ export class Agent {
             this.runSignal(),
           )) {
             if (event.type === 'session') {
+              resuming = undefined;
               // A brand-new session replaces the open ones it cannot resume.
               if (sessionId === undefined) {
                 this.store?.abandonOtherSessions(
@@ -446,17 +463,21 @@ export class Agent {
                 agent: this.name,
                 command: currentProcessCommand(),
               });
-              report({ type: 'session', id: event.id });
+              publish({ type: 'session', id: event.id });
               continue;
             }
 
             if (event.type === 'tool') {
-              // Reaches the subscribers and the log, not the conversation.
+              // Reaches the log, not the conversation.
               logTool(event);
+              // On screen: a tool running, then back to the model.
+              this.setStatus(
+                event.phase === 'call' ? BACKGROUND_MESSAGE : THINKING_MESSAGE,
+              );
               continue;
             }
-            report({ ...event });
-            silence.touch();
+            publish({ ...event });
+            thinking.spoke();
 
             if (event.type === 'ask') {
               yield { type: 'output', value: event.question };
@@ -471,8 +492,30 @@ export class Agent {
               void pendingAnswer.catch(() => undefined);
             }
           }
+        } catch (error) {
+          // The CLI no longer has the stored session (its history is gone):
+          // start the task over in a new one instead of failing.
+          if (
+            resuming === undefined ||
+            !(error instanceof ProgramExecutionError)
+          ) {
+            throw error;
+          }
+          typed?.cancel();
+          question.abort();
+          this.show(FORGOTTEN_SESSION_MESSAGE);
+          publish({ type: 'resume_failed', session: resuming }, 'error');
+          this.store?.abandonOtherSessions(
+            this.provider.id,
+            this.workspace.root,
+            '',
+          );
+          resuming = undefined;
+          sessionId = undefined;
+          nextInput = input;
+          continue;
         } finally {
-          silence.stop();
+          thinking.stop();
         }
 
         const waiting =
@@ -511,11 +554,16 @@ export class Agent {
           type: resolved.approved ? 'approved' : 'answer',
           value: nextInput,
         } as const;
-        report(turn);
+        publish(turn);
       }
     } catch (error) {
       if (!isAbortError(error)) {
-        reportFailure(error);
+        log.failure(error);
+        emit({
+          source: 'agent',
+          type: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
 
       throw error;
@@ -601,7 +649,32 @@ export class Agent {
       const held = this.held;
       this.held = undefined;
       for (const value of held) this.show(value);
+      this.renderStatus();
     }
+  }
+
+  /**
+   * The status line, rewritten in place where the interaction can (the
+   * terminal). An interaction without it gets `pensando` as a line, once
+   * each time the model starts.
+   */
+  private setStatus(text: string | undefined): void {
+    const fallback =
+      this.output.status === undefined &&
+      text === THINKING_MESSAGE &&
+      this.wantedStatus === undefined;
+    const changed = text !== this.wantedStatus;
+    this.wantedStatus = text;
+    // The agent emits it; each interaction draws it its own way.
+    if (changed) publish({ type: 'status', text: text ?? null }, 'debug');
+    if (fallback && this.held === undefined) this.show(text);
+    this.renderStatus();
+  }
+
+  /** Not over the approvals screen or a question being answered. */
+  private renderStatus(): void {
+    if (this.held !== undefined || this.approving > 0) return;
+    this.output.status?.(this.wantedStatus);
   }
 
   private say(value: string): void {
@@ -612,7 +685,7 @@ export class Agent {
   /** Shows text through the interaction and tells the subscribers. */
   private show(text: string): void {
     this.output.write(text);
-    report({ type: 'message', level: 'debug', text });
+    publish({ type: 'message', text }, 'debug');
   }
 
   /**
@@ -992,7 +1065,7 @@ function enforcePermissions({
 }
 
 /** Categories of `AgentPolicy` that Goiaba does not enforce yet. */
-const UNENFORCED: readonly PolicyCategory[] = ['tools', 'agents', 'secrets'];
+const UNENFORCED: readonly PolicyCategory[] = ['tools', 'agents'];
 
 /**
  * With network rules, the sandbox gets no network of its own: everything
@@ -1022,7 +1095,7 @@ function configureNetwork({
     endpoints: provider.networkEndpoints?.() ?? [],
     blocked: provider.networkBlocked?.() ?? [],
     approve: (request) => approveNetwork(approve, request, provider.id),
-    audit: (event) => reportDebug({ type: 'network_decision', ...event }),
+    audit: (event) => log.debug({ type: 'network_decision', ...event }),
   });
   workspace.configureNetwork(network);
   return network;
@@ -1047,6 +1120,29 @@ function approveNetwork(
     provider,
     category: 'network',
   });
+}
+
+/**
+ * Only the provider's share of the host reaches the sandbox: its state, its
+ * own credentials and the variables `secrets` allows; every other secret
+ * (other logins, tokens in the environment) is not there at all. Applies
+ * with or without a policy; without one, no extra variable is allowed.
+ */
+function shareHost(
+  workspace: Workspace,
+  provider: AgentProvider,
+  permissions: AgentPolicy | undefined,
+): void {
+  const access = provider.hostAccess?.();
+  if (access === undefined) return;
+
+  const policy =
+    permissions === undefined ? undefined : new PolicyEngine(permissions);
+  // `requireApproval` cannot ask when the variable is read: not let in.
+  const allowSecret = (name: string): boolean =>
+    policy?.check({ category: 'secrets', operation: 'read', secret: name })
+      .policy === 'allow';
+  workspace.useHost(sandboxHost(access, environment(), allowSecret));
 }
 
 /**
@@ -1094,40 +1190,73 @@ function applyProviderPermissions(
   return [];
 }
 
-/** Tools are reported as before: calls and results in debug, failures as errors. */
+/** Tools go to the log: calls and results in debug, failures as errors. */
 function logTool({ phase, detail }: ToolEvent): void {
-  if (phase === 'error') reportError({ type: 'tool_error', ...detail });
+  if (phase === 'error') log.error({ type: 'tool_error', ...detail });
   else
-    reportDebug({ type: phase === 'call' ? 'tool' : 'tool_result', ...detail });
+    log.debug({ type: phase === 'call' ? 'tool' : 'tool_result', ...detail });
 }
 
+/** The conversation: for the subscribers and the log. */
+function publish(record: LogInput, level?: 'debug' | 'error'): void {
+  emit({ source: 'agent', ...record });
+  if (level === undefined) log.info(record);
+  else log[level](record);
+}
+
+const THINKING_MESSAGE = '⏳ pensando…';
+const FORGOTTEN_SESSION_MESSAGE =
+  'A conversa anterior não existe mais na CLI: começando uma nova.';
 const BACKGROUND_MESSAGE = '⏳ rodando em background…';
-/** Silence, while the CLI runs, before saying it is still at work. */
-const SILENCE_MS = 5000;
-const SILENCE_CHECK_MS = 1000;
+/** How often a `thinking` tick is reported while the model works. */
+const THINKING_TICK_MS = 2000;
 
 /**
- * Calls `onSilent` once after `ms` without `touch()`, and again after each
- * new silence; `stop()` ends it. The timer never keeps the program alive.
+ * The model's work in a turn, for the subscribers: `start` when the turn
+ * begins (and again after a quiet `every` once it has spoken), a `tick` every
+ * `every` while the CLI runs without speaking, and `end` when it speaks or
+ * the turn ends. Paused (an approval waits for a person), it does not tick.
+ * The timer never keeps the program alive.
  */
-export function watchSilence(
-  onSilent: () => void,
-  { ms = SILENCE_MS, every = SILENCE_CHECK_MS } = {},
-): { touch(): void; stop(): void } {
-  let last = Date.now();
-  let told = false;
+export function watchThinking(
+  onPhase: (phase: 'start' | 'tick' | 'end', seconds: number) => void,
+  {
+    every = THINKING_TICK_MS,
+    paused = (): boolean => false,
+  }: { readonly every?: number; readonly paused?: () => boolean } = {},
+): { spoke(): void; stop(): void } {
+  let thinking = true;
+  let since = Date.now();
+  let spokeAt = since;
+  const seconds = (): number => Math.round((Date.now() - since) / 1000);
+
+  onPhase('start', 0);
   const timer = setInterval(() => {
-    if (told || Date.now() - last < ms) return;
-    told = true;
-    onSilent();
+    if (paused()) return;
+    if (thinking) {
+      onPhase('tick', seconds());
+    } else if (Date.now() - spokeAt >= every) {
+      thinking = true;
+      since = Date.now();
+      onPhase('start', 0);
+    }
   }, every);
   timer.unref();
 
+  const end = (): void => {
+    if (!thinking) return;
+    thinking = false;
+    onPhase('end', seconds());
+  };
+
   return {
-    touch: () => {
-      last = Date.now();
-      told = false;
+    spoke: () => {
+      end();
+      spokeAt = Date.now();
     },
-    stop: () => clearInterval(timer),
+    stop: () => {
+      clearInterval(timer);
+      end();
+    },
   };
 }

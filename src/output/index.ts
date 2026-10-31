@@ -1,5 +1,5 @@
 import { readAllInput, TerminalInput } from '../input/index';
-import { terminalColumns, writeErr, writeOut } from './terminal';
+import { terminalColumns, writeErr, writeOut, writeStatus } from './terminal';
 
 export interface OutputAdapter {
   /** A line; where it can, a key of `instant` answers alone (no Enter). */
@@ -17,6 +17,11 @@ export interface OutputAdapter {
   choose?(keys: readonly string[], signal?: AbortSignal): Promise<string>;
   close?(): void;
   write(value: string): void;
+  /**
+   * A status line rewritten in place (e.g. `⏳ pensando…`); `undefined`
+   * erases it. Adapters without it get the first status as a line.
+   */
+  status?(text: string | undefined): void;
   /** Characters per line, for tables; adapters without it get 120. */
   width?(): number;
 }
@@ -49,6 +54,10 @@ export class StandardOutput implements OutputAdapter {
 
   public write(value: string): void {
     writeOut(value.endsWith('\n') ? value : `${value}\n`);
+  }
+
+  public status(text: string | undefined): void {
+    writeStatus(text);
   }
 
   /** Width of the terminal, in characters; 120 when not a terminal. */

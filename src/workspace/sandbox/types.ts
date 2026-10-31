@@ -1,5 +1,6 @@
 import type { ProgramCommand } from '../../execute/types';
 import type { FilesystemAccess } from '../../policy/index';
+import type { SandboxHost } from './host-access';
 
 /**
  * Defines how a program command is placed inside an execution boundary.
@@ -13,6 +14,12 @@ export interface Sandbox {
    * rewrite what enforces its own policy.
    */
   protect(paths: readonly string[]): void;
+  /**
+   * Only this share of the host: the CLI's state, without the credentials it
+   * does not use, and exactly this environment. Without it, the generic CLI
+   * state dirs and Goiaba's whole environment.
+   */
+  useHost?(host: SandboxHost): void;
   /**
    * Runs without network of its own: `exit` is the only way out. Sandboxes
    * that cannot do it leave the method out.

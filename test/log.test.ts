@@ -13,7 +13,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { Agent } from '../src/agent/agent';
 import { clearConfigCache, loadConfig } from '../src/config/index';
-import { closeLogger, openLogger } from '../src/logger/index';
+import { emit } from '../src/events/index';
+import { closeLogger, log, openLogger } from '../src/logger/index';
 import { DockerSandbox } from '../src/workspace/sandbox/docker';
 import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
 import type { Provider, ProviderEvent } from '../src/providers/types';
@@ -46,7 +47,8 @@ test('openLogger não cria arquivo sem config carregado', () => {
     };
   });
 
-  openLogger().log({ type: 'input', value: 'x' });
+  openLogger();
+  log.info({ type: 'input', value: 'x' });
 
   for (const { path, before } of snapshots) {
     if (before === undefined) {
@@ -67,7 +69,8 @@ test('openLogger cria o diretório e o jsonl', async () => {
     );
     await loadConfig({ cwd });
 
-    openLogger().log({ type: 'input', value: 'olá' });
+    openLogger();
+    log.info({ type: 'input', value: 'olá' });
 
     const logDir = join(cwd, 'logs');
     expect(
@@ -87,6 +90,28 @@ test('openLogger cria o diretório e o jsonl', async () => {
     ]);
     const file = readdirSync(logDir).find((name) => name.endsWith('.jsonl'));
     expect(statSync(join(logDir, String(file))).mode & 0o777).toBe(0o600);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('o log não ouve os eventos: só grava o que lhe é enviado', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
+
+  try {
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { debug: true, logger: { dir: 'logs' } };\n`,
+    );
+    await loadConfig({ cwd });
+    openLogger();
+
+    emit({ source: 'agent', type: 'thinking', phase: 'tick', seconds: 2 });
+    log.debug({ type: 'thinking', phase: 'end', seconds: 3 });
+
+    expect(
+      readLogRecords(join(cwd, 'logs')).map((record) => record['goiaba']),
+    ).toEqual([expect.objectContaining({ phase: 'end' })]);
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
@@ -218,9 +243,9 @@ test('openLogger omite debug quando debug é false', async () => {
     );
     await loadConfig({ cwd });
 
-    const logger = openLogger();
-    logger.log({ type: 'input', value: 'ok' });
-    logger.log({ type: 'command', level: 'debug', executable: 'agent' });
+    openLogger();
+    log.info({ type: 'input', value: 'ok' });
+    log.debug({ type: 'command', executable: 'agent' });
 
     const logDir = join(cwd, 'logs');
     expect(readLogRecords(logDir)).toHaveLength(1);
@@ -240,6 +265,7 @@ test('debug registra os comandos executados pelo agente', async () => {
     await loadConfig({ cwd });
 
     const agent = new Agent({
+      conversation: false,
       name: 'teste',
       prompt: 'mensagem',
       provider: new EchoProvider(),
@@ -344,6 +370,7 @@ test('Agent.run grava o transcript no logDir', async () => {
     await loadConfig({ cwd });
 
     const agent = new Agent({
+      conversation: false,
       name: 'teste',
       prompt: 'mensagem',
       provider: new EchoProvider(),

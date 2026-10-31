@@ -4,11 +4,10 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
 import { clearConfigCache, loadConfig } from '../src/config/index';
-import { closeLogger, openLogger } from '../src/logger/index';
+import { closeLogger, log, openLogger } from '../src/logger/index';
 import { adaptLogger } from '../src/logger/adapt';
 import { maskRecord, REDACTED } from '../src/logger/mask';
 import { toLogRecord, type LogRecord } from '../src/logger/record';
-import { report, reportError } from '../src/output/activity';
 import { readLogRecords } from './support/log-records';
 
 const context = { traceId: 'trace-1', userName: 'dev' };
@@ -241,8 +240,8 @@ export default {
       await loadConfig({ cwd });
 
       openLogger();
-      report({ type: 'input', value: 'olá' });
-      reportError({ type: 'error', message: 'falhou' });
+      log.info({ type: 'input', value: 'olá' });
+      log.error({ type: 'error', message: 'falhou' });
       closeLogger();
 
       const all = readLogRecords(join(cwd, 'logs'));

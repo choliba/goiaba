@@ -36,6 +36,14 @@ export function exitProgram(code: number): never {
   process.exit(code);
 }
 
+/**
+ * What the program does with an error nobody caught, thrown or awaited at
+ * the top of a script, instead of the runtime's default.
+ */
+export function onUncaughtError(handle: (error: unknown) => void): void {
+  process.on('uncaughtException', handle);
+}
+
 /** The code the program ends with, without ending it now. */
 export function setExitCode(code: number): void {
   process.exitCode = code;

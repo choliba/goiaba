@@ -43,6 +43,7 @@ export const todasAsPermissoes: AgentPolicy = {
         operations: ['connect'],
         // Host, com ou sem porta.
         hosts: [
+          'github.com', '*.github.com',
           'registry.npmjs.org',
           'github.com',
           '*.github.com',

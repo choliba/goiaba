@@ -1,4 +1,4 @@
-import { reportDebug, reportError } from '../output/activity';
+import { log } from '../logger/index';
 import { commandMatches, parseCommand } from '../policy/command';
 import { PolicyEngine, type AgentPolicy } from '../policy/index';
 import type { ApprovalScope, DecisionCategory, Store } from '../store/index';
@@ -241,11 +241,11 @@ function reportDecision(entry: CommandDecisionEvent): void {
   const record = { type: 'command_decision', ...entry };
 
   if (entry.decision === 'deny') {
-    reportError(record);
+    log.error(record);
     return;
   }
 
-  reportDebug(record);
+  log.debug(record);
 }
 
 /**

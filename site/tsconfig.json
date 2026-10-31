@@ -1,5 +1,11 @@
 {
-  "exclude": ["node_modules", "dist", "client"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "client",
+    "vitest.config.ts",
+    "vitest.config.e2e.ts"
+  ],
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",

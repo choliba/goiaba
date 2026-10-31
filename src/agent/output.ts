@@ -1,14 +1,13 @@
-import type { Activity } from '../output/activity';
+import type { GoiabaEvent } from '../events/index';
 import type { Agent } from './agent';
 
 /**
- * One output of an agent, as its `subscribe` functions receive it: what
+ * One event of an agent, as its `subscribe` functions receive it: what
  * happened (`type()`, `data()`), when (`ts()`) and which agent (`agent()`).
- * `JSON.stringify` gives the same record the log writes.
  */
 export class AgentOutput {
   public constructor(
-    private readonly activity: Activity,
+    private readonly event: GoiabaEvent,
     private readonly source: Agent,
   ) {}
 
@@ -18,39 +17,33 @@ export class AgentOutput {
   }
 
   /**
-   * input, resume, session, output, ask, answer, approved, message, tool,
-   * tool_result, tool_error, command_decision, command, sandbox,
-   * provider-noise, error…
+   * input, resume, resume_failed, session, output, ask, answer, approved,
+   * message, status, thinking, error…
    */
   public type(): string {
-    return this.activity.type;
+    return this.event.type;
   }
 
   /** ISO date and time it was reported. */
   public ts(): string {
-    return this.activity.ts;
+    return this.event.ts;
   }
 
-  /** `debug` for details, `error` for failures; none for the conversation. */
-  public level(): 'debug' | 'error' | undefined {
-    return this.activity.level;
-  }
-
-  /** What was reported, without ts, type, level, agent, run and provider. */
+  /** What was emitted, without source, ts, type, agent, run and provider. */
   public data(): Readonly<Record<string, unknown>> {
     const {
+      source: _source,
       ts: _ts,
       type: _type,
-      level: _level,
       agent: _agent,
       run: _run,
       agentProvider: _agentProvider,
       ...data
-    } = this.activity;
+    } = this.event;
     return data;
   }
 
-  public toJSON(): Activity {
-    return this.activity;
+  public toJSON(): GoiabaEvent {
+    return this.event;
   }
 }

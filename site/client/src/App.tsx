@@ -27,6 +27,7 @@ import {
   type SvgIconProps,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
+import { useAgentChat } from './AgentChat';
 import { useColorMode } from './theme/ColorModeProvider';
 
 const drawerWidth = 280;
@@ -208,6 +209,7 @@ const iconPaths: Record<string, string> = {
   bell: 'M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6v-5a6 6 0 0 0-5-5.91V4a1 1 0 0 0-2 0v1.09A6 6 0 0 0 6 11v5l-2 2v1h16v-1l-2-2z',
   download: 'M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z',
   arrow: 'M7 10l5 5 5-5z',
+  chat: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z',
 };
 
 // Aceita tudo que o SvgIcon aceita (fontSize, color, sx...).
@@ -222,11 +224,18 @@ function Icon({
   );
 }
 
-const navItems = [
-  { label: 'Dashboard', icon: 'grid' as const },
-  { label: 'Análises', icon: 'chart' as const },
-  { label: 'Clientes', icon: 'people' as const },
-  { label: 'Tarefas', icon: 'task' as const },
+const navItems: readonly {
+  label: string;
+  icon: keyof typeof iconPaths;
+  path?: string;
+  /** Abre o chat com os agentes, em vez de navegar. */
+  chat?: true;
+}[] = [
+  { label: 'Dashboard', icon: 'grid', path: '/dashboard' },
+  { label: 'Agentes', icon: 'chat', chat: true },
+  { label: 'Análises', icon: 'chart' },
+  { label: 'Clientes', icon: 'people' },
+  { label: 'Tarefas', icon: 'task' },
 ];
 
 const sessions = [
@@ -685,17 +694,9 @@ export function App() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const pathname = useCurrentPath();
+  const chat = useAgentChat();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeItem, setActiveItem] = useState('Dashboard');
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    if (pathname !== '/dashboard') return;
-    fetch('/api')
-      .then((res) => res.text())
-      .then(setMessage)
-      .catch(() => setMessage('API conectada'));
-  }, [pathname]);
 
   if (pathname !== '/dashboard')
     return <HomePage mode={mode} toggleMode={toggleMode} />;
@@ -754,9 +755,20 @@ export function App() {
         {navItems.map((item) => (
           <ListItemButton
             key={item.label}
-            selected={activeItem === item.label}
+            selected={
+              item.chat === true
+                ? chat.aberto
+                : item.path === undefined
+                  ? activeItem === item.label
+                  : pathname === item.path
+            }
             onClick={() => {
-              setActiveItem(item.label);
+              if (item.chat === true) {
+                chat.abrir();
+              } else {
+                setActiveItem(item.label);
+                if (item.path !== undefined) navigateTo(item.path);
+              }
               if (isMobile) setMobileOpen(false);
             }}
             sx={{
@@ -1011,24 +1023,6 @@ export function App() {
         }}
       >
         <DashboardContent />
-        {/* Só para leitores de tela. No sx do MUI, width: 1 é 100%, não 1px:
-            os valores em string garantem 1px e a página não ganha rolagem. */}
-        <Box
-          sx={{
-            position: 'absolute',
-            width: '1px',
-            height: '1px',
-            p: 0,
-            m: '-1px',
-            overflow: 'hidden',
-            clip: 'rect(0 0 0 0)',
-            whiteSpace: 'nowrap',
-            border: 0,
-          }}
-          aria-live="polite"
-        >
-          {message}
-        </Box>
       </Box>
     </Box>
   );

@@ -1,4 +1,4 @@
-import type { Activity } from '../output/activity';
+import type { ScopeFields } from '../agent/scope';
 
 /**
  * The log contract, whatever package writes it: ECS for the record
@@ -18,6 +18,15 @@ export interface LogRecord {
   readonly fields: Readonly<Record<string, unknown>>;
 }
 
+/** What a producer logged, with when and who was running. */
+export interface LogEntry extends ScopeFields {
+  readonly ts: string;
+  /** None for `info`. */
+  readonly level?: 'debug' | 'error';
+  readonly type: string;
+  readonly [key: string]: unknown;
+}
+
 /** What every record of one log carries. */
 export interface LogContext {
   /** One per open log: one run of the script. */
@@ -27,7 +36,7 @@ export interface LogContext {
 
 type Fields = Record<string, unknown>;
 
-/** Activity fields with a standard name; the rest goes in `goiaba.*`. */
+/** Fields with a standard name; the rest goes in `goiaba.*`. */
 const FIELD_NAMES: Readonly<Record<string, readonly string[]>> = {
   type: ['event', 'name'],
   agent: ['gen_ai', 'agent', 'name'],
@@ -55,11 +64,8 @@ const CONTENT_FIELDS = new Set(['value', 'input', 'question', 'text']);
 /** Events that are a failure: their `message` is the error's. */
 const ERROR_EVENTS = new Set(['error', 'tool_error']);
 
-export function toLogRecord(
-  activity: Activity,
-  context: LogContext,
-): LogRecord {
-  const { ts, level, type, ...rest } = activity;
+export function toLogRecord(entry: LogEntry, context: LogContext): LogRecord {
+  const { ts, level, type, ...rest } = entry;
   const fields: Fields = {
     trace: { id: context.traceId },
     user: { name: context.userName },
@@ -85,7 +91,7 @@ export function toLogRecord(
   return {
     timestamp: ts,
     level: level ?? 'info',
-    message: messageOf(activity),
+    message: messageOf(entry),
     fields,
   };
 }
@@ -119,13 +125,13 @@ function setField(fields: Fields, path: readonly string[], value: unknown) {
   target[path.at(-1) ?? ''] = value;
 }
 
-function messageOf(activity: Activity): string {
+function messageOf(entry: LogEntry): string {
   const text = (key: string): string => {
-    const value = activity[key];
+    const value = entry[key];
     return typeof value === 'string' ? value : '';
   };
 
-  switch (activity.type) {
+  switch (entry.type) {
     case 'input':
       return 'Entrada enviada ao agente';
     case 'resume':
@@ -161,7 +167,7 @@ function messageOf(activity: Activity): string {
     case 'error':
       return text('message') || 'Erro';
     default:
-      return activity.type;
+      return entry.type;
   }
 }
 

@@ -1,10 +1,14 @@
+import { homedir } from 'node:os';
+
 import type { ProgramCommand, ProgramOutput } from '../execute/types';
+import { join } from '../filesystem/index';
 import type {
   Provider,
   ProviderDescription,
   ProviderEvent,
   ProviderOptions,
   ToolEvent,
+  HostAccess,
 } from './types';
 
 export class CursorProvider implements Provider<string, string> {
@@ -24,6 +28,20 @@ export class CursorProvider implements Provider<string, string> {
 
   public describe(): ProviderDescription {
     return { name: 'cursor', model: this.model };
+  }
+
+  /** Its state and its install; it logs in with CURSOR_API_KEY. */
+  public hostAccess(): HostAccess {
+    const home = homedir();
+    return {
+      state: [
+        join(home, '.cursor'),
+        join(home, '.config/cursor'),
+        join(home, '.local/share/cursor-agent'),
+      ],
+      credentialFiles: [],
+      credentialEnv: ['CURSOR_API_KEY'],
+    };
   }
 
   public createCommand(

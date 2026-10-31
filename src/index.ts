@@ -9,6 +9,7 @@ export {
   isAbsolute,
   join,
   pathExists,
+  readText,
   relative,
   resolve,
 } from './filesystem/index';
@@ -29,6 +30,9 @@ export type {
   ResolvedGoiabaConfig,
   ResolvedGoiabaEnv,
 } from './config/index';
+import { loadConfig } from './config/index';
+import { showUncaughtErrors } from './usage';
+
 export {
   runScript,
   UsageError,
@@ -74,7 +78,7 @@ export type {
 } from './policy/index';
 export { OutputDispatcher, OutputStream, StandardOutput } from './output/index';
 export type { OutputAdapter, OutputEvent } from './output/index';
-export type { Activity } from './output/activity';
+export type { GoiabaEvent } from './events/index';
 export type {
   AgentEvent,
   Provider,
@@ -99,3 +103,11 @@ export {
   type OllamaProviderOptions,
 } from './providers/ollama-provider';
 export { ClaudeProvider } from './providers/claude/claude-provider';
+
+// Importing Goiaba is enough to run an agent: goiaba.config.ts (log,
+// database, envs) is loaded here, so `process.env` already has its values at
+// the top of an agent file, and uncaught usage errors show as messages.
+// `runScript` stays for a script that wants its own config or one log for
+// several agents.
+showUncaughtErrors();
+await loadConfig();

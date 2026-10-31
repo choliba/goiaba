@@ -1,15 +1,27 @@
 import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
 
-import { isDirectory, pathExists } from '../../filesystem/index';
-import { currentUser, environment, runProgram } from '../../execute/process';
+import {
+  ensureDirectory,
+  isDirectory,
+  pathExists,
+} from '../../filesystem/index';
+import {
+  currentUser,
+  environment,
+  goiabaCacheDir,
+  runProgram,
+} from '../../execute/process';
 import type { ProgramCommand } from '../../execute/types';
 import { UsageError } from '../../errors';
 import { isDebug } from '../../logger/index';
-import { reportDebug } from '../../output/activity';
+import { log } from '../../logger/index';
 import { logSandbox } from './debug';
 import { hostStateDirs } from './host-state';
 import { protectedMasks } from './protect';
 import type { NetworkExit, Sandbox } from './types';
+import type { SandboxHost } from './host-access';
+import { bubblewrapReadonlyBinds } from './bubblewrap';
 import { wrapCommand } from './wrap-command';
 import type { FilesystemAccess } from '../../policy/index';
 
@@ -38,6 +50,7 @@ export class DockerSandbox implements Sandbox {
   private filesystem: FilesystemAccess | undefined;
   private protectedPaths: readonly string[] = [];
   private network: NetworkExit | undefined;
+  private host: SandboxHost | undefined;
 
   public constructor({
     image,
@@ -63,6 +76,10 @@ export class DockerSandbox implements Sandbox {
    * The container gets no network (`--network none`): each one starts with
    * the bridge to Goiaba's proxy, which then runs the command.
    */
+  public useHost(host: SandboxHost): void {
+    this.host = host;
+  }
+
   public isolateNetwork(exit: NetworkExit): void {
     this.network = exit;
   }
@@ -70,16 +87,25 @@ export class DockerSandbox implements Sandbox {
   public async prepare(command: ProgramCommand): Promise<ProgramCommand> {
     const network = this.network;
     const launcher = network === undefined ? [] : await network.launcher();
-    const envNames = Object.keys(this.env)
-      .filter((name) => this.env[name] !== undefined)
+    const host = this.host;
+    // With a host share, only its variables reach the container; the docker
+    // client keeps its own (DOCKER_HOST…) without passing them in.
+    const passed = host?.env ?? this.env;
+    const envNames = Object.keys(passed)
+      .filter((name) => passed[name] !== undefined)
       .toSorted();
+    if (host !== undefined) {
+      for (const path of host.state) {
+        if (path === goiabaCacheDir()) ensureDirectory(path);
+      }
+    }
     const envArgs = envNames.flatMap((name) => ['-e', name]);
     const innerRoot = `${HOST_ROOT}${this.root}`;
     const mounts = describeMounts(
       this.root,
       innerRoot,
       [
-        ...hostStateDirs(this.env),
+        ...(host?.state ?? hostStateDirs(this.env)),
         ...this.writable,
         // The bridge creates the published ports' sockets there.
         ...(network === undefined ? [] : [network.portsDir()]),
@@ -89,8 +115,14 @@ export class DockerSandbox implements Sandbox {
         masks: [
           ...(this.filesystem?.masks ?? []),
           ...protectedMasks(this.protectedPaths),
+          // Logins the provider does not use: not in the container.
+          ...(host?.hidden ?? []).map((path) => ({
+            path,
+            access: 'hidden' as const,
+          })),
         ],
       },
+      host === undefined ? undefined : homeOf(this.env),
     );
     const containerName = `goiaba-${randomUUID().slice(0, 8)}`;
     this.containerName = containerName;
@@ -116,7 +148,7 @@ export class DockerSandbox implements Sandbox {
       chdir: this.root,
     });
 
-    return wrapCommand(
+    const prepared = wrapCommand(
       'docker',
       [
         'run',
@@ -143,6 +175,10 @@ export class DockerSandbox implements Sandbox {
       ],
       command,
     );
+    // The docker client gets only what goes in, plus its own settings.
+    return host === undefined
+      ? prepared
+      : { ...prepared, env: { ...dockerClientEnv(this.env), ...host.env } };
   }
 
   /** Removes the last container; killing `docker run` does not always stop it. */
@@ -164,7 +200,7 @@ export class DockerSandbox implements Sandbox {
       return;
     }
 
-    reportDebug({
+    log.debug({
       type: 'sandbox',
       sandbox: 'docker',
       phase: 'process',
@@ -178,7 +214,7 @@ export class DockerSandbox implements Sandbox {
 
     const inspect = await inspectContainer(this.containerName);
 
-    reportDebug({
+    log.debug({
       type: 'sandbox',
       sandbox: 'docker',
       phase: 'inspect',
@@ -193,6 +229,8 @@ interface Mount {
   readonly source?: string;
   readonly destination: string;
   readonly mode?: string;
+  /** tmpfs options (e.g. `mode=755`). */
+  readonly options?: string;
 }
 
 function describeMounts(
@@ -200,9 +238,12 @@ function describeMounts(
   innerRoot: string,
   extra: readonly string[],
   filesystem?: FilesystemAccess,
+  /** Hidden behind an empty tmpfs; only the tools and `extra` come back. */
+  home?: string,
 ): Mount[] {
   const mounts: Mount[] = [
     { type: 'bind', source: '/', destination: HOST_ROOT, mode: 'ro' },
+    ...(home === undefined ? [] : hiddenHome(home)),
     {
       type: 'bind',
       source: root,
@@ -252,12 +293,51 @@ function describeMounts(
   return mounts;
 }
 
+/**
+ * The host home as an empty tmpfs (no ~/.config, no browser profiles, no
+ * other logins), with the tools the agent runs (bun, ~/.local/bin, PATH
+ * entries under it) mounted back read-only.
+ */
+function hiddenHome(home: string): Mount[] {
+  const tools = bubblewrapReadonlyBinds().filter((path) =>
+    path.startsWith(`${home}/`),
+  );
+  return [
+    // Traversable: the paths mounted back inside are reached through it.
+    { type: 'tmpfs', destination: `${HOST_ROOT}${home}`, options: 'mode=755' },
+    ...tools.map((path) => ({
+      type: 'bind',
+      source: path,
+      destination: `${HOST_ROOT}${path}`,
+      mode: 'ro',
+    })),
+  ];
+}
+
+/** What the docker client itself reads (DOCKER_HOST…): never passed in. */
+function dockerClientEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  const client: Record<string, string> = {};
+  for (const [name, value] of Object.entries(env)) {
+    if (value !== undefined && name.startsWith('DOCKER_')) client[name] = value;
+  }
+  return client;
+}
+
+function homeOf(env: NodeJS.ProcessEnv): string {
+  return env['HOME'] ?? homedir();
+}
+
 function volumeArgs(mounts: readonly Mount[]): string[] {
   const args: string[] = [];
 
   for (const mount of mounts) {
     if (mount.type === 'tmpfs') {
-      args.push('--tmpfs', mount.destination);
+      args.push(
+        '--tmpfs',
+        mount.options === undefined
+          ? mount.destination
+          : `${mount.destination}:${mount.options}`,
+      );
       continue;
     }
 
