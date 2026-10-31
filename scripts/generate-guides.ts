@@ -26,7 +26,7 @@ await runCommand(
         type: 'string',
         short: 'm',
         value: 'modelo',
-        default: 'instructor',
+        default: 'claude-haiku-5-5',
         description: 'Modelo do Ollama',
       },
     },

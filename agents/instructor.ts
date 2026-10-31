@@ -71,8 +71,8 @@ export function createInstructor({
     prompt: coursePrompt(module, files),
     // As the Modelfile's num_ctx: the CLI compacts by it.
     provider: new OllamaProvider({
-      cli: 'claude',
-      model,
+      cli: 'codex',
+      model: model,
       contextWindow: 65_536,
     }),
     workspace: new Workspace({
