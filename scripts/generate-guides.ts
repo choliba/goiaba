@@ -14,7 +14,7 @@ await runCommand(
   defineCommand({
     name: 'generate-guides',
     description:
-      'O Instructor (um agente Goiaba) lê src/<modulo> e escreve o curso em guides/<modulo>/curso.md.',
+      'O Instructor (um agente Goiaba) lê src/<modulo> e escreve o curso em guides/<modulo>/README.md.',
     args: {
       modulo: {
         description: 'Pasta em src/: command, logger…',
@@ -54,7 +54,7 @@ await runCommand(
         signal,
       }).run();
 
-      const course = join(root, 'guides', args.modulo, 'curso.md');
+      const course = join(root, 'guides', args.modulo, 'README.md');
       output.write(
         pathExists(course)
           ? `Curso em ${course}`

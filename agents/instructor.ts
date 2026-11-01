@@ -10,7 +10,7 @@ import {
 /**
  * The Instructor: builds and teaches courses about Goiaba's modules. It reads
  * the module's code itself, inside the sandbox, and writes the course to
- * `guides/<module>/curso.md`; it can touch nothing else.
+ * `guides/<module>/README.md`; it can touch nothing else.
  */
 export interface InstructorOptions {
   /** Folder under `src/`: `command`, `logger`, `events`… */
@@ -100,7 +100,7 @@ Tarefa: criar o curso do módulo "${module}".
 1. Leia estes arquivos, e só estes (são todos os do módulo):
 ${list}
 2. Veja quem usa o módulo: grep -rn "${module}/" src scripts agents
-3. Escreva o curso em guides/${module}/curso.md, em português, com:
+3. Escreva o curso em guides/${module}/README.md, em português, com:
    - # Módulo ${module}: para que ele existe (o problema que resolve, em linguagem simples)
    - ## Os arquivos (tabela: arquivo, papel)
    - ## Como funciona (o caminho de uma chamada, do começo ao fim)

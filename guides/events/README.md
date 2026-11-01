@@ -11,10 +11,10 @@ O módulo não faz I/O: nada sai do processo por aqui. Entregar para fora é pap
 
 ## Os arquivos
 
-| Arquivo               | Papel                                                                                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/events/index.ts` | O módulo inteiro: os tipos (`GoiabaEvent`, `EventInput`, `Producer`, `Consumer`, `EventListener`), `createProducer`, `createConsumer` e `ALL_SOURCES`. |
-| `src/scope/index.ts`  | Não é do módulo, mas é usado por ele: `currentScope()` diz qual agente está rodando, e esses dados entram em todo evento.                              |
+| Arquivo                | Papel                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/events/index.ts`  | O módulo inteiro: os tipos (`GoiabaEvent`, `EventInput`, `Producer`, `Consumer`, `EventListener`), `createProducer`, `createConsumer` e `ALL_SOURCES`. |
+| `src/context/index.ts` | Não é do módulo, mas é usado por ele: `currentContext()` diz qual agente está rodando, e esses dados entram em todo evento.                            |
 
 ## Como funciona
 
@@ -29,7 +29,7 @@ fazerPedido() ── loja.emit() ──▶ [ 'loja' ] ──┬─▶ cobranca
 3. **Assinar.** `consumidor.subscribe('loja')`, ou vários de uma vez: `subscribe('loja', 'estoque')`. `ALL_SOURCES` (`'*'`) assina todos os produtores, inclusive os que ainda não existem.
 4. **Emitir.** `loja.emit({ type: 'pedido_feito', ...dados })`. O módulo monta o evento:
    - `ts`: data e hora ISO;
-   - os dados do `currentScope()`: `agent`, `run` e `agentProvider`, **se** a chamada estiver dentro de `asAgent(...)`;
+   - os dados do `currentContext()`: `agent`, `run` e `agentProvider`, **se** a chamada estiver dentro de `runAs(...)`;
    - o que foi emitido;
    - `source`: o nome do produtor, **por último**. Um `source` nos dados não troca a origem.
 5. **Entregar.** Cada consumidor assinado no nome do produtor, ou em `'*'`, recebe o evento **uma vez**, na hora, de forma síncrona.
@@ -172,11 +172,11 @@ O filtro por `event.agent` continua necessário: o produtor é compartilhado, e 
 
 ### Exemplo com agente 2: um produtor seu, durante a execução de um agente
 
-Um produtor qualquer, chamado durante um `Agent.run()`, já leva o agente no evento, sem passar nada. Tudo o que roda durante o `run()` (executor, sandbox, gate, providers) está dentro de `asAgent(...)`:
+Um produtor qualquer, chamado durante um `Agent.run()`, já leva o agente no evento, sem passar nada. Tudo o que roda durante o `run()` (executor, sandbox, gate, providers) está dentro de `runAs(...)`:
 
 ```ts
 import { createConsumer, createProducer } from '../../src/events/index';
-import { asAgent } from '../../src/scope/index';
+import { runAs } from '../../src/context/index';
 
 const curso = createProducer('curso');
 const detalhe = createConsumer((event) => {
@@ -186,7 +186,7 @@ detalhe.subscribe('curso');
 
 curso.emit({ type: 'gravado', path: 'a.md' }); // fora de um agente
 
-asAgent(
+runAs(
   { name: 'instructor', provider: { name: 'ollama', model: 'instructor' } },
   () => curso.emit({ type: 'gravado', path: 'b.md' }), // dentro
 );

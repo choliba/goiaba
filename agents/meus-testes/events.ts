@@ -92,7 +92,7 @@ mostrar('\n4. Consumidor de todos os produtores');
 const painel = createConsumer(imprimir('painel'));
 painel.subscribe(ALL_SOURCES);
 
-createProducer('curso').emit({ type: 'gravado', path: 'guides/x/curso.md' });
+createProducer('curso').emit({ type: 'gravado', path: 'guides/x/README.md' });
 createProducer('rede').emit({ type: 'negado', host: 'exemplo.com:443' });
 
 painel.unsubscribeAll();

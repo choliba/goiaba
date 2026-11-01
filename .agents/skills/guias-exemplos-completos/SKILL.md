@@ -1,6 +1,6 @@
 ---
 name: guias-exemplos-completos
-description: Como escrever (ou revisar) um curso de módulo em guides/<modulo>/curso.md — todo exemplo é completo e roda como está (imports, dados, chamada e saída real), nunca um fragmento; e o formato do curso (índice, link para o topo, seção de Interface). Use ao criar ou atualizar qualquer guia em guides/.
+description: Como escrever (ou revisar) um curso de módulo em guides/<modulo>/README.md — todo exemplo é completo e roda como está (imports, dados, chamada e saída real), nunca um fragmento; e o formato do curso (índice, link para o topo, seção de Interface). Use ao criar ou atualizar qualquer guia em guides/.
 argument-hint: 'O módulo do curso (ex.: policy, network) ou o caminho do guia a revisar.'
 user-invocable: true
 disable-model-invocation: false
@@ -10,7 +10,7 @@ disable-model-invocation: false
 
 ## A regra
 
-Cada exemplo de código num curso (`guides/<modulo>/curso.md`) deve ser **completo e executável como está**:
+Cada exemplo de código num curso (`guides/<modulo>/README.md`) deve ser **completo e executável como está**:
 
 - os **imports**;
 - os **dados** que usa (a política, as regras, o que for), escritos no próprio exemplo;
@@ -36,6 +36,9 @@ que não rodava copiado. Quem lê o curso precisa poder copiar o exemplo e ver a
    também para os exemplos.
 
 ## O formato do curso
+
+- O arquivo se chama **`README.md`** (`guides/<modulo>/README.md`): no GitHub, ele aparece renderizado ao abrir a
+  pasta, sem precisar de um clique.
 
 - `<a id="topo"></a>` no início e um **[↑ topo](#topo)** no fim de cada seção `##` (não logo depois do índice).
 - **Índice** logo depois da abertura, com todas as seções e subseções. Exemplos com várias partes ganham índice
