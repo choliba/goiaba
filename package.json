@@ -7,7 +7,7 @@
     "arquiteto": "bun agents/arquiteto.ts",
     "chat": "bun agents/chat-agente.ts",
     "ollama:codex": "bun agents/ollama.codex.ts",
-    "ollama:claude": "bun agents/ollama.claude.ts",
+    "cloud:compare": "bun agents/cloud.compare.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --type-aware src test agents scripts goiaba.config.ts",
     "lint:fix": "oxlint --type-aware --fix src test agents scripts goiaba.config.ts",
