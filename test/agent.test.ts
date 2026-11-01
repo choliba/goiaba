@@ -7,6 +7,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { Agent } from '../src/agent/agent';
 import type { AgentOutput } from '../src/agent/output';
 import { clearConfigCache } from '../src/config/index';
+import type { NetworkBoundary } from '../src/network/index';
 import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
 import type { Provider } from '../src/providers/types';
 import type { ProviderEvent } from '../src/providers/types';
@@ -983,6 +984,56 @@ test('Agent aceita regras de rede no docker', () => {
         },
       }),
   ).not.toThrow();
+});
+
+/** A workspace that tells whether the agent closed its network. */
+class NetworkSpy extends Workspace {
+  public isolated = false;
+
+  public override configureNetwork(boundary: NetworkBoundary): void {
+    super.configureNetwork(boundary);
+    this.isolated = true;
+  }
+}
+
+/** An agent on `workspace`, with or without a policy (no network rules). */
+function agentOn(workspace: Workspace, withPermissions: boolean): Agent {
+  return new Agent({
+    conversation: false,
+    name: 'teste',
+    prompt: 'início',
+    provider: new EchoProvider(),
+    workspace,
+    interaction: { ask: unusedAsk, write: () => undefined },
+    ...(withPermissions
+      ? {
+          permissions: {
+            default: 'deny',
+            allow: {
+              filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+            },
+          },
+        }
+      : {}),
+  });
+}
+
+test('com política, a rede passa pelo gate mesmo sem regras de network', () => {
+  const withPolicy = new NetworkSpy({
+    type: 'bubblewrap',
+    root: process.cwd(),
+  });
+  const withoutPolicy = new NetworkSpy({
+    type: 'bubblewrap',
+    root: process.cwd(),
+  });
+  agentOn(withPolicy, true);
+  agentOn(withoutPolicy, false);
+
+  // `default: 'deny'` vale para a rede também.
+  expect(withPolicy.isolated).toBe(true);
+  // Sem política: só a sandbox limita.
+  expect(withoutPolicy.isolated).toBe(false);
 });
 
 test('Agent recusa regras de categorias que o Goiaba ainda não aplica', () => {

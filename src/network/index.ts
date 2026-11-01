@@ -14,13 +14,14 @@ import {
   pathExists,
   removePath,
 } from '../filesystem/index';
-import type { AgentPolicy } from '../policy/index';
+import { localPorts } from './rules';
 import { NetworkGate, type NetworkGateOptions } from './gate';
 import { NetworkProxy } from './proxy';
 import { PublishedPorts, socketFor } from './publish';
 
 export * from './types';
-export { NetworkGate, type NetworkGateOptions } from './gate';
+export * from './rules';
+export { NETWORK_SOURCE, NetworkGate, type NetworkGateOptions } from './gate';
 export { NetworkProxy } from './proxy';
 export { validatePorts } from './publish';
 
@@ -60,8 +61,8 @@ export class NetworkBoundary {
     this.proxy = new NetworkProxy(this.gate);
     this.forwards = [
       ...new Set([
-        ...(options.endpoints ?? []).filter(isLocal),
-        ...hostPorts(options.permissions),
+        ...(options.alwaysAllow ?? []).filter(isLocal),
+        ...localPorts(options.rules),
       ]),
     ];
   }
@@ -88,11 +89,6 @@ export class NetworkBoundary {
    */
   public portsDir(): string {
     return join(this.dir, PORTS_DIR);
-  }
-
-  /** The agent's session, as decisions and `once` approvals are kept. */
-  public setSession(id: string): void {
-    this.gate.setSession(id);
   }
 
   /**
@@ -186,26 +182,6 @@ export class NetworkBoundary {
     await this.proxy.close();
     removePath(this.dir);
   }
-}
-
-/**
- * `localhost:<port>` (or `127.0.0.1:<port>`) that a rule may let through:
- * inside the sandbox, `localhost` is the sandbox itself, so these get a
- * tunnel to the host's port (a dev server you run there). Only exact ports:
- * `localhost:*` cannot open every port.
- */
-function hostPorts(policy: AgentPolicy): string[] {
-  return (['allow', 'requireApproval'] as const)
-    .flatMap((source) => policy[source]?.network ?? [])
-    .flatMap((rule) => rule.hosts)
-    .filter((host) => {
-      const separator = host.lastIndexOf(':');
-      return (
-        LOCAL_HOSTS.includes(
-          host.slice(0, separator).replace(/^\[(.*)\]$/, '$1'),
-        ) && /^\d+$/.test(host.slice(separator + 1))
-      );
-    });
 }
 
 function portOf(address: string): number {

@@ -27,6 +27,7 @@ import {
   parseCommand,
   validateCommandPattern,
 } from './command';
+import { hostMatches } from '../network/rules';
 import { validateWildmatch, wildmatch } from './wildmatch';
 
 export * from './policy.interface';
@@ -613,31 +614,6 @@ function matchesRule(rule: PolicyRule, action: AgentAction): boolean {
     matchesAny(target, patterns) &&
     !matchesAny(target, ignored)
   );
-}
-
-/**
- * `host` covers every port; `host:443` or `host:*` names the port. The
- * destination is `host:port` (a bare host only matches port-less patterns).
- */
-export function hostMatches(destination: string, pattern: string): boolean {
-  const target = splitHost(destination);
-  const rule = splitHost(pattern);
-  return (
-    wildmatch(target.host, rule.host) &&
-    (rule.port === undefined || wildmatch(target.port ?? '', rule.port))
-  );
-}
-
-function splitHost(value: string): {
-  readonly host: string;
-  readonly port?: string;
-} {
-  const match = /^(.+):(\d+|\*)$/.exec(value);
-  const host = match?.at(1);
-  const port = match?.at(2);
-  return host === undefined || port === undefined
-    ? { host: value }
-    : { host, port };
 }
 
 function includesOperation(

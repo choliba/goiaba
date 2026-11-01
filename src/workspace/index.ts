@@ -2,7 +2,13 @@ import type { ProgramCommand } from '../execute/types';
 import { UsageError } from '../errors';
 import { resolve } from '../filesystem/index';
 import { compileFilesystemAccess, type AgentPolicy } from '../policy/index';
-import { validatePorts, type NetworkBoundary } from '../network/index';
+import {
+  NetworkBoundary,
+  networkRulesOf,
+  validatePorts,
+  type NetworkApprover,
+  type NetworkLedger,
+} from '../network/index';
 import type { SandboxHost } from './sandbox/host-access';
 import {
   BubblewrapSandbox,
@@ -37,6 +43,19 @@ export interface BubblewrapWorkspaceOptions {
 export type WorkspaceOptions =
   DockerWorkspaceOptions | BubblewrapWorkspaceOptions;
 
+/**
+ * What the network needs besides its rules, which come from the policy:
+ * who asks about what the rules leave open, where approvals and decisions
+ * are kept, and the destinations always allowed or denied (an agent's
+ * model API, its CLI's background traffic).
+ */
+export interface WorkspaceNetworkOptions {
+  readonly approve: NetworkApprover;
+  readonly ledger?: NetworkLedger;
+  readonly alwaysAllow?: readonly string[];
+  readonly alwaysDeny?: readonly string[];
+}
+
 export class Workspace {
   public readonly type: WorkspaceType;
   public readonly root: string;
@@ -64,9 +83,22 @@ export class Workspace {
     this.sandbox = createSandbox(options);
   }
 
-  public applyPermissions(permissions: AgentPolicy): void {
+  /**
+   * The policy, as the sandbox enforces it: its filesystem part always and,
+   * with `network`, its network part. The network gets only its own rules
+   * (`networkRulesOf`): with none, the policy's `default` decides.
+   */
+  public applyPermissions(
+    permissions: AgentPolicy,
+    network?: WorkspaceNetworkOptions,
+  ): void {
     this.sandbox.configureFilesystem(
       compileFilesystemAccess(permissions, this.root),
+    );
+    if (network === undefined) return;
+
+    this.configureNetwork(
+      new NetworkBoundary({ rules: networkRulesOf(permissions), ...network }),
     );
   }
 

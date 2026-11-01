@@ -26,7 +26,12 @@ import {
 } from '../logger/index';
 import { asAgent, currentRun, type AgentScope } from '../scope/index';
 import type { AgentEvent, ExecutionGate, ToolEvent } from '../providers/types';
-import { Store, type StoredApproval } from '../store/index';
+import {
+  networkLedger,
+  Store,
+  type StoreNetworkLedger,
+  type StoredApproval,
+} from '../store/index';
 import {
   delegatedCategories,
   PolicyEngine,
@@ -37,10 +42,9 @@ import { UsageError } from '../errors';
 import { StandardOutput, type OutputAdapter } from '../output/index';
 import { listenForInterrupt } from '../execute/interrupt';
 import { scriptSignal } from '../usage';
-import type { Workspace } from '../workspace/index';
+import type { Workspace, WorkspaceNetworkOptions } from '../workspace/index';
 import { currentProcessCommand, environment } from '../execute/process';
 import { sandboxHost } from '../workspace/sandbox/host-access';
-import { NetworkBoundary, type NetworkApprovalRequest } from '../network/index';
 
 export class Agent {
   /** Identifies the agent in its events, logs and sessions. */
@@ -56,7 +60,8 @@ export class Agent {
   private interrupted: AbortSignal | undefined;
   private readonly store: Store | undefined;
   private readonly broker: ApprovalBroker | undefined;
-  private readonly network: NetworkBoundary | undefined;
+  /** Where the network gate keeps its decisions, in this run's session. */
+  private readonly networkLedger: StoreNetworkLedger | undefined;
   /** One running agent per workspace, across programs. */
   private readonly lock: WorkspaceLock;
   /** A session to continue on the next run (resume(), GOIABA_RESUME_SESSION). */
@@ -134,7 +139,7 @@ export class Agent {
             store: this.store,
           });
     this.broker = enforced?.broker;
-    this.network = enforced?.network;
+    this.networkLedger = enforced?.networkLedger;
     shareHost(workspace, provider, permissions);
   }
 
@@ -404,7 +409,7 @@ export class Agent {
 
       if (sessionId !== undefined) {
         this.broker?.setSession(sessionId);
-        this.network?.setSession(sessionId);
+        this.networkLedger?.setSession(sessionId);
         // The task is already in the session's history: only what changed.
         nextInput = this.continuation(sessionId);
         publish({ type: 'resume', session: sessionId, input: nextInput });
@@ -455,7 +460,7 @@ export class Agent {
               }
               sessionId = event.id;
               this.broker?.setSession(event.id);
-              this.network?.setSession(event.id);
+              this.networkLedger?.setSession(event.id);
               this.store?.recordSession({
                 id: event.id,
                 provider: this.provider.id,
@@ -1029,17 +1034,17 @@ function enforcePermissions({
   readonly store: Store | undefined;
 }): {
   readonly broker: ApprovalBroker | undefined;
-  readonly network: NetworkBoundary | undefined;
+  readonly networkLedger: StoreNetworkLedger | undefined;
 } {
   rejectUnenforced(permissions);
-  workspace.applyPermissions(permissions);
-  const network = configureNetwork({
+  const ledger =
+    store === undefined
+      ? undefined
+      : networkLedger(store, { root: workspace.root, provider: provider.id });
+  workspace.applyPermissions(
     permissions,
-    workspace,
-    provider,
-    approve,
-    store,
-  });
+    networkOptions(provider, approve, ledger),
+  );
 
   const broker = needsGate(permissions, provider)
     ? new ApprovalBroker({
@@ -1061,65 +1066,36 @@ function enforcePermissions({
     ...(broker === undefined ? [] : [broker.dir]),
     ...cliFiles,
   ]);
-  return { broker, network };
+  return { broker, networkLedger: ledger };
 }
 
 /** Categories of `AgentPolicy` that Goiaba does not enforce yet. */
 const UNENFORCED: readonly PolicyCategory[] = ['tools', 'agents'];
 
 /**
- * With network rules, the sandbox gets no network of its own: everything
- * leaves through Goiaba's proxy, which decides by the policy. The provider's
- * own API always gets through.
+ * What the agent hands the workspace for its network (the rules come from
+ * the policy there): the provider's own API always gets through, its CLI's
+ * background traffic never, and the approver is the same as for commands:
+ * one prompt, one queue for the person.
  */
-function configureNetwork({
-  permissions,
-  workspace,
-  provider,
-  approve,
-  store,
-}: {
-  readonly permissions: AgentPolicy;
-  readonly workspace: Workspace;
-  readonly provider: AgentProvider;
-  readonly approve: CommandApprover;
-  readonly store: Store | undefined;
-}): NetworkBoundary | undefined {
-  if (!hasNetworkRules(permissions)) return undefined;
-
-  const network = new NetworkBoundary({
-    permissions,
-    root: workspace.root,
-    provider: provider.id,
-    ...(store === undefined ? {} : { store }),
-    endpoints: provider.networkEndpoints?.() ?? [],
-    blocked: provider.networkBlocked?.() ?? [],
-    approve: (request) => approveNetwork(approve, request, provider.id),
-    audit: (event) => log.debug({ type: 'network_decision', ...event }),
-  });
-  workspace.configureNetwork(network);
-  return network;
-}
-
-function hasNetworkRules(permissions: AgentPolicy): boolean {
-  return (['allow', 'requireApproval', 'deny'] as const).some(
-    (source) => (permissions[source]?.network?.length ?? 0) > 0,
-  );
-}
-
-/** The same approver as commands: one prompt, one queue for the person. */
-function approveNetwork(
+function networkOptions(
+  provider: AgentProvider,
   approve: CommandApprover,
-  request: NetworkApprovalRequest,
-  provider: string,
-): ReturnType<CommandApprover> {
-  return approve({
-    command: `${request.hostname}:${String(request.port)}`,
-    pattern: request.pattern,
-    reason: request.reason,
-    provider,
-    category: 'network',
-  });
+  ledger: StoreNetworkLedger | undefined,
+): WorkspaceNetworkOptions {
+  return {
+    alwaysAllow: provider.networkEndpoints?.() ?? [],
+    alwaysDeny: provider.networkBlocked?.() ?? [],
+    approve: (request) =>
+      approve({
+        command: `${request.hostname}:${String(request.port)}`,
+        pattern: request.pattern,
+        reason: request.reason,
+        provider: provider.id,
+        category: 'network',
+      }),
+    ...(ledger === undefined ? {} : { ledger }),
+  };
 }
 
 /**

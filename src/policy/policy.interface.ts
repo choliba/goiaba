@@ -40,15 +40,10 @@ export interface CommunicationRule {
   readonly ignores?: { readonly channels?: readonly string[] };
 }
 
-/** Any process reaching the network (curl, npm install, git push), not only web tools. */
-export type NetworkOperation = 'connect';
+// Network rules are the network module's: their shape and meaning live there.
+import type { NetworkOperation, NetworkRule } from '../network/rules';
 
-export interface NetworkRule {
-  readonly operations: readonly (NetworkOperation | '*')[];
-  /** `registry.npmjs.org`, `*.github.com`, `example.com:443`. */
-  readonly hosts: readonly string[];
-  readonly ignores?: { readonly hosts?: readonly string[] };
-}
+export type { NetworkOperation, NetworkRule };
 
 /** External tools, such as MCP servers. */
 export type ToolOperation = 'call';

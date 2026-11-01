@@ -28,10 +28,36 @@ export type NetworkApprover = (
 export type NetworkDecisionSource =
   'policy' | 'default' | 'provider' | 'human' | 'saved';
 
-export interface NetworkDecisionEvent extends NetworkRequest {
+/** A decision as a ledger keeps it. */
+export interface NetworkRecord {
+  /** `host:port`. */
+  readonly destination: string;
   readonly decision: 'allow' | 'deny';
+  readonly decidedBy: Exclude<NetworkDecisionSource, 'provider'>;
   readonly reason: string;
-  readonly source: NetworkDecisionSource;
+  readonly scope?: ApprovalScope;
 }
 
-export type NetworkAudit = (event: NetworkDecisionEvent) => void;
+/**
+ * Where the gate's approvals and decisions are kept, whoever keeps them (the
+ * store, a test, nothing): the gate only asks and tells.
+ */
+export interface NetworkLedger {
+  /** An approval for `destination` given before (a `once` is used up): why, or none. */
+  approval(destination: string): string | undefined;
+  /** An approval just given at the prompt, for the session or the workspace. */
+  remember(destination: string, scope: 'session' | 'workspace'): void;
+  /** Keeps a decision; its id is the request number a person sees. */
+  record(entry: NetworkRecord): number | undefined;
+}
+
+/**
+ * What the `network` producer emits for each decision (`type: 'decision'`),
+ * besides the event's own `source`, `ts` and agent: `decidedBy` says which
+ * step decided.
+ */
+export interface NetworkDecisionData extends NetworkRequest {
+  readonly decision: 'allow' | 'deny';
+  readonly reason: string;
+  readonly decidedBy: NetworkDecisionSource;
+}

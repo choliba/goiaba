@@ -1,15 +1,20 @@
 import { describe, expect, test } from 'bun:test';
 
+import { createConsumer, type GoiabaEvent } from '../src/events/index';
 import {
+  NETWORK_SOURCE,
   NetworkBoundary,
   NetworkGate,
-  type NetworkDecisionEvent,
+  decideByRules,
+  networkRulesOf,
   type NetworkRequest,
+  type NetworkRules,
 } from '../src/network/index';
 import type { AgentPolicy } from '../src/policy/index';
-import { Store } from '../src/store/index';
+import { networkLedger, Store } from '../src/store/index';
 import { Workspace } from '../src/workspace/index';
 
+/** Where the store keeps this test's decisions and approvals. */
 const where = { root: '/w', provider: 'claude' } as const;
 
 const request = (hostname: string, port = 443): NetworkRequest => ({
@@ -28,12 +33,9 @@ test('a mesma porta não pode ser da sandbox (ports) e do host (localhost na pol
   expect(() => {
     workspace.configureNetwork(
       new NetworkBoundary({
-        ...where,
-        permissions: {
+        rules: {
           default: 'deny',
-          allow: {
-            network: [{ operations: ['connect'], hosts: ['localhost:5173'] }],
-          },
+          allow: [{ operations: ['connect'], hosts: ['localhost:5173'] }],
         },
         approve: () => Promise.resolve('deny'),
       }),
@@ -41,22 +43,54 @@ test('a mesma porta não pode ser da sandbox (ports) e do host (localhost na pol
   }).toThrow('A porta 5173 não pode estar em ports e em localhost:5173');
 });
 
+describe('regras de rede', () => {
+  test('networkRulesOf tira da política só as listas network e o default', () => {
+    // Uma política inteira, como um agente recebe.
+    const policy: AgentPolicy = {
+      default: 'deny',
+      allow: {
+        filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+        network: [{ operations: ['connect'], hosts: ['github.com'] }],
+      },
+      deny: { network: [{ operations: ['*'], hosts: ['169.254.169.254'] }] },
+    };
+
+    expect(networkRulesOf(policy)).toEqual({
+      default: 'deny',
+      allow: [{ operations: ['connect'], hosts: ['github.com'] }],
+      requireApproval: [],
+      deny: [{ operations: ['*'], hosts: ['169.254.169.254'] }],
+    });
+  });
+
+  test('decideByRules: deny vence requireApproval, que vence allow; o resto é o default', () => {
+    const rules: NetworkRules = {
+      default: 'deny',
+      allow: [{ operations: ['connect'], hosts: ['*.example.com'] }],
+      requireApproval: [{ operations: ['connect'], hosts: ['a.example.com'] }],
+      deny: [{ operations: ['connect'], hosts: ['a.example.com:22'] }],
+    };
+    const decide = (destination: string): string =>
+      decideByRules(rules, destination).source;
+
+    expect(decide('b.example.com:443')).toBe('allow');
+    expect(decide('a.example.com:443')).toBe('requireApproval');
+    expect(decide('a.example.com:22')).toBe('deny');
+    expect(decide('outro.com:443')).toBe('default');
+  });
+});
+
 describe('NetworkGate', () => {
-  const policy: AgentPolicy = {
+  const rules: NetworkRules = {
     default: 'deny',
-    allow: { network: [{ operations: ['connect'], hosts: ['github.com'] }] },
-    requireApproval: {
-      network: [{ operations: ['connect'], hosts: ['npmjs.org'] }],
-    },
-    deny: {
-      network: [{ operations: ['connect'], hosts: ['github.com:22'] }],
-    },
+    allow: [{ operations: ['connect'], hosts: ['github.com'] }],
+    requireApproval: [{ operations: ['connect'], hosts: ['npmjs.org'] }],
+    deny: [{ operations: ['connect'], hosts: ['github.com:22'] }],
   };
 
   test('decide pela política: host e host:porta', async () => {
     const gate = new NetworkGate({
-      ...where,
-      permissions: policy,
+      rules,
       approve: () => Promise.reject(new Error('não deveria perguntar')),
     });
 
@@ -69,18 +103,15 @@ describe('NetworkGate', () => {
 
   test('host vale para toda porta; host:porta, inclusive no ignores, só para ela', async () => {
     const gate = new NetworkGate({
-      ...where,
-      permissions: {
+      rules: {
         default: 'deny',
-        requireApproval: {
-          network: [
-            {
-              operations: ['connect'],
-              hosts: ['*'],
-              ignores: { hosts: ['www.google.com.br:443', 'localhost'] },
-            },
-          ],
-        },
+        requireApproval: [
+          {
+            operations: ['connect'],
+            hosts: ['*'],
+            ignores: { hosts: ['www.google.com.br:443', 'localhost'] },
+          },
+        ],
       },
       approve: () => Promise.resolve('once'),
     });
@@ -102,14 +133,11 @@ describe('NetworkGate', () => {
     expect(
       () =>
         new NetworkGate({
-          ...where,
-          permissions: {
+          rules: {
             default: 'deny',
-            allow: {
-              network: [
-                { operations: ['connect'], hosts: ['https://duckduckgo.com/'] },
-              ],
-            },
+            allow: [
+              { operations: ['connect'], hosts: ['https://duckduckgo.com/'] },
+            ],
           },
           approve: () => Promise.resolve('deny'),
         }),
@@ -119,15 +147,12 @@ describe('NetworkGate', () => {
   test('nega sem perguntar o que o provider bloqueia', async () => {
     const store = Store.memory();
     const gate = new NetworkGate({
-      ...where,
-      store,
-      permissions: {
+      ledger: networkLedger(store, where),
+      rules: {
         default: 'deny',
-        requireApproval: {
-          network: [{ operations: ['connect'], hosts: ['*'] }],
-        },
+        requireApproval: [{ operations: ['connect'], hosts: ['*'] }],
       },
-      blocked: ['chatgpt.com:443'],
+      alwaysDeny: ['chatgpt.com:443'],
       approve: () => Promise.reject(new Error('não deveria perguntar')),
     });
 
@@ -137,13 +162,13 @@ describe('NetworkGate', () => {
   });
 
   test('libera os endereços do provider mesmo com a política negando', async () => {
-    const events: NetworkDecisionEvent[] = [];
+    const events: GoiabaEvent[] = [];
+    const consumer = createConsumer((event) => events.push(event));
+    consumer.subscribe(NETWORK_SOURCE);
     const gate = new NetworkGate({
-      ...where,
-      permissions: { default: 'deny' },
-      endpoints: ['api.anthropic.com:443'],
+      rules: { default: 'deny' },
+      alwaysAllow: ['api.anthropic.com:443'],
       approve: () => Promise.resolve('deny'),
-      audit: (event) => events.push(event),
     });
 
     expect((await gate.decide(request('api.anthropic.com'))).decision).toBe(
@@ -152,17 +177,17 @@ describe('NetworkGate', () => {
     expect((await gate.decide(request('api.anthropic.com', 80))).decision).toBe(
       'deny',
     );
-    expect(events.map((event) => event.source)).toEqual([
-      'provider',
-      'default',
+    consumer.unsubscribeAll();
+    expect(events.map((event) => [event.type, event['decidedBy']])).toEqual([
+      ['decision', 'provider'],
+      ['decision', 'default'],
     ]);
   });
 
   test('pergunta o que exige aprovação e lembra a aprovação da sessão', async () => {
     let asked = 0;
     const gate = new NetworkGate({
-      ...where,
-      permissions: policy,
+      rules,
       approve: () => {
         asked += 1;
         return Promise.resolve('session');
@@ -178,8 +203,7 @@ describe('NetworkGate', () => {
     let asked = 0;
     const answers: ((scope: 'once') => void)[] = [];
     const gate = new NetworkGate({
-      ...where,
-      permissions: policy,
+      rules,
       approve: () => {
         asked += 1;
         return new Promise((resolve) => {
@@ -200,13 +224,13 @@ describe('NetworkGate', () => {
 
   test('grava as decisões; a negação pelo default fica pendente e a aprovação vale depois', async () => {
     const store = Store.memory();
+    const ledger = networkLedger(store, where);
+    ledger.setSession('s1');
     const gate = new NetworkGate({
-      ...where,
-      store,
-      permissions: policy,
+      ledger,
+      rules,
       approve: () => Promise.resolve('deny'),
     });
-    gate.setSession('s1');
 
     const denied = await gate.decide(request('exemplo.com'));
     expect(denied.reason).toContain('aguarda a aprovação de uma pessoa');
@@ -236,16 +260,14 @@ describe('NetworkGate', () => {
   test('aprovar no workspace grava para as próximas execuções', async () => {
     const store = Store.memory();
     await new NetworkGate({
-      ...where,
-      store,
-      permissions: policy,
+      ledger: networkLedger(store, where),
+      rules,
       approve: () => Promise.resolve('workspace'),
     }).decide(request('npmjs.org'));
 
     const later = new NetworkGate({
-      ...where,
-      store,
-      permissions: policy,
+      ledger: networkLedger(store, where),
+      rules,
       approve: () => Promise.reject(new Error('não deveria perguntar')),
     });
     expect((await later.decide(request('npmjs.org'))).decision).toBe('allow');
@@ -283,14 +305,11 @@ describe('NetworkBoundary', () => {
             : new Workspace({ type: 'bubblewrap', root: process.cwd() });
         workspace.configureNetwork(
           new NetworkBoundary({
-            ...where,
-            permissions: {
+            rules: {
               default: 'deny',
-              allow: {
-                network: [
-                  { operations: ['connect'], hosts: [`127.0.0.2:${port}`] },
-                ],
-              },
+              allow: [
+                { operations: ['connect'], hosts: [`127.0.0.2:${port}`] },
+              ],
             },
             approve: () => Promise.resolve('deny'),
           }),
@@ -360,14 +379,11 @@ describe('NetworkBoundary', () => {
             : new Workspace({ type: 'bubblewrap', root: process.cwd() });
         workspace.configureNetwork(
           new NetworkBoundary({
-            ...where,
-            permissions: {
+            rules: {
               default: 'deny',
-              allow: {
-                network: [
-                  { operations: ['connect'], hosts: [`localhost:${port}`] },
-                ],
-              },
+              allow: [
+                { operations: ['connect'], hosts: [`localhost:${port}`] },
+              ],
             },
             approve: () => Promise.resolve('deny'),
           }),
@@ -425,10 +441,9 @@ describe('NetworkBoundary', () => {
             : new Workspace({ ...options, type: 'bubblewrap' });
         workspace.configureNetwork(
           new NetworkBoundary({
-            ...where,
-            permissions: {
+            rules: {
               default: 'deny',
-              deny: { network: [{ operations: ['connect'], hosts: ['*'] }] },
+              deny: [{ operations: ['connect'], hosts: ['*'] }],
             },
             approve: () => Promise.resolve('deny'),
           }),

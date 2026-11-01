@@ -1,66 +1,73 @@
-import { PolicyEngine, type AgentPolicy, type PolicyDecision } from '../policy';
-import { UsageError } from '../errors';
-import type { ApprovalScope, Store } from '../store/index';
+import { createProducer } from '../events/index';
+import { log } from '../logger/index';
+import type { ApprovalScope } from '../store/index';
 import type {
   NetworkApprover,
-  NetworkAudit,
   NetworkDecision,
+  NetworkDecisionData,
   NetworkDecisionSource,
+  NetworkLedger,
   NetworkRequest,
 } from './types';
+import {
+  decideByRules,
+  validateNetworkRules,
+  type NetworkRuleDecision,
+  type NetworkRules,
+} from './rules';
+
+/** Every connection the gate decides: `type: 'decision'`, NetworkDecisionData. */
+export const NETWORK_SOURCE = 'network';
+const networkEvents = createProducer(NETWORK_SOURCE);
 
 export interface NetworkGateOptions {
-  readonly permissions: AgentPolicy;
+  /** Only the network's rules: `networkRulesOf(policy)`. */
+  readonly rules: NetworkRules;
+  /** Asks someone about what the rules leave open (`requireApproval`). */
   readonly approve: NetworkApprover;
-  /** Workspace root and provider, as decisions and approvals are kept. */
-  readonly root: string;
-  readonly provider: string;
-  readonly store?: Store;
   /**
-   * `host:port` the agent's CLI needs to work (its model API). Always
-   * allowed: denying them would only stop the agent from talking at all.
+   * Where approvals and decisions are kept. Without one, approvals last for
+   * this gate only and nothing is recorded.
    */
-  readonly endpoints?: readonly string[];
-  /** `host:port` the CLI must not reach: denied without asking or recording. */
-  readonly blocked?: readonly string[];
-  readonly audit?: NetworkAudit;
+  readonly ledger?: NetworkLedger;
+  /**
+   * `host:port` always allowed, whatever the rules say (an agent's model
+   * API: denying it would only stop the agent from talking at all).
+   */
+  readonly alwaysAllow?: readonly string[];
+  /** `host:port` always denied, without asking or recording. */
+  readonly alwaysDeny?: readonly string[];
 }
 
 /**
- * Decides whether a connection leaving the sandbox may go: the provider's own
- * endpoints, then the policy, then approvals
- * given before, then the approver. Every decision is recorded, as the
- * execution gate's: a default denial waits on the approvals screen.
+ * Decides whether a connection leaving the sandbox may go: `alwaysAllow` and
+ * `alwaysDeny`, then the rules, then the ledger's approvals, then `approve`.
+ * It only decides: what was approved and what was decided is the ledger's
+ * to keep; who is told, the events'.
  */
 export class NetworkGate {
-  private readonly policy: PolicyEngine;
-  private readonly sessionApprovals = new Set<string>();
-  private session: string | undefined;
+  private readonly ledger: NetworkLedger;
   /** Approvals are asked one at a time, never interleaved. */
   private queue: Promise<unknown> = Promise.resolve();
   /** Connections to a destination already being asked wait for that answer. */
   private readonly asking = new Map<string, Promise<NetworkDecision>>();
 
   public constructor(private readonly options: NetworkGateOptions) {
-    rejectInvalidHosts(options.permissions);
-    this.policy = new PolicyEngine(options.permissions);
-  }
-
-  public setSession(id: string): void {
-    this.session = id;
+    validateNetworkRules(options.rules);
+    this.ledger = options.ledger ?? memoryLedger();
   }
 
   public decide(request: NetworkRequest): Promise<NetworkDecision> {
     const destination = destinationOf(request);
 
-    if (this.options.endpoints?.includes(destination) === true) {
+    if (this.options.alwaysAllow?.includes(destination) === true) {
       // Not stored: it is the CLI talking to its model, not the agent.
       return Promise.resolve(
         this.audited(request, 'allow', 'provider', 'Endereço do provider.'),
       );
     }
 
-    if (this.options.blocked?.includes(destination) === true) {
+    if (this.options.alwaysDeny?.includes(destination) === true) {
       // Not stored either: the CLI's own background traffic, nobody's request.
       return Promise.resolve(
         this.audited(
@@ -82,12 +89,12 @@ export class NetworkGate {
       return this.resolved(request, 'deny', 'policy', decision.reason);
     }
 
-    const saved = this.savedApproval(destination);
+    const saved = this.ledger.approval(destination);
     if (saved !== undefined) {
       return this.resolved(request, 'allow', 'saved', saved);
     }
     if (decision.policy === 'deny') {
-      const id = this.store(request, 'deny', 'default', decision.reason);
+      const id = this.keep(request, 'deny', 'default', decision.reason);
       return Promise.resolve(
         this.audited(request, 'deny', 'default', awaitingApproval(id)),
       );
@@ -103,29 +110,8 @@ export class NetworkGate {
   }
 
   /** `host` patterns cover every port; `host:port` only that one. */
-  private policyDecision(request: NetworkRequest): PolicyDecision {
-    return this.policy.check({
-      category: 'network',
-      operation: 'connect',
-      host: destinationOf(request),
-    });
-  }
-
-  /** This session's approvals, then the store's (a `once` is used up). */
-  private savedApproval(destination: string): string | undefined {
-    if (this.sessionApprovals.has(destination)) {
-      return 'Aprovado nesta sessão.';
-    }
-
-    const approval = this.options.store
-      ?.activeApprovals(this.options.root, this.session, 'network')
-      .find((item) => item.pattern === destination);
-    if (approval === undefined) return undefined;
-    if (approval.kind === 'once') {
-      this.options.store?.consumeApproval(approval.id);
-      return 'Aprovado uma vez.';
-    }
-    return 'Aprovado para este workspace.';
+  private policyDecision(request: NetworkRequest): NetworkRuleDecision {
+    return decideByRules(this.options.rules, destinationOf(request));
   }
 
   private enqueue(
@@ -152,16 +138,8 @@ export class NetworkGate {
         scope,
       });
     }
-    if (scope === 'session') this.sessionApprovals.add(destination);
-    if (scope === 'workspace') {
-      // Given at the prompt: the connection already went through.
-      this.options.store?.saveApproval({
-        root: this.options.root,
-        pattern: destination,
-        kind: 'workspace',
-        category: 'network',
-        notified: true,
-      });
+    if (scope === 'session' || scope === 'workspace') {
+      this.ledger.remember(destination, scope);
     }
     return this.record(request, 'allow', 'human', 'Aprovado pelo usuário.', {
       scope,
@@ -184,64 +162,78 @@ export class NetworkGate {
     reason: string,
     options: { readonly scope?: ApprovalScope } = {},
   ): NetworkDecision {
-    this.store(request, decision, source, reason, options);
+    this.keep(request, decision, source, reason, options);
     return this.audited(request, decision, source, reason);
   }
 
-  private store(
+  private keep(
     request: NetworkRequest,
     decision: NetworkDecision['decision'],
-    source: Exclude<NetworkDecisionSource, 'provider'>,
+    decidedBy: Exclude<NetworkDecisionSource, 'provider'>,
     reason: string,
     { scope }: { readonly scope?: ApprovalScope } = {},
   ): number | undefined {
-    return this.options.store?.recordDecision({
-      session: this.session,
-      provider: this.options.provider,
-      root: this.options.root,
-      command: destinationOf(request),
-      category: 'network',
+    return this.ledger.record({
+      destination: destinationOf(request),
       decision,
-      source,
-      ...(scope === undefined ? {} : { scope }),
+      decidedBy,
       reason,
+      ...(scope === undefined ? {} : { scope }),
     });
   }
 
-  /** `reason` is what the CLI gets back (the proxy's 403). */
+  /**
+   * Tells whoever subscribed to `network` and the log. `reason` is what the
+   * CLI gets back (the proxy's 403).
+   */
   private audited(
     request: NetworkRequest,
     decision: NetworkDecision['decision'],
     source: NetworkDecisionSource,
     reason: string,
   ): NetworkDecision {
-    this.options.audit?.({ ...request, decision, reason, source });
+    const data: NetworkDecisionData = {
+      ...request,
+      decision,
+      reason,
+      decidedBy: source,
+    };
+    networkEvents.emit({ type: 'decision', ...data });
+    logDecision(data);
     return { decision, reason };
   }
+}
+
+/**
+ * A denial is kept in the log even without `debug`, as the execution gate's;
+ * the provider's own background traffic it blocks is not one.
+ */
+function logDecision(data: NetworkDecisionData): void {
+  const record = { type: 'network_decision', ...data };
+  if (data.decision === 'deny' && data.decidedBy !== 'provider') {
+    log.error(record);
+    return;
+  }
+  log.debug(record);
+}
+
+/** No ledger: approvals for this gate's life only, nothing recorded. */
+function memoryLedger(): NetworkLedger {
+  const approved = new Set<string>();
+  return {
+    approval: (destination) =>
+      approved.has(destination) ? 'Aprovado nesta sessão.' : undefined,
+    remember: (destination) => {
+      approved.add(destination);
+    },
+    record: () => undefined,
+  };
 }
 
 /** A default denial, as the agent reads it: wait for a person, do not retry. */
 function awaitingApproval(id: number | undefined): string {
   const request = id === undefined ? '' : ` (pedido #${String(id)})`;
   return `Negado: este destino aguarda a aprovação de uma pessoa${request}. Não tente de novo nem outro caminho para ele; continue com outra parte da tarefa ou termine o turno e espere.`;
-}
-
-/**
- * A URL or a path never matches a destination: refuse it instead of letting
- * the rule silently do nothing.
- */
-function rejectInvalidHosts(policy: AgentPolicy): void {
-  for (const source of ['allow', 'requireApproval', 'deny'] as const) {
-    for (const rule of policy[source]?.network ?? []) {
-      for (const host of [...rule.hosts, ...(rule.ignores?.hosts ?? [])]) {
-        if (host.includes('/')) {
-          throw new UsageError(
-            `Host inválido em ${source}.network: ${host}. Use só o host, com porta opcional (ex.: duckduckgo.com ou duckduckgo.com:443).`,
-          );
-        }
-      }
-    }
-  }
 }
 
 function destinationOf(request: NetworkRequest): string {

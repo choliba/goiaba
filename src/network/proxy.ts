@@ -9,6 +9,7 @@ import { request as httpsRequest } from 'node:https';
 import { connect } from 'node:net';
 import type { Duplex } from 'node:stream';
 
+import { log } from '../logger/index';
 import type { NetworkGate } from './gate';
 import type { NetworkRequest } from './types';
 
@@ -77,7 +78,8 @@ async function forwardHttp(
     response.writeHead(upstream.statusCode ?? BAD_GATEWAY, upstream.headers);
     upstream.pipe(response);
   });
-  outgoing.on('error', () => {
+  outgoing.on('error', (error) => {
+    logFailure(target.request, error);
     if (!response.headersSent) response.writeHead(BAD_GATEWAY);
     response.end('Falha no destino.');
   });
@@ -109,7 +111,8 @@ async function forwardTunnel(
     upstream.pipe(client);
     client.pipe(upstream);
   });
-  upstream.on('error', () => {
+  upstream.on('error', (error) => {
+    logFailure(request, error);
     rejectTunnel(client, BAD_GATEWAY, 'Falha no destino.');
   });
   client.on('close', () => upstream.destroy());
@@ -145,6 +148,11 @@ function tunnelTarget(
   } catch {
     return undefined;
   }
+}
+
+/** Allowed, but the destination failed (DNS, refused, reset): the CLI gets 502. */
+function logFailure(request: NetworkRequest, error: Error): void {
+  log.debug({ type: 'network_failure', ...request, message: error.message });
 }
 
 /** `[::1]` → `::1`, as policies and `connect` write it. */
