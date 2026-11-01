@@ -86,7 +86,8 @@ export class Workspace {
   /**
    * The policy, as the sandbox enforces it: its filesystem part always and,
    * with `network`, its network part. The network gets only its own rules
-   * (`networkRulesOf`): with none, the policy's `default` decides.
+   * (`networkRulesOf`): with none, the policy's `default` decides. A network
+   * already set with `configureNetwork` is kept: whoever built it decided.
    */
   public applyPermissions(
     permissions: AgentPolicy,
@@ -95,7 +96,7 @@ export class Workspace {
     this.sandbox.configureFilesystem(
       compileFilesystemAccess(permissions, this.root),
     );
-    if (network === undefined) return;
+    if (network === undefined || this.network !== undefined) return;
 
     this.configureNetwork(
       new NetworkBoundary({ rules: networkRulesOf(permissions), ...network }),

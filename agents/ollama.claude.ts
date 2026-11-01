@@ -1,78 +1,106 @@
-import { homedir } from 'node:os';
-
 import {
   AGENT_TERMINAL,
   Agent,
   ensureDirectory,
   humanApprover,
+  join,
   OllamaProvider,
   runScript,
   TerminalInteraction,
+  UsageError,
   Workspace,
-  type Interaction,
-  join,
+  type OllamaCli,
 } from '../src/index';
-import { centerListener } from './center.listener';
+import { currentDirectory, programArguments } from '../src/execute/process';
+import { NetworkBoundary, networkRulesOf } from '../src/network/index';
 import { todasAsPermissoes } from './permissions';
 
 /**
- * The app agent on a local Ollama model through the Claude CLI, with every
- * way in and out of it spelled out.
+ * Two agents on the same local Ollama model, one per CLI, to compare them.
+ * Each works on its own folder (storage/workspaces/agente-<cli>) inside
+ * bubblewrap and talks to you in the terminal. They can run at once, in two
+ * terminals:
  *
- * In:
- *   1. `prompt`           the task, sent on the first turn
- *   2. `interaction.ask`  your answer when the agent asks something
- *   3. `interaction.listen` what you type while it works (Ctrl+A: approvals)
- *   4. `interaction.choose` one-key choices (approval prompts)
- *   5. `approve`          decides commands the policy leaves open
- *   6. `signal`           stops the agent (Ctrl+C aborts the script's signal)
+ *   bun agents/ollama.claude.ts claude
+ *   bun agents/ollama.claude.ts codex
  *
- * Out:
- *   1. `interaction.write` what the agent shows on screen, as text
- *   2. `subscribe`         everything reported while it runs (listener1, 2)
- *   3. logs and database   `logDir` and `database` in goiaba.config.ts
+ * Ctrl+A opens the approvals; Ctrl+C ends it.
  */
-// The terminal: the only reader of stdin and writer of stdout.
+const MODEL = 'qwen3.5:4b';
+
 const terminal = new TerminalInteraction(AGENT_TERMINAL);
 
-await runScript(async ({ signal }) => {
-  const root = process.env['workspace'] ?? '/';
-  ensureDirectory(root);
+/** The provider of each agent. */
+function providerOf(cli: OllamaCli): OllamaProvider {
+  if (cli === 'claude') {
+    // Only these tools: the full set is ~15k tokens on every request.
+    return new OllamaProvider({
+      cli,
+      model: MODEL,
+      tools: ['Bash', 'Read', 'Edit', 'Write', 'Glob', 'Grep'],
+    });
+  }
+  return new OllamaProvider({ cli, model: MODEL });
+}
 
-  // In 2–4 and out 1. Each method can be replaced (e.g. a web chat); here
-  // each one goes to the terminal.
-  const interaction: Interaction = {
-    ask: (question, abort, instant) => terminal.ask(question, abort, instant),
-    listen: (abort) => terminal.listen(abort),
-    choose: (keys, abort) => terminal.choose(keys, abort),
-    write: (text) => terminal.write(text),
-    width: () => terminal.width(),
-    close: () => terminal.close(),
-  };
+/**
+ * The workspace, with the network built here instead of by the agent. Each
+ * agent has its own folder, so both can run at once (one agent per folder).
+ */
+function workspaceFor(cli: OllamaCli, provider: OllamaProvider): Workspace {
+  const root = join(
+    currentDirectory(),
+    'storage',
+    'workspaces',
+    `agente-${cli}`,
+  );
+  ensureDirectory(root);
+  const workspace = new Workspace({ type: 'bubblewrap', root });
+  // Every connection leaving the sandbox passes through it, in this order:
+  workspace.configureNetwork(
+    new NetworkBoundary({
+      // 1. Always allowed: the model's API (Ollama, localhost:11434).
+      alwaysAllow: provider.networkEndpoints(),
+      // 2. Always denied: the CLI's own cloud, useless with a local model.
+      alwaysDeny: provider.networkBlocked(),
+      // 3. The policy's network rules (allow, deny, requireApproval, default).
+      rules: networkRulesOf(todasAsPermissoes),
+      // 4. What the rules leave open: asks you in the terminal.
+      approve: ({ hostname, port, pattern, reason }) =>
+        humanApprover(terminal)({
+          command: `${hostname}:${String(port)}`,
+          pattern,
+          reason,
+          provider: provider.id,
+          category: 'network',
+        }),
+    }),
+  );
+  return workspace;
+}
+
+/** Which agent to run: the first argument. */
+function chosenCli(): OllamaCli {
+  const cli = programArguments().at(0);
+  if (cli === 'claude' || cli === 'codex') return cli;
+  throw new UsageError(
+    `Agente desconhecido: ${cli ?? '(nenhum)'}. Use: bun agents/ollama.claude.ts claude|codex`,
+  );
+}
+
+await runScript(async ({ signal }) => {
+  const cli = chosenCli();
+  const provider = providerOf(cli);
 
   await new Agent({
-    name: 'agente-local',
-    prompt: 'vamos conversar',
-    provider: new OllamaProvider({ cli: 'claude', model: 'qwen2.5-coder:7b' }),
-    workspace: new Workspace({
-      type: 'docker',
-      image: 'choliba-agent:latest',
-      root,
-      // Package manager caches, so bun/npm install work inside the sandbox.
-      writable: [
-        join(homedir(), '.bun/install/cache'),
-        join(homedir(), '.npm'),
-      ],
-    }),
+    name: `agente-${cli}`,
+    prompt: 'tudo bem?',
+    provider,
+    workspace: workspaceFor(cli, provider),
     permissions: todasAsPermissoes,
-    interaction,
-    // Out 2: one or more functions that receive everything.
-    subscribe: [centerListener],
-    // In 5: the default, asking you in the terminal ([u/s/w/n]).
-    approve: humanApprover(interaction, signal),
-    // In 6.
+    interaction: terminal,
+    approve: humanApprover(terminal, signal),
     signal,
-    // Waits for your next message after every answer; Ctrl+C ends it.
     conversation: true,
   }).run();
 });
