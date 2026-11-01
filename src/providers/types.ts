@@ -17,6 +17,15 @@ export type ProviderEvent<TOutput> =
       readonly type: 'session';
       readonly id: string;
     }
+  | {
+      /**
+       * A piece of the model's text as it is written. The whole message
+       * still follows as `output` or `ask`: only showing it early is up to
+       * whoever reads the events.
+       */
+      readonly type: 'partial';
+      readonly text: string;
+    }
   | ToolEvent;
 
 /**

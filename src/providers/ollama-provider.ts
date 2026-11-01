@@ -26,6 +26,11 @@ export interface OllamaProviderOptions extends ProviderOptions {
    * with this they compact before going past it.
    */
   readonly contextWindow?: number;
+  /**
+   * Only with `cli: 'claude'`: the tools the model sees (`ClaudeProvider`'s
+   * `tools`). Claude Code's full set is ~15k tokens on every request.
+   */
+  readonly tools?: readonly string[];
 }
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:11434';
@@ -78,9 +83,17 @@ export class OllamaProvider implements Provider<string, string> {
     };
 
     if (options.cli === 'claude') {
-      this.inner = new ClaudeProvider(providerOptions);
+      this.inner = new ClaudeProvider({
+        ...providerOptions,
+        ...(options.tools === undefined ? {} : { tools: options.tools }),
+      });
       this.env = claudeEnv(baseUrl, options.model, this.contextWindow);
     } else {
+      if (options.tools !== undefined) {
+        throw new UsageError(
+          'A opção tools do OllamaProvider só vale com cli: claude. Tire-a ou use o Claude.',
+        );
+      }
       // Ollama needs no OpenAI login: the user's stays out of the sandbox.
       this.inner = new CodexProvider({ ...providerOptions, login: false });
       this.env = [
@@ -205,6 +218,9 @@ function claudeEnv(
     // compacted: the real one, enforced.
     `CLAUDE_CODE_MAX_CONTEXT_TOKENS=${String(contextWindow)}`,
     `CLAUDE_CODE_AUTO_COMPACT_WINDOW=${String(contextWindow)}`,
+    // Claude Code reserves 32k for the reply: in a 32k window that leaves no
+    // room for the conversation, and every resumed turn is compacted first.
+    `CLAUDE_CODE_MAX_OUTPUT_TOKENS=${String(Math.floor(contextWindow / 4))}`,
   ];
 }
 

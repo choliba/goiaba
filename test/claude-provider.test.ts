@@ -45,6 +45,7 @@ describe('ClaudeProvider', () => {
         '--output-format',
         'stream-json',
         '--verbose',
+        '--include-partial-messages',
         '--model',
         'modelo',
         '--permission-mode',
@@ -64,6 +65,7 @@ describe('ClaudeProvider', () => {
       '--output-format',
       'stream-json',
       '--verbose',
+      '--include-partial-messages',
       '--model',
       'modelo',
       '--permission-mode',
@@ -71,6 +73,20 @@ describe('ClaudeProvider', () => {
       '--resume',
       'sessao-1',
     ]);
+  });
+
+  test('tools passa só as ferramentas escolhidas; [] não deixa nenhuma', () => {
+    const some = new ClaudeProvider({
+      model: 'modelo',
+      tools: ['Read', 'Grep'],
+    });
+    const none = new ClaudeProvider({ model: 'modelo', tools: [] });
+
+    expect(some.createCommand('oi').arguments).toEqual(
+      expect.arrayContaining(['--tools', 'Read', 'Grep']),
+    );
+    const args = none.createCommand('oi').arguments ?? [];
+    expect(args[args.indexOf('--tools') + 1]).toBe('');
   });
 
   test('com execution liga o hook do gate e roda em dontAsk', () => {
@@ -89,7 +105,7 @@ describe('ClaudeProvider', () => {
     const args = provider.createCommand('pergunta').arguments ?? [];
 
     expect(protectedFiles).toEqual([]);
-    expect(args.slice(8, 12)).toEqual([
+    expect(args.slice(9, 13)).toEqual([
       '--permission-mode',
       'dontAsk',
       '--setting-sources',
@@ -334,6 +350,26 @@ describe('ClaudeProvider', () => {
     ]);
   });
 
+  test('o texto chega aos pedaços como partial, antes da mensagem', async () => {
+    const provider = new ClaudeProvider({ model: 'modelo' });
+    const output = source([
+      { channel: 'stdout', chunk: delta('thinking_delta', 'thinking', 'hm') },
+      { channel: 'stdout', chunk: delta('text_delta', 'text', 'Olá, ') },
+      { channel: 'stdout', chunk: delta('text_delta', 'text', 'mundo') },
+      {
+        channel: 'stdout',
+        chunk:
+          '{"type":"assistant","message":{"content":[{"type":"text","text":"Olá, mundo"}]}}\n',
+      },
+    ]);
+
+    expect(await collect(provider.parseOutput(output))).toEqual([
+      { type: 'partial', text: 'Olá, ' },
+      { type: 'partial', text: 'mundo' },
+      { type: 'output', value: 'Olá, mundo' },
+    ]);
+  });
+
   test('classifica uma pergunta final como ask', async () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
     const output = source([
@@ -496,6 +532,15 @@ describe('ClaudeProvider', () => {
     }
   });
 });
+
+/** A `stream_event` line with one `content_block_delta`. */
+function delta(type: string, field: string, value: string): string {
+  const event = {
+    type: 'content_block_delta',
+    delta: { type, [field]: value },
+  };
+  return `${JSON.stringify({ type: 'stream_event', event })}\n`;
+}
 
 async function* source(
   values: readonly ProgramOutput[],

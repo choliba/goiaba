@@ -45,6 +45,15 @@ interface ClaudeSettings {
   };
 }
 
+export interface ClaudeProviderOptions extends ProviderOptions {
+  /**
+   * The built-in tools the model sees (`--tools`: `Bash`, `Read`, `Edit`…);
+   * `[]` leaves none. Without it, all of them: their definitions are most of
+   * every request, which a small local model reads slowly and poorly.
+   */
+  readonly tools?: readonly string[];
+}
+
 export class ClaudeProvider
   implements
     Provider<string, string>,
@@ -54,15 +63,21 @@ export class ClaudeProvider
 
   private readonly executable: string;
   private readonly model: string;
+  private readonly tools: readonly string[] | undefined;
   private settings: ClaudeSettings | undefined;
 
-  public constructor({ executable = 'claude', model }: ProviderOptions) {
+  public constructor({
+    executable = 'claude',
+    model,
+    tools,
+  }: ClaudeProviderOptions) {
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
     }
 
     this.executable = executable;
     this.model = model;
+    this.tools = tools;
   }
 
   /** The policy as Claude Code's `allow`, `ask` and `deny` rules. */
@@ -170,10 +185,16 @@ export class ClaudeProvider
         '--output-format',
         'stream-json',
         '--verbose',
+        // The text also piece by piece (`stream_event`), before the message.
+        '--include-partial-messages',
         '--model',
         this.model,
         '--permission-mode',
         permissionMode,
+        // `--tools` takes every value up to the next flag; none is `''`.
+        ...(this.tools === undefined
+          ? []
+          : ['--tools', ...(this.tools.length === 0 ? [''] : this.tools)]),
         // User/project settings could allow more than the policy (or hook it).
         ...(this.settings === undefined
           ? []
@@ -283,6 +304,14 @@ function readEvents(
       return events;
     }
 
+    if (event['type'] === 'stream_event') {
+      const text = textDelta(event['event']);
+      if (text !== undefined) {
+        events.push({ value: { type: 'partial', text } });
+      }
+      return events;
+    }
+
     if (event['type'] === 'assistant') {
       events.push(...toolUses(event['message'], tools));
       const text = readAssistantText(event['message']);
@@ -352,6 +381,23 @@ function contentBlocks(message: unknown): readonly Record<string, unknown>[] {
   }
 
   return message['content'].filter(isRecord);
+}
+
+/** The text of a `content_block_delta`; thinking and tool input are not. */
+function textDelta(event: unknown): string | undefined {
+  if (!isRecord(event) || event['type'] !== 'content_block_delta') {
+    return undefined;
+  }
+  const delta = event['delta'];
+  if (
+    !isRecord(delta) ||
+    delta['type'] !== 'text_delta' ||
+    typeof delta['text'] !== 'string' ||
+    delta['text'].length === 0
+  ) {
+    return undefined;
+  }
+  return delta['text'];
 }
 
 function readAssistantText(message: unknown): string | undefined {

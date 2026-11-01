@@ -25,6 +25,7 @@ describe('OllamaProvider', () => {
       'ENABLE_TOOL_SEARCH=false',
       'CLAUDE_CODE_MAX_CONTEXT_TOKENS=32768',
       'CLAUDE_CODE_AUTO_COMPACT_WINDOW=32768',
+      'CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192',
       'env',
       'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1',
       'claude',
@@ -32,6 +33,7 @@ describe('OllamaProvider', () => {
       '--output-format',
       'stream-json',
       '--verbose',
+      '--include-partial-messages',
       '--model',
       'qwen3.5:4b',
       '--permission-mode',
@@ -256,6 +258,7 @@ describe('OllamaProvider', () => {
       expect.arrayContaining([
         'CLAUDE_CODE_MAX_CONTEXT_TOKENS=16384',
         'CLAUDE_CODE_AUTO_COMPACT_WINDOW=16384',
+        'CLAUDE_CODE_MAX_OUTPUT_TOKENS=4096',
       ]),
     );
     expect(codex.arguments).toEqual(
@@ -278,5 +281,20 @@ describe('OllamaProvider', () => {
           baseUrl: 'localhost',
         }),
     ).toThrow('baseUrl do Ollama inválida: localhost');
+  });
+
+  test('tools limita as ferramentas do claude e é recusada no codex', () => {
+    const claude = new OllamaProvider({
+      cli: 'claude',
+      model: 'm',
+      tools: ['Bash', 'Read'],
+    });
+    const args = claude.createCommand('oi').arguments ?? [];
+    expect(
+      args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 3),
+    ).toEqual(['--tools', 'Bash', 'Read']);
+    expect(
+      () => new OllamaProvider({ cli: 'codex', model: 'm', tools: ['Bash'] }),
+    ).toThrow('só vale com cli: claude');
   });
 });

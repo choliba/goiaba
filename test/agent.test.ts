@@ -67,6 +67,38 @@ test('Agent entrega a saída pelo interaction', async () => {
   expect(written).toEqual([THINKING, 'mensagem']);
 });
 
+/** What a StreamingProvider's agent writes, with or without `stream`. */
+async function runStreaming(
+  streaming: boolean,
+): Promise<{ written: string[]; streamed: string[] }> {
+  const written: string[] = [];
+  const streamed: string[] = [];
+  await new Agent({
+    conversation: false,
+    name: 'teste',
+    prompt: 'oi',
+    provider: new StreamingProvider(),
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    interaction: {
+      ask: unusedAsk,
+      write: (value) => written.push(value),
+      ...(streaming ? { stream: (text) => streamed.push(text) } : {}),
+    },
+  }).run();
+  return { written, streamed };
+}
+
+test('Agent mostra o texto aos pedaços onde a interaction aceita, sem repetir', async () => {
+  expect(await runStreaming(true)).toEqual({
+    written: [THINKING],
+    streamed: ['Olá, ', 'mundo', '\n'],
+  });
+  expect(await runStreaming(false)).toEqual({
+    written: [THINKING, 'Olá, mundo'],
+    streamed: [],
+  });
+});
+
 test('Agent.run escreve output e ask pelos ports injetados', async () => {
   const values: string[] = [];
   const agent = new Agent({
@@ -707,6 +739,24 @@ class ToolProvider implements Provider<string, string> {
       detail: { tool: 'Bash', message: 'x' },
     };
     yield { type: 'output', value: 'feito' };
+  }
+}
+
+/** Writes its answer in two pieces, then the whole message. */
+class StreamingProvider implements Provider<string, string> {
+  public readonly id = 'streaming';
+
+  public createCommand(): ProgramCommand {
+    return { executable: process.execPath, arguments: ['-e', ''] };
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    for await (const _ of output);
+    yield { type: 'partial', text: 'Olá, ' };
+    yield { type: 'partial', text: 'mundo' };
+    yield { type: 'output', value: 'Olá, mundo' };
   }
 }
 

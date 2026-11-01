@@ -427,6 +427,8 @@ export class Agent {
 
       while (true) {
         let pendingAnswer: Promise<string> | undefined;
+        /** The last piece streamed of the message being written, if any. */
+        let streamed: string | undefined;
         const question = new AbortController();
         const typed = listenInput(
           listen,
@@ -492,14 +494,39 @@ export class Agent {
               );
               continue;
             }
+
+            if (event.type === 'partial') {
+              // On screen as it is written, where the interaction can. Not
+              // logged: the whole message that follows is.
+              if (this.output.stream !== undefined && this.held === undefined) {
+                thinking.spoke();
+                this.output.stream(event.text);
+                streamed = event.text;
+              }
+              continue;
+            }
             publish({ ...event });
             thinking.spoke();
 
-            if (event.type === 'ask') {
-              yield { type: 'output', value: event.question };
-            }
+            if (streamed !== undefined) {
+              // Already on screen: end its line and tell the subscribers.
+              if (!streamed.endsWith('\n')) this.output.stream?.('\n');
+              streamed = undefined;
+              publish(
+                {
+                  type: 'message',
+                  text: event.type === 'ask' ? event.question : event.value,
+                },
+                'debug',
+              );
+              if (event.type === 'ask') yield event;
+            } else {
+              if (event.type === 'ask') {
+                yield { type: 'output', value: event.question };
+              }
 
-            yield event;
+              yield event;
+            }
 
             if (event.type === 'ask' && pendingAnswer === undefined) {
               pendingAnswer =

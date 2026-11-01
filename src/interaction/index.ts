@@ -30,6 +30,11 @@ export interface Interaction {
   close?(): void;
   write(value: string): void;
   /**
+   * A reply while it is being written, piece by piece, with no line of its
+   * own. Interactions without it get only whole messages (`write`).
+   */
+  stream?(text: string): void;
+  /**
    * A status line rewritten in place (e.g. `⏳ pensando…`); `undefined`
    * erases it. Interactions without it get the first status as a line.
    */
@@ -62,6 +67,8 @@ export class TerminalInteraction implements Interaction {
     ...input
   }: TerminalInteractionOptions = {}) {
     this.output = output;
+    this.stream =
+      output.stream === undefined ? undefined : (text) => output.stream?.(text);
     this.input = new StdinReader({
       ...input,
       write: writeOut,
@@ -94,6 +101,9 @@ export class TerminalInteraction implements Interaction {
   public write(value: string): void {
     this.output.write(value);
   }
+
+  /** Only when its output streams: otherwise each piece would be a line. */
+  public readonly stream: ((text: string) => void) | undefined;
 
   public status(text: string | undefined): void {
     this.output.status?.(text);

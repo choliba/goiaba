@@ -117,7 +117,10 @@ export {
   type OllamaCli,
   type OllamaProviderOptions,
 } from './providers/ollama-provider';
-export { ClaudeProvider } from './providers/claude/claude-provider';
+export {
+  ClaudeProvider,
+  type ClaudeProviderOptions,
+} from './providers/claude/claude-provider';
 
 // Importing Goiaba is enough to run an agent: goiaba.config.ts (log,
 // database, envs) is loaded here, so `process.env` already has its values at
