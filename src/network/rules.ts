@@ -79,7 +79,7 @@ const BY_STRICTNESS = [
   ['allow', 'allow'],
 ] as const;
 
-const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 /** What the rules decide for `destination` (`host:port`). */
 export function decideByRules(
@@ -160,7 +160,7 @@ export function localPorts(rules: NetworkRules): string[] {
     .filter((host) => {
       const { host: name, port } = splitHost(host);
       return (
-        LOCAL_HOSTS.includes(name.replace(/^\[(.*)\]$/, '$1')) &&
+        LOCAL_HOSTS.has(name.replace(/^\[(.*)\]$/, '$1')) &&
         port !== undefined &&
         /^\d+$/.test(port)
       );
