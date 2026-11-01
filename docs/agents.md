@@ -25,7 +25,7 @@ bubblewrap:
 import { Agent, OllamaProvider, Workspace } from '../src/index';
 
 const agente = new Agent({
-  name: 'dev',
+  name: 'agente-local',
   prompt: 'vamos conversar',
   provider: new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' }),
   workspace: new Workspace({
@@ -110,7 +110,7 @@ const parar = AbortSignal.timeout(30 * 60 * 1000);
 
 const agente = new Agent({
   // Obrigatórias.
-  name: 'dev',
+  name: 'agente-local',
   prompt: 'vamos conversar',
   provider: new ClaudeProvider({ model: 'claude-haiku-5-5' }),
   workspace: new Workspace({

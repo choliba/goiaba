@@ -51,7 +51,7 @@ await runScript(async ({ signal }) => {
   };
 
   await new Agent({
-    name: 'dev',
+    name: 'agente-local',
     prompt: 'vamos conversar',
     provider: new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' }),
     workspace: new Workspace({
