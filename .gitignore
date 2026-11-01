@@ -6,3 +6,5 @@ node_modules/
 .goiaba/
 /logs/
 storage
+# Conversa gerada por agents/meus-testes/goiaba-json.ts
+agents/meus-testes/goiaba.json
