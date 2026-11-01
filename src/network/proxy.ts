@@ -15,6 +15,12 @@ import type { NetworkRequest, TrafficObserver } from './types';
 
 const BAD_GATEWAY = 502;
 const FORBIDDEN = 403;
+/**
+ * Bytes an observer may leave unread on one side of a connection. Past it,
+ * that side is no longer copied (the connection itself goes on untouched):
+ * a slow or stuck observer never grows Goiaba's memory without end.
+ */
+const MAX_OBSERVED_BYTES = 1024 * 1024;
 
 /**
  * HTTP proxy (plain requests and CONNECT tunnels) on a unix socket: the only
@@ -191,12 +197,30 @@ function observe(
   }
 }
 
-/** What `source` carries from now on, until it closes. */
+/**
+ * What `source` carries from now on, until it closes, or until the observer
+ * falls `MAX_OBSERVED_BYTES` behind: then the copy ends there.
+ */
 function copyOf(source: Duplex): AsyncIterable<Uint8Array> {
   const copy = new PassThrough();
   copy.on('error', () => undefined);
-  source.on('data', (chunk: Buffer) => copy.write(chunk));
-  source.on('close', () => copy.end());
+  const stop = (): void => {
+    source.off('data', onData);
+    copy.end();
+  };
+  const onData = (chunk: Buffer): void => {
+    if (copy.writableLength + chunk.length > MAX_OBSERVED_BYTES) {
+      log.debug({
+        type: 'network_observer_behind',
+        bytes: copy.writableLength,
+      });
+      stop();
+      return;
+    }
+    copy.write(chunk);
+  };
+  source.on('data', onData);
+  source.on('close', stop);
   return copy;
 }
 

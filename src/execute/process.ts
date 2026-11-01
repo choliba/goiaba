@@ -9,6 +9,8 @@ import { promisify } from 'node:util';
  */
 
 const execFileAsync = promisify(execFile);
+/** The most a short helper program may print before it is an error. */
+const HELPER_MAX_OUTPUT = 2 * 1024 * 1024;
 
 /** Arguments given to the current program, without the runtime and script. */
 export function programArguments(): readonly string[] {
@@ -96,7 +98,7 @@ export async function runProgram(
   const { stdout } = await execFileAsync(executable, [...args], {
     encoding: 'utf8',
     timeout: timeoutMs,
-    maxBuffer: 2 * 1024 * 1024,
+    maxBuffer: HELPER_MAX_OUTPUT,
   });
   return stdout;
 }
