@@ -32,7 +32,7 @@ que não rodava copiado. Quem lê o curso precisa poder copiar o exemplo e ver a
 3. No curso, cole **o arquivo inteiro** e **a saída dessa execução**, com o caminho do arquivo acima do código.
 4. Exemplos que não dá para rodar aqui (precisam de um modelo, de rede externa): ainda completos, e ao menos
    passando no `bun run typecheck`. Diga no curso o que eles precisam para rodar.
-5. Saída pelo terminal do Goiaba (`writeOut`, `StandardOutput`), não `console`: a regra de I/O centralizado vale
+5. Saída pelo terminal do Goiaba (`writeOut`, `TerminalInteraction`), não `console`: a regra de I/O centralizado vale
    também para os exemplos.
 
 ## O formato do curso

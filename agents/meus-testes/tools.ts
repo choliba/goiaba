@@ -13,7 +13,7 @@
 
 import { currentDirectory } from '../../src/execute/process';
 import { join, readText } from '../../src/filesystem/index';
-import { StandardOutput } from '../../src/output/index';
+import { TerminalInteraction } from '../../src/interaction/index';
 import {
   PolicyEngine,
   type AgentAction,
@@ -45,7 +45,7 @@ const policy = new PolicyEngine({
 type Args = Readonly<Record<string, string>>;
 type Tool = (args: Args) => Promise<string>;
 
-const terminal = new StandardOutput();
+const terminal = new TerminalInteraction();
 
 // --- As ferramentas -------------------------------------------------------
 

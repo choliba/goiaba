@@ -13,7 +13,7 @@
 
 import ollama, { type Message, type Tool, type ToolCall } from 'ollama';
 
-import { StandardOutput } from '../../src/output/index';
+import { TerminalInteraction } from '../../src/interaction/index';
 import { runScript } from '../../src/usage';
 
 /** Precisa de `tools` no `ollama show` (o d1-omni:600m só tem `decision`). */
@@ -85,7 +85,7 @@ const functions = new Map<string, (a: number, b: number) => number>([
   ['multiply', (a, b) => a * b],
 ]);
 
-const terminal = new StandardOutput();
+const terminal = new TerminalInteraction();
 
 /** Mostra a pergunta e as opções numeradas; você responde com uma tecla. */
 async function choose(

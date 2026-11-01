@@ -13,7 +13,7 @@ import {
   type AgentAction,
   type ApprovalHandler,
 } from '../../src/policy/index';
-import { StandardOutput } from '../../src/output/index';
+import { TerminalInteraction } from '../../src/interaction/index';
 
 function escreva(text: string): void {
   console.log('escreva', text);
@@ -60,7 +60,7 @@ const actions: readonly AgentAction[] = [
   { category: 'tools', operation: 'call', tool: 'escreva' },
 ];
 
-const terminal = new StandardOutput();
+const terminal = new TerminalInteraction();
 
 // 1. check: a decisão de cada ação, e de onde ela veio (`source`).
 terminal.write('1. check: só decide\n');

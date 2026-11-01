@@ -4,12 +4,12 @@ import {
   join,
   OllamaProvider,
   readText,
-  StandardOutput,
+  TerminalInteraction,
   Workspace,
   type AgentOptions,
   type ApprovalScope,
   type CommandApprovalRequest,
-  type OutputAdapter,
+  type Interaction,
 } from '../src/index';
 
 /**
@@ -187,7 +187,7 @@ function criarAgenteNaApi({
   };
 
   // --- O agente: a conversa e as aprovações passam pela API.
-  const interaction: OutputAdapter = {
+  const interaction: Interaction = {
     write: (texto) => {
       enviar('mensagem', { texto }, { guardar: true });
     },
@@ -344,7 +344,7 @@ const servidor = Bun.serve({
   },
 });
 
-new StandardOutput().write(
+new TerminalInteraction().write(
   `API dos agentes ${[...agentes.values()].map((agente) => agente.id).join(', ')} em ${servidor.url.href}`,
 );
 

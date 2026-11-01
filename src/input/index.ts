@@ -1,11 +1,8 @@
 import { createInterface, type Interface } from 'node:readline';
 
-import { interruptProgram } from '../execute/process';
 import { readDescriptor } from '../filesystem/index';
 import { log } from '../logger/index';
-import { writeOut } from '../output/terminal';
 
-const CTRL_A = '\u0001';
 const CTRL_C = '\u0003';
 const CTRL_D = '\u0004';
 const BACKSPACE = new Set(['\b', '\u007f']);
@@ -72,10 +69,34 @@ export function readAllInput(): string {
   return readDescriptor(0);
 }
 
+/**
+ * What the terminal input does besides reading, decided by whoever creates
+ * it: the input only reads, and knows nothing of the screen, the process or
+ * what a line means.
+ */
+export interface StdinReaderOptions {
+  /**
+   * What the input writes to the terminal: the echo of what is typed (raw
+   * mode shows nothing by itself) and the sequences that mark pasted text.
+   * Without it, nothing is shown and a paste's line breaks submit it.
+   */
+  readonly write?: (text: string) => void;
+  /** Ctrl+C: raw mode does not send SIGINT, so someone has to. */
+  readonly onInterrupt?: () => void;
+  /** A key that submits a line of its own, ahead of the queue (Ctrl+A → `:approvals`). */
+  readonly shortcuts?: Readonly<Record<string, string>>;
+  /** Typed lines that go ahead of the queue. */
+  readonly urgent?: (line: string) => boolean;
+}
+
 /** Owns process stdin. Consumers receive complete messages, never raw bytes. */
-export class TerminalInput {
+export class StdinReader {
   private readonly lines = new LineInput();
-  private readonly terminal = new TtyInput();
+  private readonly terminal: TtyInput;
+
+  public constructor(options: StdinReaderOptions = {}) {
+    this.terminal = new TtyInput(options);
+  }
 
   /**
    * The next line. In a terminal, a key of `instant` typed on an empty line
@@ -183,11 +204,13 @@ interface WaitingChoice {
 
 /**
  * Persistent TTY listener: submitted lines stay queued during a model turn.
- * The only reader of the terminal: one-key choices (approvals) are answered
+ * The only reader of the terminal: one-key choices (e.g. approvals) are answered
  * here too, ahead of the line being typed, so a key never reaches two
  * readers.
  */
 class TtyInput {
+  public constructor(private readonly options: StdinReaderOptions) {}
+
   private readonly queued: string[] = [];
   private readonly waiting: WaitingInput[] = [];
   private readonly choices: WaitingChoice[] = [];
@@ -242,7 +265,7 @@ class TtyInput {
 
   private pause(): void {
     if (!this.active) return;
-    writeOut(PASTE_OFF);
+    this.write(PASTE_OFF);
     process.stdin.off('data', this.onData);
     process.stdin.setRawMode(false);
     process.stdin.pause();
@@ -276,7 +299,7 @@ class TtyInput {
     this.active = true;
     process.stdin.setRawMode(true);
     // Pasted text arrives marked, so its line breaks do not submit it.
-    writeOut(PASTE_ON);
+    this.write(PASTE_ON);
     process.stdin.on('data', this.onData);
     process.stdin.resume();
   }
@@ -285,7 +308,7 @@ class TtyInput {
   private paste(key: string): void {
     if (key === '\r' || key === '\n') {
       this.buffer += '\n';
-      writeOut('\n');
+      this.write('\n');
       return;
     }
     if (key !== '\t' && !isPrintable(key)) return;
@@ -294,21 +317,22 @@ class TtyInput {
       recordInput('input_started');
     }
     this.buffer += key;
-    writeOut(key);
+    this.write(key);
   }
 
   private accept(key: string): void {
-    if (key === CTRL_A) {
-      writeOut('\n');
-      recordInput('input_hotkey', { key: 'ctrl+a', action: 'approvals' });
+    const shortcut = this.options.shortcuts?.[key];
+    if (shortcut !== undefined) {
+      this.write('\n');
+      recordInput('input_shortcut', { value: shortcut });
       this.resetBuffer();
       // Ahead of anything queued, and the terminal stays read: whoever
-      // reads next opens the approvals, and no key turns into `^A`.
-      this.submit(':approvals', { first: true });
+      // reads next gets the shortcut's line, and no key turns into `^A`.
+      this.submit(shortcut, { first: true });
       return;
     }
     if (key === CTRL_C) {
-      interruptProgram();
+      this.options.onInterrupt?.();
       this.close();
       return;
     }
@@ -317,11 +341,11 @@ class TtyInput {
       return;
     }
     if (key === '\r' || key === '\n') {
-      writeOut('\n');
+      this.write('\n');
       recordInput('input_submitted', { value: this.buffer });
       const value = this.buffer;
       this.resetBuffer();
-      this.submit(value, { first: isApprovalsCommand(value) });
+      this.submit(value, { first: this.options.urgent?.(value) ?? false });
       return;
     }
     if (BACKSPACE.has(key)) {
@@ -330,7 +354,7 @@ class TtyInput {
     }
     if (!isPrintable(key)) return;
     if (this.buffer === '' && this.isInstant(key)) {
-      writeOut(`${key}\n`);
+      this.write(`${key}\n`);
       recordInput('input_submitted', { value: key });
       this.submit(key);
       return;
@@ -340,7 +364,7 @@ class TtyInput {
       recordInput('input_started');
     }
     this.buffer += key;
-    writeOut(key);
+    this.write(key);
   }
 
   /** Ctrl+C interrupts, Ctrl+D cancels; other keys outside the choice wait. */
@@ -350,7 +374,7 @@ class TtyInput {
     const key = raw.toLowerCase();
 
     if (key === CTRL_C) {
-      interruptProgram();
+      this.options.onInterrupt?.();
       this.close();
       return;
     }
@@ -362,7 +386,7 @@ class TtyInput {
     const value = key === '\r' || key === '\n' ? '' : key;
     if (value !== '' && !choice.keys.includes(value)) return;
 
-    // The output side shows the answer (see StandardOutput.choose).
+    // The output side shows the answer (see TerminalInteraction.choose).
     recordInput('input_choice', { value });
     this.settleChoice(choice);
     choice.resolve(value);
@@ -380,7 +404,7 @@ class TtyInput {
   private erase(): void {
     if (this.buffer.length === 0) return;
     this.buffer = removeLastGrapheme(this.buffer);
-    writeOut('\b \b');
+    this.write('\b \b');
   }
 
   private submit(value: string, { first = false } = {}): void {
@@ -394,6 +418,10 @@ class TtyInput {
     waiter.resolve(value);
   }
 
+  private write(text: string): void {
+    this.options.write?.(text);
+  }
+
   private resetBuffer(): void {
     this.buffer = '';
     this.started = false;
@@ -402,11 +430,6 @@ class TtyInput {
 
 function isPrintable(key: string): boolean {
   return key.length > 0 && key >= ' ' && key !== '\u007f';
-}
-
-function isApprovalsCommand(input: string): boolean {
-  const normalized = input.trim().toLowerCase();
-  return normalized === ':approvals' || normalized === 'bun run approvals';
 }
 
 function removeLastGrapheme(value: string): string {
@@ -420,7 +443,7 @@ function remove<T>(values: T[], value: T): void {
   if (index !== -1) values.splice(index, 1);
 }
 
-/** What was typed reaches the log through the activity channel. */
+/** What was typed goes to the log (debug). */
 function recordInput(type: string, fields: Record<string, unknown> = {}): void {
   log.debug({ type, ...fields });
 }

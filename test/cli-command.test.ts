@@ -12,7 +12,7 @@ import {
 } from '../src/command/index';
 import { clearConfigCache } from '../src/config/index';
 import { UsageError } from '../src/errors';
-import type { OutputAdapter } from '../src/output/index';
+import type { Interaction } from '../src/interaction/index';
 
 const issue = defineCommand({
   name: 'issue',
@@ -48,9 +48,9 @@ function parseError(argv: string[]): unknown {
 }
 
 /** An output that keeps what is written. */
-function recorder(): { written: string[]; output: OutputAdapter } {
+function recorder(): { written: string[]; output: Interaction } {
   const written: string[] = [];
-  const output: OutputAdapter = {
+  const output: Interaction = {
     ask: () => Promise.resolve(''),
     write: (value) => written.push(value),
   };

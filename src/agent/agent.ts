@@ -49,7 +49,7 @@ import {
   type PolicyCategory,
 } from '../policy/index';
 import { UsageError } from '../errors';
-import { StandardOutput, type OutputAdapter } from '../output/index';
+import { TerminalInteraction, type Interaction } from '../interaction/index';
 import { listenForInterrupt } from '../execute/interrupt';
 import { scriptSignal } from '../usage';
 import type { Workspace, WorkspaceNetworkOptions } from '../workspace/index';
@@ -67,7 +67,7 @@ export class Agent {
   private readonly dispatcher:
     OutputDispatcher<ProviderEvent<string>> | undefined;
   public readonly workspace: Workspace;
-  private readonly output: OutputAdapter;
+  private readonly output: Interaction;
   private readonly signal: AbortSignal | undefined;
   /** Ctrl+C while it runs, when nobody gave it a signal (no runScript). */
   private interrupted: AbortSignal | undefined;
@@ -103,7 +103,7 @@ export class Agent {
     workspace,
     executor,
     output,
-    interaction = new StandardOutput(),
+    interaction = new TerminalInteraction(AGENT_TERMINAL),
     permissions,
     signal = scriptSignal(),
     approve,
@@ -898,6 +898,16 @@ const APPROVAL_COMMANDS: ReadonlySet<string> = new Set([
   ':approvals',
   'bun run approvals',
 ]);
+
+/**
+ * The agent's terminal: Ctrl+A opens the approvals, and an approvals
+ * command typed during a turn goes ahead of the messages waiting. Pass it
+ * to the TerminalInteraction an agent uses: `new TerminalInteraction(AGENT_TERMINAL)`.
+ */
+export const AGENT_TERMINAL = {
+  shortcuts: { '\u0001': ':approvals' },
+  urgent: (line: string): boolean => isApprovalsCommand(line),
+} as const;
 export const APPROVALS_FINISHED = '\u0000goiaba:approvals-finished';
 
 function isApprovalsCommand(input: string): boolean {

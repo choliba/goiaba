@@ -1,6 +1,6 @@
 /**
- * The only writer of the process's stdout and stderr: StandardOutput and the
- * terminal input's echo both go through here.
+ * The only writer of the process's stdout and stderr: `terminalOutput` and
+ * the echo of what is typed both go through here.
  */
 
 const CLEAR_LINE = '\r\u001b[2K';

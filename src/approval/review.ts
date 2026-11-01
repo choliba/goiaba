@@ -1,4 +1,4 @@
-import type { OutputAdapter } from '../output/index';
+import type { Interaction } from '../interaction/index';
 import { parseSelection } from './selection';
 import type { Store, StoredDecision } from '../store/index';
 import { suggestPattern } from '../policy/index';
@@ -68,7 +68,7 @@ const DEFAULT_WIDTH = 120;
 export class ApprovalReview {
   public constructor(
     private readonly store: Store,
-    private readonly output: OutputAdapter,
+    private readonly output: Interaction,
   ) {}
 
   /** Main loop: numbers toggle, `a` all, `r` next (approve as u/w), `q` quits. */

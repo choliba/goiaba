@@ -1,14 +1,15 @@
 import { homedir } from 'node:os';
 
 import {
+  AGENT_TERMINAL,
   Agent,
   ClaudeProvider,
   ensureDirectory,
   humanApprover,
   runScript,
-  StandardOutput,
+  TerminalInteraction,
   Workspace,
-  type OutputAdapter,
+  type Interaction,
   join,
 } from '../src/index';
 import { centerListener } from './center.listener';
@@ -32,7 +33,7 @@ import { todasAsPermissoes } from './permissions';
  *   3. logs and database   `logDir` and `database` in goiaba.config.ts
  */
 // The terminal: the only reader of stdin and writer of stdout.
-const terminal = new StandardOutput();
+const terminal = new TerminalInteraction(AGENT_TERMINAL);
 
 await runScript(async ({ signal }) => {
   const root = process.env['workspace'] ?? '/';
@@ -40,7 +41,7 @@ await runScript(async ({ signal }) => {
 
   // In 2–4 and out 1. Each method can be replaced (e.g. a web chat); here
   // each one goes to the terminal.
-  const interaction: OutputAdapter = {
+  const interaction: Interaction = {
     ask: (question, abort, instant) => terminal.ask(question, abort, instant),
     listen: (abort) => terminal.listen(abort),
     choose: (keys, abort) => terminal.choose(keys, abort),

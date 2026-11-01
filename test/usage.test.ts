@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { clearConfigCache } from '../src/config/index';
-import type { OutputAdapter } from '../src/output/index';
+import type { Interaction } from '../src/interaction/index';
 import { runScript, UsageError } from '../src/usage';
 import { readLogRecords } from './support/log-records';
 
@@ -27,7 +27,7 @@ afterEach(() => {
 
 test('runScript mostra UsageError pelo output, registra e não relança', async () => {
   const written: string[] = [];
-  const output: OutputAdapter = {
+  const output: Interaction = {
     ask: () => Promise.resolve(''),
     write: (value) => written.push(value),
   };

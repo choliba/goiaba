@@ -10,7 +10,7 @@
 import { connect } from 'node:net';
 
 import { exitProgram, programArguments } from '../execute/process';
-import { StandardOutput } from '../output/index';
+import { TerminalInteraction } from '../interaction/index';
 
 const TIMEOUT_MS = 55 * 60 * 1000;
 
@@ -19,7 +19,7 @@ interface Decision {
   readonly reason: string;
 }
 
-const io = new StandardOutput();
+const io = new TerminalInteraction();
 
 function reply({ decision, reason }: Decision): void {
   io.write(

@@ -1,4 +1,4 @@
-import type { OutputAdapter } from '../output/index';
+import type { Interaction } from '../interaction/index';
 
 /** A positional argument, in the order declared. */
 export interface ArgSpec {
@@ -52,7 +52,7 @@ export interface CommandContext<
   /** Aborted on Ctrl+C. */
   readonly signal: AbortSignal;
   /** The only way the command shows or asks something. */
-  readonly output: OutputAdapter;
+  readonly output: Interaction;
 }
 
 export interface CommandDefinition<

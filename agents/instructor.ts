@@ -4,7 +4,7 @@ import {
   Workspace,
   type AgentPolicy,
   type CommandApprover,
-  type OutputAdapter,
+  type Interaction,
 } from '../src/index';
 
 /**
@@ -24,7 +24,7 @@ export interface InstructorOptions {
   readonly root: string;
   /** Ollama model. */
   readonly model: string;
-  readonly interaction: OutputAdapter;
+  readonly interaction: Interaction;
   readonly signal: AbortSignal;
 }
 

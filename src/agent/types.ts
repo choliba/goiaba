@@ -1,6 +1,6 @@
 import type { Executor } from '../execute/index';
 import type { OutputDispatcher } from '../execute/index';
-import type { OutputAdapter } from '../output/index';
+import type { Interaction } from '../interaction/index';
 import type { Provider, ProviderEvent } from '../providers/types';
 import type { Workspace } from '../workspace/index';
 import type { AgentPolicy } from '../policy/policy.interface';
@@ -39,7 +39,7 @@ export interface AgentOptions {
   readonly executor?: Executor;
   /** Where every CLI turn's events are also published, for whoever follows them all. */
   readonly output?: OutputDispatcher<ProviderEvent<string>>;
-  readonly interaction?: OutputAdapter;
+  readonly interaction?: Interaction;
   readonly permissions?: AgentPolicy;
   /** Stops the agent: kills the CLI and closes the workspace. Defaults to the runScript signal. */
   readonly signal?: AbortSignal;

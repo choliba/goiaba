@@ -1,6 +1,6 @@
 import { UsageError } from '../errors';
 import { programArguments, setExitCode } from '../execute/process';
-import { StandardOutput } from '../output/index';
+import { TerminalInteraction } from '../interaction/index';
 import { runScript, type RunScriptOptions } from '../usage';
 import { helpText } from './help';
 import { parseCommandLine, type CommandLine } from './parse';
@@ -45,7 +45,7 @@ export async function runCommand<
     ...options
   }: RunCommandOptions = {},
 ): Promise<void> {
-  const output = given ?? new StandardOutput();
+  const output = given ?? new TerminalInteraction();
 
   try {
     let line: CommandLine;

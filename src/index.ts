@@ -1,4 +1,4 @@
-export { Agent } from './agent/agent';
+export { AGENT_TERMINAL, Agent } from './agent/agent';
 export { AgentOutput } from './agent/output';
 export { humanApprover } from './approval/human';
 export type { CommandApprover, CommandApprovalRequest } from './approval/gate';
@@ -86,8 +86,13 @@ export type {
   WebOperation,
   WebRule,
 } from './policy/index';
-export { StandardOutput } from './output/index';
-export type { OutputAdapter } from './output/index';
+export { TerminalInteraction } from './interaction/index';
+export type {
+  Interaction,
+  TerminalInteractionOptions,
+} from './interaction/index';
+export { terminalOutput } from './output/index';
+export type { Output } from './output/index';
 export type { GoiabaEvent } from './events/index';
 export type {
   AgentEvent,

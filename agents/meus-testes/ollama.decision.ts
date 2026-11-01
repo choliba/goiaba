@@ -18,7 +18,7 @@
 
 import ollama, { type SystemOneAnswer, type SystemOneQuestion } from 'ollama';
 
-import { StandardOutput } from '../../src/output/index';
+import { TerminalInteraction } from '../../src/interaction/index';
 import { runScript } from '../../src/usage';
 
 const MODEL = 'd1-omni:600m';
@@ -67,7 +67,7 @@ function describe(name: string, answer: SystemOneAnswer): string {
   return `${name}: ${answer.score.toFixed(2)} → ${level}`;
 }
 
-const terminal = new StandardOutput();
+const terminal = new TerminalInteraction();
 
 await runScript(
   async ({ signal }) => {

@@ -1,4 +1,4 @@
-import type { OutputAdapter } from '../output/index';
+import type { Interaction } from '../interaction/index';
 import type { ApprovalScope } from '../store/index';
 import type { CommandApprover } from './broker';
 
@@ -20,7 +20,7 @@ const ANSWERS: Readonly<Record<string, ApprovalScope>> = {
  * denies, including an aborted question or a closed stdin.
  */
 export function humanApprover(
-  output: OutputAdapter,
+  output: Interaction,
   signal?: AbortSignal,
 ): CommandApprover {
   return async ({ command, reason, pattern, category = 'execution' }) => {

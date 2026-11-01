@@ -85,7 +85,7 @@ import {
   ClaudeProvider,
   humanApprover,
   join,
-  StandardOutput,
+  TerminalInteraction,
   Workspace,
   type AgentOutput,
   type AgentPolicy,
@@ -104,7 +104,7 @@ const politica: AgentPolicy = {
 };
 
 // O terminal: único leitor do teclado e escritor da tela.
-const terminal = new StandardOutput();
+const terminal = new TerminalInteraction();
 // Parar o agente de fora (aqui, depois de 30 minutos).
 const parar = AbortSignal.timeout(30 * 60 * 1000);
 
@@ -161,7 +161,7 @@ o agente as lê com `ask` (no fim do turno) e `listen` (enquanto trabalha). O qu
 status viram eventos:
 
 ```ts
-const interaction: OutputAdapter = {
+const interaction: Interaction = {
   write: (texto) => enviar('mensagem', { texto }),
   ask: (_pergunta, signal) => proxima(signal),
   listen: (signal) => proxima(signal),
@@ -308,7 +308,7 @@ essa, e só essa, fica disponível na sandbox. O que o Goiaba não consegue apli
 
 ### interaction
 
-Por onde você conversa com o agente: um `OutputAdapter`. O padrão é o terminal (`StandardOutput`);
+Por onde você conversa com o agente: um `Interaction`. O padrão é o terminal (`TerminalInteraction`);
 troque para levar a conversa a outro lugar, como um chat web.
 
 | Método                            | Obrigatório | Para que serve                                                                                                               |
@@ -453,7 +453,7 @@ Tudo o que `new Agent({ ... })` aceita.
 | `permissions`  | `AgentPolicy`       | não         | O que o agente pode fazer: arquivos, comandos, rede, web. **Sem ela, só a sandbox limita**: o agente lê e escreve o workspace inteiro, roda qualquer comando e usa a rede do host.           |
 | `approve`      | `CommandApprover`   | não         | Quem decide o que a política manda perguntar (comandos e conexões). Recebe o pedido e devolve `'once'`, `'session'`, `'workspace'` ou `'deny'`. Padrão: perguntar a você pelo `interaction`. |
 | `conversation` | `boolean`           | não         | Padrão `true`: depois de cada resposta, espera a próxima mensagem; termina só quando é parado. Com `false`, responde e termina, a não ser que esteja esperando uma aprovação.                |
-| `interaction`  | `OutputAdapter`     | não         | Por onde você conversa: o que o agente mostra e o que você digita. Padrão: o terminal (`StandardOutput`). Troque para levar a conversa a outro lugar, como um chat web.                      |
+| `interaction`  | `Interaction`       | não         | Por onde você conversa: o que o agente mostra e o que você digita. Padrão: o terminal (`TerminalInteraction`). Troque para levar a conversa a outro lugar, como um chat web.                 |
 | `subscribe`    | `AgentSubscriber[]` | não         | Funções que recebem tudo o que o agente reporta enquanto acontece: mensagens, ferramentas, comandos, decisões, status.                                                                       |
 | `signal`       | `AbortSignal`       | não         | Quando é abortado, o agente para: mata a CLI e fecha a sandbox. Padrão: o do `runScript`, se houver; senão, o Ctrl+C.                                                                        |
 | `store`        | `Store`             | não         | Onde ficam sessões, decisões e aprovações. Padrão: o banco do `goiaba.config.ts`.                                                                                                            |

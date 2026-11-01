@@ -364,7 +364,7 @@ ls > out.txt → require_approval (allow): O comando tem redirecionamento, subst
  * Exemplo 2b do curso de policy: decidir e, só em `require_approval`,
  * perguntar (`authorize`). Responda com uma tecla: s ou n.
  */
-import { StandardOutput } from '../../../src/output/index';
+import { TerminalInteraction } from '../../../src/interaction/index';
 import {
   PolicyEngine,
   type AgentAction,
@@ -378,7 +378,7 @@ const policy = new PolicyEngine({
   deny: { execution: [{ commands: ['git push --force *'] }] },
 });
 
-const terminal = new StandardOutput();
+const terminal = new TerminalInteraction();
 
 /** Quem pergunta: o terminal, com uma tecla. */
 async function askInTerminal({

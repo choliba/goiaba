@@ -4,7 +4,7 @@ import { listenForInterrupt } from './execute/interrupt';
 import { exitProgram, onUncaughtError } from './execute/process';
 import { closeLogger, log, openLogger } from './logger/index';
 import { writeErr } from './output/terminal';
-import { StandardOutput, type OutputAdapter } from './output/index';
+import { TerminalInteraction, type Interaction } from './interaction/index';
 
 export { UsageError };
 
@@ -15,7 +15,7 @@ export interface ScriptContext {
 
 export interface RunScriptOptions {
   /** Where usage errors are shown; defaults to stdout. */
-  readonly output?: OutputAdapter;
+  readonly output?: Interaction;
   /** Which goiaba.config to load; defaults to the one found from the cwd. */
   readonly config?: LoadConfigOptions;
 }
@@ -29,7 +29,7 @@ export function scriptSignal(): AbortSignal | undefined {
 
 export async function runScript(
   start: (context: ScriptContext) => Promise<void>,
-  { output = new StandardOutput(), config = {} }: RunScriptOptions = {},
+  { output = new TerminalInteraction(), config = {} }: RunScriptOptions = {},
 ): Promise<void> {
   const interrupt = listenForInterrupt();
   current = interrupt.signal;
