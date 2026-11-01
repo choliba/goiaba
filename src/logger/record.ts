@@ -56,6 +56,9 @@ const FIELD_NAMES: Readonly<Record<string, readonly string[]>> = {
   code: ['process', 'exit_code'],
   commandLine: ['process', 'command_line'],
   duration: ['event', 'duration'],
+  input_tokens: ['gen_ai', 'usage', 'input_tokens'],
+  output_tokens: ['gen_ai', 'usage', 'output_tokens'],
+  cached_input_tokens: ['gen_ai', 'usage', 'cache_read', 'input_tokens'],
 };
 
 /** What the person and the agent said: content, not metadata. */
@@ -164,6 +167,8 @@ function messageOf(entry: LogEntry): string {
       return 'Saída ignorada do provider';
     case 'agent_config':
       return 'Configuração do agente';
+    case 'usage':
+      return `Consumo do modelo: ${String(entry['input_tokens'])} tokens de entrada, ${String(entry['output_tokens'])} de saída`;
     case 'error':
       return text('message') || 'Erro';
     default:

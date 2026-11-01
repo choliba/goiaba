@@ -61,3 +61,24 @@ export interface NetworkDecisionData extends NetworkRequest {
   readonly reason: string;
   readonly decidedBy: NetworkDecisionSource;
 }
+
+/**
+ * One connection's bytes, each way, in order, until it closes: untouched and
+ * uninterpreted (an encrypted connection stays unreadable).
+ */
+export interface Traffic {
+  /** What the client sent to the destination. */
+  readonly requests: AsyncIterable<Uint8Array>;
+  /** What the destination sent back. */
+  readonly responses: AsyncIterable<Uint8Array>;
+}
+
+/**
+ * Who reads a destination's traffic as it passes through the proxy. For
+ * destinations reached through a tunnel (`CONNECT`).
+ */
+export interface TrafficObserver {
+  /** `host:port`, as the rules write it. */
+  readonly destination: string;
+  observe(traffic: Traffic): void;
+}

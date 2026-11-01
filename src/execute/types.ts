@@ -4,6 +4,11 @@ export interface ProgramCommand {
   readonly cwd?: string;
   readonly input?: string;
   /**
+   * Instead of `input`: stdin kept open, each piece written as it comes and
+   * stdin closed when the stream ends (a conversation with the program).
+   */
+  readonly inputStream?: AsyncIterable<string>;
+  /**
    * The program's whole environment; without it, it inherits Goiaba's. Set
    * by the sandbox, so secrets it does not let in are not there at all.
    */

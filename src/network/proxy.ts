@@ -7,11 +7,11 @@ import {
 } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { connect } from 'node:net';
-import type { Duplex } from 'node:stream';
+import { PassThrough, type Duplex } from 'node:stream';
 
 import { log } from '../logger/index';
 import type { NetworkGate } from './gate';
-import type { NetworkRequest } from './types';
+import type { NetworkRequest, TrafficObserver } from './types';
 
 const BAD_GATEWAY = 502;
 const FORBIDDEN = 403;
@@ -25,13 +25,24 @@ export class NetworkProxy {
   private readonly server: Server = createServer();
   private socketPath: string | undefined;
 
-  public constructor(private readonly gate: NetworkGate) {
+  private readonly observers: TrafficObserver[];
+
+  public constructor(
+    private readonly gate: NetworkGate,
+    observers: readonly TrafficObserver[] = [],
+  ) {
+    this.observers = [...observers];
     this.server.on('request', (request, response) => {
       void forwardHttp(this.gate, request, response);
     });
     this.server.on('connect', (request, socket, head) => {
-      void forwardTunnel(this.gate, request, socket, head);
+      void forwardTunnel(this.gate, request, socket, head, this.observers);
     });
+  }
+
+  /** Reads `observer.destination`'s traffic from the next connection on. */
+  public observe(observer: TrafficObserver): void {
+    this.observers.push(observer);
   }
 
   /** Listens on `path`; again on the same path is a no-op. */
@@ -91,6 +102,7 @@ async function forwardTunnel(
   incoming: IncomingMessage,
   client: Duplex,
   head: Buffer,
+  observers: readonly TrafficObserver[],
 ): Promise<void> {
   client.on('error', () => undefined);
   const request = tunnelTarget(incoming.url);
@@ -110,6 +122,7 @@ async function forwardTunnel(
     if (head.length > 0) upstream.write(head);
     upstream.pipe(client);
     client.pipe(upstream);
+    observe(observers, request, client, upstream);
   });
   upstream.on('error', (error) => {
     logFailure(request, error);
@@ -148,6 +161,43 @@ function tunnelTarget(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A copy of each side of the tunnel, for the observers of its destination.
+ * An observer that fails or stops reading never touches the connection.
+ */
+function observe(
+  observers: readonly TrafficObserver[],
+  request: NetworkRequest,
+  client: Duplex,
+  upstream: Duplex,
+): void {
+  const destination = `${request.hostname}:${String(request.port)}`;
+  for (const observer of observers) {
+    if (observer.destination !== destination) continue;
+    try {
+      observer.observe({
+        requests: copyOf(client),
+        responses: copyOf(upstream),
+      });
+    } catch (error) {
+      log.debug({
+        type: 'network_observer_failure',
+        destination,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}
+
+/** What `source` carries from now on, until it closes. */
+function copyOf(source: Duplex): AsyncIterable<Uint8Array> {
+  const copy = new PassThrough();
+  copy.on('error', () => undefined);
+  source.on('data', (chunk: Buffer) => copy.write(chunk));
+  source.on('close', () => copy.end());
+  return copy;
 }
 
 /** Allowed, but the destination failed (DNS, refused, reset): the CLI gets 502. */

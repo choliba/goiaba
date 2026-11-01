@@ -9,6 +9,7 @@ import { closeLogger, openLogger } from '../src/logger/index';
 import type { ProgramOutput } from '../src/execute/types';
 import type { AgentPolicy } from '../src/policy/index';
 import { ClaudeProvider } from '../src/providers/claude/claude-provider';
+import type { LiveTurn } from '../src/providers/types';
 
 beforeEach(() => {
   clearConfigCache();
@@ -370,6 +371,49 @@ describe('ClaudeProvider', () => {
     ]);
   });
 
+  test('o turno ao vivo mantém o stdin aberto e fecha quando tudo foi respondido', async () => {
+    const provider = new ClaudeProvider({ model: 'modelo' });
+    const turn = provider.openLiveTurn('primeira', 'sessao-1');
+    const args = turn.command.arguments ?? [];
+
+    expect(args).toEqual(
+      expect.arrayContaining(['--input-format', 'stream-json']),
+    );
+    expect(args).toEqual(expect.arrayContaining(['--resume', 'sessao-1']));
+    expect(turn.command.input).toBeUndefined();
+    expect(turn.send('segunda')).toBe(true);
+    expect(turn.send('terceira')).toBe(true);
+
+    // The CLI answers each message with a result; the last one closes stdin.
+    const result = '{"type":"result","result":"ok"}\n';
+    const answers = collect(
+      provider.parseOutput(
+        source([
+          { channel: 'stdout', chunk: result },
+          { channel: 'stdout', chunk: result },
+          { channel: 'stdout', chunk: result },
+        ]),
+      ),
+    );
+    const sent = await collect(stdinOf(turn));
+    await answers;
+
+    expect(sent.map((line) => readUserMessage(line))).toEqual([
+      'primeira',
+      'segunda',
+      'terceira',
+    ]);
+    expect(turn.send('tarde demais')).toBe(false);
+  });
+
+  test('o turno ao vivo fechado antes das respostas (falha, Ctrl+C) não aceita mais nada', async () => {
+    const turn = new ClaudeProvider({ model: 'modelo' }).openLiveTurn('oi');
+    turn.close();
+
+    expect(turn.send('depois')).toBe(false);
+    expect(await collect(stdinOf(turn))).toHaveLength(1);
+  });
+
   test('classifica uma pergunta final como ask', async () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
     const output = source([
@@ -532,6 +576,28 @@ describe('ClaudeProvider', () => {
     }
   });
 });
+
+/** What a live turn writes to the CLI's stdin. */
+function stdinOf(turn: LiveTurn): AsyncIterable<string> {
+  if (turn.command.inputStream === undefined) {
+    throw new Error('o turno ao vivo não tem stdin em stream');
+  }
+  return turn.command.inputStream;
+}
+
+/** The text of a stream-json user message, without the interaction rules. */
+function readUserMessage(line: string): string {
+  const parsed: unknown = JSON.parse(line);
+  const message =
+    typeof parsed === 'object' && parsed !== null && 'message' in parsed
+      ? parsed.message
+      : undefined;
+  const content =
+    typeof message === 'object' && message !== null && 'content' in message
+      ? message.content
+      : undefined;
+  return typeof content === 'string' ? (content.split('\n\n')[0] ?? '') : '';
+}
 
 /** A `stream_event` line with one `content_block_delta`. */
 function delta(type: string, field: string, value: string): string {

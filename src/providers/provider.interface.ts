@@ -21,6 +21,15 @@ export interface Provider<TInput, TOutput, TPermissions> {
    */
   networkBlocked?(): readonly string[];
   /**
+   * What the model says as it passes, read from what one of its
+   * `networkEndpoints` sends back on a connection: each piece of the
+   * answer's text and each request's usage. Only where that traffic is
+   * readable (a local model over plain HTTP).
+   */
+  readTraffic?(
+    responses: AsyncIterable<Uint8Array>,
+  ): AsyncIterable<TrafficEvent>;
+  /**
    * What of the host its CLI needs: the paths where it keeps state (mounted
    * in the sandbox; nothing else of the home is), and its own credentials,
    * files and variables. Any other known credential stays out of the sandbox.
@@ -81,7 +90,31 @@ export type ProviderEvent<TOutput> =
       readonly type: 'partial';
       readonly text: string;
     }
+  | {
+      /** What the model thought before answering, when the CLI reports it. */
+      readonly type: 'reasoning';
+      readonly text: string;
+    }
   | ToolEvent;
+
+/** What a model's traffic says as it passes. */
+export type TrafficEvent =
+  | { readonly type: 'text'; readonly text: string }
+  /** A piece of what the model thinks before answering. */
+  | { readonly type: 'reasoning'; readonly text: string }
+  | { readonly type: 'usage'; readonly usage: TokenUsage };
+
+/** Tokens of one request to the model. */
+export interface TokenUsage {
+  /** What the model read: instructions, tools, conversation, message. */
+  readonly input: number;
+  /** What it wrote, reasoning included. */
+  readonly output: number;
+  /** Of `input`, what the model already had and did not read again. */
+  readonly cachedInput?: number;
+  /** Of `output`, the reasoning before the answer. */
+  readonly reasoning?: number;
+}
 
 /**
  * A tool the CLI used: its call, its result or its failure, with what the

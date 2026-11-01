@@ -152,13 +152,15 @@ describe('CodexProvider', () => {
     ]);
 
     expect(await collect(provider.parseOutput(output))).toEqual([
+      { type: 'reasoning', text: 'vou usar curl' },
       expect.objectContaining({ type: 'tool', phase: 'call' }),
       { type: 'output', value: '✓ curl https://example.com' },
+      { type: 'reasoning', text: 'conteúdo final' },
       { type: 'output', value: 'conteúdo final' },
     ]);
   });
 
-  test('não repete reasoning quando existe agent_message', async () => {
+  test('o reasoning chega antes, e não vira resposta quando existe agent_message', async () => {
     const provider = new CodexProvider({ model: 'modelo' });
     const output = source([
       { channel: 'stdout', chunk: '{"type":"turn.started"}\n' },
@@ -176,6 +178,7 @@ describe('CodexProvider', () => {
     ]);
 
     expect(await collect(provider.parseOutput(output))).toEqual([
+      { type: 'reasoning', text: 'rascunho' },
       { type: 'output', value: 'resposta' },
     ]);
   });

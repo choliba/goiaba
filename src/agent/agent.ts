@@ -33,8 +33,11 @@ import { runAs, currentRun, type AgentContext } from '../context/index';
 import type {
   AgentEvent,
   ExecutionGate,
+  LiveTurn,
   ProviderEvent,
+  TokenUsage,
   ToolEvent,
+  TrafficEvent,
 } from '../providers/types';
 import {
   networkLedger,
@@ -53,6 +56,7 @@ import { TerminalInteraction, type Interaction } from '../interaction/index';
 import { listenForInterrupt } from '../execute/interrupt';
 import { scriptSignal } from '../usage';
 import type { Workspace, WorkspaceNetworkOptions } from '../workspace/index';
+import type { TrafficObserver } from '../network/index';
 import { currentProcessCommand, environment } from '../execute/process';
 import { sandboxHost } from '../workspace/sandbox/host-access';
 
@@ -80,10 +84,22 @@ export class Agent {
   /** A session to continue on the next run (resume(), GOIABA_RESUME_SESSION). */
   private forced: string | undefined;
   private readonly conversation: boolean;
+  /** Continues an interrupted task on its own (`resume`). */
+  private readonly resumes: boolean;
   private readonly permissions: AgentPolicy | undefined;
   private readonly subscribers: readonly AgentSubscriber[];
   /** What the agent said while the approvals screen was open; shown after. */
   private held: string[] | undefined;
+  /** The run going on, for what is logged outside its context. */
+  private activeRun: string | undefined;
+  /** The last piece streamed of the message being written, if any. */
+  private streamed: string | undefined;
+  /** A reasoning streamed now, its line still open. */
+  private reasoning = false;
+  /** A reasoning was streamed since the CLI last reported one. */
+  private reasoningStreamed = false;
+  /** Tells the turn's thinking watch the model spoke (while a turn runs). */
+  private spoke: (() => void) | undefined;
   /** The status line it should show now (`pensando`, `rodando`…). */
   private wantedStatus: string | undefined;
   /** Approvals being asked right now: the CLI waits on them, it is not silent. */
@@ -109,6 +125,7 @@ export class Agent {
     approve,
     store,
     conversation = true,
+    resume = true,
     subscribe = [],
   }: AgentOptions) {
     if (name.trim().length === 0) {
@@ -129,6 +146,7 @@ export class Agent {
     this.output = interaction;
     this.signal = signal;
     this.conversation = conversation;
+    this.resumes = resume;
     this.permissions = permissions;
     this.subscribers = subscribe;
     // Forces one session (e.g. relaunched by `approvals`); otherwise the store
@@ -146,6 +164,7 @@ export class Agent {
               approve ?? humanApprover(interaction, signal),
             ),
             store: this.store,
+            onTraffic: (event) => this.onTraffic(event),
           });
     this.broker = enforced?.broker;
     this.networkLedger = enforced?.networkLedger;
@@ -271,6 +290,67 @@ export class Agent {
   }
 
   /** Who reports: this agent and the provider, model and CLI it runs on. */
+  /**
+   * A request's tokens, read from the model's traffic: emitted and logged as
+   * this agent, in the run going on (the connection carries no context of
+   * its own).
+   */
+  private onTraffic(event: TrafficEvent): void {
+    if (event.type === 'text') this.showPiece(event.text);
+    else if (event.type === 'reasoning') this.showReasoningPiece(event.text);
+    else this.recordUsage(event.usage);
+  }
+
+  /**
+   * A piece of the reasoning, on screen as it comes, after the mark on its
+   * own line; the answer's first piece ends that line.
+   */
+  private showReasoningPiece(text: string): void {
+    if (this.output.stream === undefined || this.held !== undefined) return;
+    this.spoke?.();
+    if (!this.reasoning) {
+      if (this.streamed !== undefined && !this.streamed.endsWith('\n')) {
+        this.output.stream('\n');
+      }
+      this.output.stream(`${REASONING_MARK} `);
+      this.reasoning = true;
+      this.reasoningStreamed = true;
+    }
+    this.output.stream(text);
+    this.streamed = text;
+  }
+
+  /** The reasoning's line is over: what comes next starts on a new one. */
+  private endReasoning(): void {
+    if (!this.reasoning) return;
+    this.reasoning = false;
+    if (this.streamed !== undefined && !this.streamed.endsWith('\n')) {
+      this.output.stream?.('\n');
+    }
+    this.streamed = undefined;
+  }
+
+  /**
+   * A piece of the answer, on screen as it is written where the interaction
+   * can (from the model's traffic, or from a CLI that prints its pieces).
+   * Not logged: the whole message that follows is.
+   */
+  private showPiece(text: string): void {
+    if (this.output.stream === undefined || this.held !== undefined) return;
+    this.endReasoning();
+    this.spoke?.();
+    this.output.stream(text);
+    this.streamed = text;
+  }
+
+  private recordUsage(usage: TokenUsage): void {
+    runAs(
+      this.agentContext(),
+      () => publish(usageRecord(usage)),
+      this.activeRun,
+    );
+  }
+
   private agentContext(): AgentContext {
     const provider = this.provider.describe?.();
     return provider === undefined
@@ -290,6 +370,7 @@ export class Agent {
       permissions: this.permissions ?? null,
       gate: this.broker !== undefined,
       conversation: this.conversation,
+      resume: this.resumes,
       subscribers: this.subscribers.length,
       goiaba:
         config === undefined
@@ -376,6 +457,7 @@ export class Agent {
     const turns = this.converse(input, answer, listen)[Symbol.asyncIterator]();
     // One run for the whole conversation, also when called outside `run()`.
     const run = currentRun(this.name) ?? randomUUID();
+    this.activeRun = run;
 
     for (;;) {
       const next = await runAs(this.agentContext(), () => turns.next(), run);
@@ -427,13 +509,27 @@ export class Agent {
 
       while (true) {
         let pendingAnswer: Promise<string> | undefined;
-        /** The last piece streamed of the message being written, if any. */
-        let streamed: string | undefined;
+        /** The last reasoning shown this turn. */
+        let reasoned: string | undefined;
         const question = new AbortController();
+        /** The CLI taking messages while it runs, where the provider can. */
+        let live: LiveTurn | undefined;
         const typed = listenInput(
           listen,
           anySignal(this.runSignal(), question.signal),
-          (value) => this.dispatchLiveInput(value, sessionId),
+          async (value) => {
+            const message = await this.dispatchLiveInput(value, sessionId);
+            // Straight to the running CLI; once it takes no more, kept for
+            // the next turn as before.
+            if (
+              message !== undefined &&
+              message !== APPROVALS_FINISHED &&
+              live?.send(message) === true
+            ) {
+              return undefined;
+            }
+            return message;
+          },
         );
 
         // The loop runs while the CLI does (it ends when the process exits).
@@ -450,6 +546,7 @@ export class Agent {
           },
           { paused: () => this.approving > 0 },
         );
+        this.spoke = () => thinking.spoke();
 
         try {
           for await (const event of runProvider(this.provider, {
@@ -459,6 +556,9 @@ export class Agent {
             sessionId,
             signal: this.runSignal(),
             dispatcher: this.dispatcher,
+            onLive: (turn) => {
+              live = turn;
+            },
           })) {
             if (event.type === 'session') {
               resuming = undefined;
@@ -496,29 +596,35 @@ export class Agent {
             }
 
             if (event.type === 'partial') {
-              // On screen as it is written, where the interaction can. Not
-              // logged: the whole message that follows is.
-              if (this.output.stream !== undefined && this.held === undefined) {
-                thinking.spoke();
-                this.output.stream(event.text);
-                streamed = event.text;
-              }
+              this.showPiece(event.text);
+              continue;
+            }
+
+            if (event.type === 'reasoning') {
+              // What the model thought, on screen as soon as it arrives:
+              // already there when it came piece by piece.
+              thinking.spoke();
+              publish({ type: 'reasoning', text: event.text }, 'debug');
+              if (this.reasoningStreamed) this.endReasoning();
+              else this.say(`${REASONING_MARK} ${event.text}`);
+              this.reasoningStreamed = false;
+              reasoned = event.text;
               continue;
             }
             publish({ ...event });
             thinking.spoke();
 
-            if (streamed !== undefined) {
-              // Already on screen: end its line and tell the subscribers.
-              if (!streamed.endsWith('\n')) this.output.stream?.('\n');
-              streamed = undefined;
-              publish(
-                {
-                  type: 'message',
-                  text: event.type === 'ask' ? event.question : event.value,
-                },
-                'debug',
-              );
+            const text = event.type === 'ask' ? event.question : event.value;
+            this.endReasoning();
+            const streamed = this.streamed;
+            if (streamed !== undefined || text === reasoned) {
+              // Already on screen (streamed, or the reasoning the CLI gave
+              // as its answer): end its line and tell the subscribers.
+              if (streamed !== undefined && !streamed.endsWith('\n')) {
+                this.output.stream?.('\n');
+              }
+              this.streamed = undefined;
+              publish({ type: 'message', text }, 'debug');
               if (event.type === 'ask') yield event;
             } else {
               if (event.type === 'ask') {
@@ -558,6 +664,7 @@ export class Agent {
           nextInput = input;
           continue;
         } finally {
+          this.spoke = undefined;
           thinking.stop();
         }
 
@@ -624,13 +731,12 @@ export class Agent {
    * for it since; a different prompt is a new task.
    */
   private resumedSession(prompt: string): string | undefined {
-    return (
-      this.takeForcedSession() ??
-      this.store?.resumableSession(
-        this.provider.id,
-        this.workspace.root,
-        prompt,
-      )
+    const forced = this.takeForcedSession();
+    if (forced !== undefined || !this.resumes) return forced;
+    return this.store?.resumableSession(
+      this.provider.id,
+      this.workspace.root,
+      prompt,
     );
   }
 
@@ -1073,12 +1179,14 @@ function enforcePermissions({
   workspace,
   approve,
   store,
+  onTraffic,
 }: {
   readonly permissions: AgentPolicy;
   readonly provider: AgentProvider;
   readonly workspace: Workspace;
   readonly approve: CommandApprover;
   readonly store: Store | undefined;
+  readonly onTraffic: (event: TrafficEvent) => void;
 }): {
   readonly broker: ApprovalBroker | undefined;
   readonly networkLedger: StoreNetworkLedger | undefined;
@@ -1090,7 +1198,7 @@ function enforcePermissions({
       : networkLedger(store, { root: workspace.root, provider: provider.id });
   workspace.applyPermissions(
     permissions,
-    networkOptions(provider, approve, ledger),
+    networkOptions(provider, approve, ledger, onTraffic),
   );
 
   const broker = needsGate(permissions, provider)
@@ -1129,8 +1237,10 @@ function networkOptions(
   provider: AgentProvider,
   approve: CommandApprover,
   ledger: StoreNetworkLedger | undefined,
+  onTraffic: (event: TrafficEvent) => void,
 ): WorkspaceNetworkOptions {
   return {
+    ...trafficObservers(provider, onTraffic),
     alwaysAllow: provider.networkEndpoints?.() ?? [],
     alwaysDeny: provider.networkBlocked?.() ?? [],
     approve: (request) =>
@@ -1142,6 +1252,30 @@ function networkOptions(
         category: 'network',
       }),
     ...(ledger === undefined ? {} : { ledger }),
+  };
+}
+
+/**
+ * Where the provider reads its model's traffic (a local model): the text
+ * as it is written and each request's usage, from the model's own answers.
+ * None for any other.
+ */
+function trafficObservers(
+  provider: AgentProvider,
+  onTraffic: (event: TrafficEvent) => void,
+): { readonly observe?: readonly TrafficObserver[] } {
+  if (provider.readTraffic === undefined) return {};
+  return {
+    observe: (provider.networkEndpoints?.() ?? []).map((destination) => ({
+      destination,
+      observe: ({ responses }) => {
+        const events = provider.readTraffic?.(responses);
+        if (events === undefined) return;
+        void (async () => {
+          for await (const event of events) onTraffic(event);
+        })().catch(() => undefined);
+      },
+    })),
   };
 }
 
@@ -1220,6 +1354,21 @@ function logTool({ phase, detail }: ToolEvent): void {
     log.debug({ type: phase === 'call' ? 'tool' : 'tool_result', ...detail });
 }
 
+/** One request's tokens, as the agent emits and logs them. */
+function usageRecord(usage: TokenUsage): LogInput {
+  return {
+    type: 'usage',
+    input_tokens: usage.input,
+    output_tokens: usage.output,
+    ...(usage.cachedInput === undefined
+      ? {}
+      : { cached_input_tokens: usage.cachedInput }),
+    ...(usage.reasoning === undefined
+      ? {}
+      : { reasoning_tokens: usage.reasoning }),
+  };
+}
+
 /** The producer of every agent's events; each event carries its `agent`. */
 const AGENT_SOURCE = 'agent';
 const agentEvents = createProducer(AGENT_SOURCE);
@@ -1235,6 +1384,8 @@ const THINKING_MESSAGE = '⏳ pensando…';
 const FORGOTTEN_SESSION_MESSAGE =
   'A conversa anterior não existe mais na CLI: começando uma nova.';
 const BACKGROUND_MESSAGE = '⏳ rodando em background…';
+/** Before the model's reasoning on screen, apart from its answer. */
+const REASONING_MARK = '💭';
 /** How often a `thinking` tick is reported while the model works. */
 const THINKING_TICK_MS = 2000;
 

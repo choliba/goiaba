@@ -12,7 +12,10 @@ import type {
   ProviderEvent,
   ProviderOptions,
   HostAccess,
+  LiveTurn,
+  TrafficEvent,
 } from './types';
+import { readOllamaTraffic } from './ollama-traffic';
 
 export type OllamaCli = 'claude' | 'codex';
 
@@ -65,6 +68,15 @@ export class OllamaProvider implements Provider<string, string> {
   private readonly contextWindow: number;
   private readonly endpoint: string;
 
+  /**
+   * Only with the Claude CLI, which takes messages on an open stdin: what
+   * is typed while it works reaches it right away. Codex has no such input.
+   */
+  public readonly createLiveTurn?: (
+    input: string,
+    sessionId?: string,
+  ) => LiveTurn;
+
   public constructor(options: OllamaProviderOptions) {
     const baseUrl = readBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
     this.id = `ollama-${options.cli}`;
@@ -83,11 +95,19 @@ export class OllamaProvider implements Provider<string, string> {
     };
 
     if (options.cli === 'claude') {
-      this.inner = new ClaudeProvider({
+      const claude = new ClaudeProvider({
         ...providerOptions,
+        // A small local model takes the rules, repeated, as the request.
+        rulesOnce: true,
         ...(options.tools === undefined ? {} : { tools: options.tools }),
       });
-      this.env = claudeEnv(baseUrl, options.model, this.contextWindow);
+      const env = claudeEnv(baseUrl, options.model, this.contextWindow);
+      this.inner = claude;
+      this.env = env;
+      this.createLiveTurn = (input, sessionId) => {
+        const turn = claude.openLiveTurn(input, sessionId);
+        return { ...turn, command: wrapCommand('env', env, turn.command) };
+      };
     } else {
       if (options.tools !== undefined) {
         throw new UsageError(
@@ -95,7 +115,11 @@ export class OllamaProvider implements Provider<string, string> {
         );
       }
       // Ollama needs no OpenAI login: the user's stays out of the sandbox.
-      this.inner = new CodexProvider({ ...providerOptions, login: false });
+      this.inner = new CodexProvider({
+        ...providerOptions,
+        login: false,
+        rulesOnce: true,
+      });
       this.env = [
         `CODEX_OSS_BASE_URL=${baseUrl}/v1`,
         // Codex 0.163 tries to decode Ollama's /models response as its own
@@ -136,6 +160,17 @@ export class OllamaProvider implements Provider<string, string> {
       .filter((endpoint) => endpoint !== this.endpoint);
   }
 
+  /**
+   * What Ollama answers, as it arrives: the text piece by piece and each
+   * request's tokens. The same for both CLIs, whatever each one chooses to
+   * print, and including the requests a CLI keeps to itself (a retry).
+   */
+  public readTraffic(
+    responses: AsyncIterable<Uint8Array>,
+  ): AsyncIterable<TrafficEvent> {
+    return readOllamaTraffic(responses);
+  }
+
   /** Same policy enforcement as the CLI's own provider (execution gate). */
   public applyPermissions(
     permissions: AgentPolicy,
@@ -164,7 +199,19 @@ export class OllamaProvider implements Provider<string, string> {
   public parseOutput(
     output: AsyncIterable<ProgramOutput>,
   ): AsyncIterable<ProviderEvent<string>> {
-    return this.inner.parseOutput(withoutOllamaNoise(output));
+    return withoutPartials(this.inner.parseOutput(withoutOllamaNoise(output)));
+  }
+}
+
+/**
+ * The text pieces come from Ollama's traffic (`readTraffic`), for both
+ * CLIs: the ones Claude Code also prints would show the text twice.
+ */
+async function* withoutPartials(
+  events: AsyncIterable<ProviderEvent<string>>,
+): AsyncIterable<ProviderEvent<string>> {
+  for await (const event of events) {
+    if (event.type !== 'partial') yield event;
   }
 }
 

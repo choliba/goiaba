@@ -46,6 +46,12 @@ export interface CodexProviderOptions extends ProviderOptions {
    * true; false for a model that needs none (Ollama), so it is not there.
    */
   readonly login?: boolean;
+  /**
+   * The interaction rules go with the first message of a session only (the
+   * history keeps them), not with every one. Default false: every message.
+   * A small model reads them, each time, as part of the request.
+   */
+  readonly rulesOnce?: boolean;
 }
 
 export class CodexProvider
@@ -59,6 +65,7 @@ export class CodexProvider
   private readonly model: string;
   /** Uses the user's login (auth.json); off when the model is not OpenAI's. */
   private readonly login: boolean;
+  private readonly rulesOnce: boolean;
   /** Per-workspace CODEX_HOME carrying the gate's hook, when gated. */
   private codexHome: string | undefined;
   private webSearchConfig: string | undefined;
@@ -67,6 +74,7 @@ export class CodexProvider
     executable = 'codex',
     model,
     login = true,
+    rulesOnce = false,
   }: CodexProviderOptions) {
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
@@ -75,6 +83,7 @@ export class CodexProvider
     this.executable = executable;
     this.model = model;
     this.login = login;
+    this.rulesOnce = rulesOnce;
   }
 
   public describe(): ProviderDescription {
@@ -186,7 +195,11 @@ export class CodexProvider
               sessionId,
               '-',
             ],
-      input: appendInteractionProtocol(input),
+      // The rules once per session where asked: the history keeps them.
+      input:
+        this.rulesOnce && sessionId !== undefined
+          ? input
+          : appendInteractionProtocol(input),
     };
   }
 
@@ -333,7 +346,7 @@ function readEvents(
 
     if (item['type'] === 'reasoning' && typeof item['text'] === 'string') {
       turn.rememberReasoning(item['text']);
-      return [];
+      return [{ type: 'reasoning', text: item['text'] }];
     }
 
     if (item['type'] !== 'agent_message' || typeof item['text'] !== 'string') {

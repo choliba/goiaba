@@ -12,6 +12,14 @@ import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
 import type { Provider, ProviderEvent } from '../src/providers/types';
 import { Workspace } from '../src/workspace/index';
 
+/** Lines forever, until whoever reads stops. */
+async function* endless(): AsyncIterable<string> {
+  for (;;) {
+    yield 'linha\n';
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 /** A bun script as a command: no sandbox, no provider. */
 function script(source: string, input?: string): ProgramCommand {
   return {
@@ -22,6 +30,46 @@ function script(source: string, input?: string): ProgramCommand {
 }
 
 describe('Executor', () => {
+  test('com inputStream, escreve no stdin cada pedaço ao chegar e fecha no fim', async () => {
+    const sent: string[] = [];
+    let release: (() => void) | undefined;
+    async function* messages(): AsyncIterable<string> {
+      yield 'um\n';
+      // The program has already answered the first one when the second goes.
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      yield 'dois\n';
+    }
+    const output = new Executor().run({
+      ...script(
+        `process.stdin.setEncoding('utf8');
+         process.stdin.on('data', chunk => process.stdout.write('eco:' + chunk));
+         process.stdin.on('end', () => process.stdout.write('fim'));`,
+      ),
+      inputStream: messages(),
+    });
+
+    for await (const { channel, chunk } of output) {
+      if (channel !== 'stdout') continue;
+      sent.push(chunk);
+      if (chunk.includes('eco:um')) release?.();
+    }
+
+    expect(sent.join('')).toBe('eco:um\neco:dois\nfim');
+  });
+
+  test('com inputStream, um programa que sai antes de ler tudo não é erro de entrada', async () => {
+    const chunks = await collect(
+      new Executor().run({
+        ...script(`process.stdout.write('saí'); process.exit(0);`),
+        inputStream: endless(),
+      }),
+    );
+
+    expect(chunks.map(readChunk).join('')).toBe('stdout:saí');
+  });
+
   test('envia a entrada e entrega stdout e stderr', async () => {
     const chunks = await collect(
       new Executor().run(

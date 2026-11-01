@@ -14,5 +14,8 @@ export function wrapCommand(
     ],
     ...(command.cwd === undefined ? {} : { cwd: command.cwd }),
     ...(command.input === undefined ? {} : { input: command.input }),
+    ...(command.inputStream === undefined
+      ? {}
+      : { inputStream: command.inputStream }),
   };
 }

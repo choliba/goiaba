@@ -9,7 +9,7 @@ import type { AgentOutput } from '../src/agent/output';
 import { clearConfigCache } from '../src/config/index';
 import type { NetworkBoundary } from '../src/network/index';
 import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
-import type { Provider } from '../src/providers/types';
+import type { LiveTurn, Provider } from '../src/providers/types';
 import type { ProviderEvent } from '../src/providers/types';
 import { Store } from '../src/store/index';
 import { Workspace } from '../src/workspace/index';
@@ -97,6 +97,29 @@ test('Agent mostra o texto aos pedaços onde a interaction aceita, sem repetir',
     written: [THINKING, 'Olá, mundo'],
     streamed: [],
   });
+});
+
+/** What a ReasoningProvider's agent writes when it answers `answer`. */
+async function runReasoning(answer: string): Promise<string[]> {
+  const written: string[] = [];
+  await new Agent({
+    conversation: false,
+    name: 'teste',
+    prompt: 'oi',
+    provider: new ReasoningProvider(answer),
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    interaction: { ask: unusedAsk, write: (value) => written.push(value) },
+  }).run();
+  return written;
+}
+
+test('Agent mostra o raciocínio ao chegar, sem repeti-lo como resposta', async () => {
+  expect(await runReasoning('resposta')).toEqual([
+    THINKING,
+    '💭 pensei',
+    'resposta',
+  ]);
+  expect(await runReasoning('pensei')).toEqual([THINKING, '💭 pensei']);
 });
 
 test('Agent.run escreve output e ask pelos ports injetados', async () => {
@@ -211,6 +234,82 @@ test('Agent.run envia na mesma sessão uma linha digitada durante o turno', asyn
     THINKING,
     'segundo turno',
   ]);
+});
+
+test('Agent manda ao CLI em execução o que é digitado durante o turno, em ordem', async () => {
+  const provider = new LiveProvider();
+  const messages = ['segunda', 'terceira'];
+  const written: string[] = [];
+
+  await new Agent({
+    conversation: false,
+    name: 'teste',
+    prompt: 'primeira',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    interaction: {
+      ask: unusedAsk,
+      // Typed once the CLI is reading its stdin, before it answers.
+      listen: async () => {
+        await provider.reading;
+        const message = messages.shift();
+        return message ?? new Promise<string>(() => undefined);
+      },
+      write: (value) => written.push(value),
+    },
+  }).run();
+
+  // One process answered the three: nothing waited for a next turn.
+  expect(provider.started).toEqual(['primeira']);
+  expect(provider.sent).toEqual(['segunda', 'terceira']);
+  expect(written.filter((value) => value !== THINKING)).toEqual([
+    'primeira',
+    'segunda',
+    'terceira',
+  ]);
+});
+
+test('Agent leva ao turno seguinte o que chega quando o CLI já não aceita', async () => {
+  const provider = new LiveProvider();
+  const messages = ['depois'];
+
+  await new Agent({
+    conversation: false,
+    name: 'teste',
+    prompt: 'primeira',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    interaction: {
+      ask: unusedAsk,
+      // Typed when every message has been answered and stdin closed.
+      listen: async () => {
+        await provider.closed;
+        const message = messages.shift();
+        return message ?? new Promise<string>(() => undefined);
+      },
+      write: () => undefined,
+    },
+  }).run();
+
+  expect(provider.started).toEqual(['primeira', 'depois']);
+  expect(provider.sent).toEqual([]);
+});
+
+test('Agent fecha o turno ao vivo quando o CLI falha', async () => {
+  const provider = new LiveProvider({ fail: true });
+  const written: string[] = [];
+
+  await new Agent({
+    conversation: false,
+    name: 'teste',
+    prompt: 'primeira',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    interaction: { ask: unusedAsk, write: (value) => written.push(value) },
+  }).run();
+
+  expect(written.at(-1)).toContain('terminou com código 3');
+  expect(provider.lastTurn?.send('tarde')).toBe(false);
 });
 
 test('Agent.run ignora Enter vazio durante o turno e continua escutando', async () => {
@@ -409,6 +508,33 @@ class ProactiveInputProvider implements Provider<string, string> {
     }
   }
 }
+
+test('com resume: false, a tarefa interrompida não é retomada: começa de novo', async () => {
+  const store = Store.memory();
+  const root = process.cwd();
+  store.recordSession({
+    id: 'sessao-antiga',
+    provider: 'recorder',
+    root,
+    prompt: 'crie o site',
+  });
+  const provider = new RecordingProvider();
+
+  await new Agent({
+    conversation: false,
+    resume: false,
+    name: 'teste',
+    prompt: 'crie o site',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root }),
+    interaction: { ask: unusedAsk, write: () => {} },
+    store,
+  }).run();
+
+  expect(provider.calls).toEqual([
+    { session: undefined, input: 'crie o site' },
+  ]);
+});
 
 test('continua sozinho a tarefa interrompida, com o que foi aprovado', async () => {
   const store = Store.memory();
@@ -743,6 +869,151 @@ class ToolProvider implements Provider<string, string> {
 }
 
 /** Writes its answer in two pieces, then the whole message. */
+/** Answers each stdin line slowly (`eco:` + line), in order; exits when stdin ends. */
+const ECHO_LINES = `let buffer = '';
+let chain = Promise.resolve();
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  for (let end = buffer.indexOf('\\n'); end !== -1; end = buffer.indexOf('\\n')) {
+    const line = buffer.slice(0, end);
+    buffer = buffer.slice(end + 1);
+    chain = chain.then(() => new Promise((resolve) => setTimeout(() => {
+      process.stdout.write('eco:' + line + '\\n');
+      resolve();
+    }, 150)));
+  }
+});`;
+
+/**
+ * Takes messages while it runs, as `OllamaProvider` with Claude does: stdin
+ * stays open until each message has its answer (an `eco:` line).
+ */
+class LiveProvider implements Provider<string, string> {
+  public readonly id = 'live';
+  /** The first message of each process. */
+  public readonly started: string[] = [];
+  /** The messages sent to a process already running. */
+  public readonly sent: string[] = [];
+  public lastTurn: LiveTurn | undefined;
+  /** When the running CLI starts reading its stdin. */
+  public readonly reading: Promise<void>;
+  /** When its stdin closes. */
+  public readonly closed: Promise<void>;
+  private markReading: () => void = () => undefined;
+  private markClosed: () => void = () => undefined;
+  private answered: () => void = () => undefined;
+
+  public constructor(private readonly options: { fail?: boolean } = {}) {
+    this.reading = new Promise((resolve) => {
+      this.markReading = resolve;
+    });
+    this.closed = new Promise((resolve) => {
+      this.markClosed = resolve;
+    });
+  }
+
+  public createCommand(input: string): ProgramCommand {
+    this.started.push(input);
+    return {
+      executable: process.execPath,
+      arguments: ['-e', ECHO_LINES],
+      input: `${input}\n`,
+    };
+  }
+
+  public createLiveTurn(input: string): LiveTurn {
+    this.started.push(input);
+    const queue: string[] = [];
+    let wake: (() => void) | undefined;
+    let unanswered = 0;
+    let closed = false;
+    const close = (): void => {
+      closed = true;
+      this.markClosed();
+      wake?.();
+    };
+    const push = (message: string): boolean => {
+      if (closed) return false;
+      unanswered += 1;
+      queue.push(`${message}\n`);
+      wake?.();
+      return true;
+    };
+    this.answered = () => {
+      unanswered -= 1;
+      if (unanswered === 0) close();
+    };
+    const markReading = this.markReading;
+    async function* lines(): AsyncIterable<string> {
+      markReading();
+      for (;;) {
+        const next = queue.shift();
+        if (next !== undefined) yield next;
+        else if (closed) return;
+        else
+          await new Promise<void>((resolve) => {
+            wake = resolve;
+          });
+      }
+    }
+    push(input);
+    this.lastTurn = {
+      command: {
+        executable: process.execPath,
+        arguments: [
+          '-e',
+          this.options.fail === true ? 'process.exit(3)' : ECHO_LINES,
+        ],
+        inputStream: lines(),
+      },
+      send: (message) => {
+        const accepted = push(message);
+        if (accepted) this.sent.push(message);
+        return accepted;
+      },
+      close,
+    };
+    return this.lastTurn;
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    yield { type: 'session', id: 'live-session' };
+    let buffer = '';
+    for await (const { channel, chunk } of output) {
+      if (channel !== 'stdout') continue;
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        yield { type: 'output', value: line.replace(/^eco:/, '') };
+        this.answered();
+      }
+    }
+  }
+}
+
+/** Reports its reasoning, then answers with `answer` (Codex's fallback). */
+class ReasoningProvider implements Provider<string, string> {
+  public readonly id = 'reasoning';
+
+  public constructor(private readonly answer: string) {}
+
+  public createCommand(): ProgramCommand {
+    return { executable: process.execPath, arguments: ['-e', ''] };
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    for await (const _ of output);
+    yield { type: 'reasoning', text: 'pensei' };
+    yield { type: 'output', value: this.answer };
+  }
+}
+
 class StreamingProvider implements Provider<string, string> {
   public readonly id = 'streaming';
 

@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
 import type { ProgramOutput } from '../src/execute/types';
+import { ClaudeProvider } from '../src/providers/claude/claude-provider';
+import { CodexProvider } from '../src/providers/codex/codex-provider';
 import { OllamaProvider } from '../src/providers/ollama-provider';
 
 describe('OllamaProvider', () => {
@@ -270,6 +272,58 @@ describe('OllamaProvider', () => {
     expect(
       () => new OllamaProvider({ cli: 'codex', model: 'm', contextWindow: 0 }),
     ).toThrow('contextWindow');
+  });
+
+  test('só o claude recebe mensagens com o turno rodando, e com o ambiente do Ollama', () => {
+    const claude = new OllamaProvider({ cli: 'claude', model: 'qwen3.5:4b' });
+    const codex = new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' });
+    const turn = claude.createLiveTurn?.('oi');
+
+    expect(codex.createLiveTurn).toBeUndefined();
+    expect(turn?.command.executable).toBe('env');
+    expect(turn?.command.arguments).toEqual(
+      expect.arrayContaining([
+        'ANTHROPIC_BASE_URL=http://127.0.0.1:11434',
+        '--input-format',
+        'stream-json',
+      ]),
+    );
+    expect(turn?.command.inputStream).toBeDefined();
+    turn?.close();
+  });
+
+  test('as regras de interação vão só na mensagem que abre a sessão', async () => {
+    for (const cli of ['claude', 'codex'] as const) {
+      const provider = new OllamaProvider({ cli, model: 'qwen3.5:4b' });
+
+      expect(provider.createCommand('oi').input).toContain(
+        'Regra de interação',
+      );
+      expect(provider.createCommand('oi', 'sessao-1').input).toBe('oi');
+    }
+
+    const turn = new OllamaProvider({
+      cli: 'claude',
+      model: 'qwen3.5:4b',
+    }).createLiveTurn?.('primeira');
+    turn?.send('segunda');
+    turn?.close();
+    const sent: string[] = [];
+    for await (const line of turn?.command.inputStream ?? []) sent.push(line);
+
+    expect(sent[0]).toContain('Regra de interação');
+    expect(sent[1]).not.toContain('Regra de interação');
+  });
+
+  test('fora do Ollama, as regras continuam em toda mensagem', () => {
+    expect(
+      new ClaudeProvider({ model: 'modelo' }).createCommand('oi', 'sessao-1')
+        .input,
+    ).toContain('Regra de interação');
+    expect(
+      new CodexProvider({ model: 'modelo' }).createCommand('oi', 'sessao-1')
+        .input,
+    ).toContain('Regra de interação');
   });
 
   test('recusa uma baseUrl inválida', () => {

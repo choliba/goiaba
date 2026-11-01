@@ -5,7 +5,8 @@ import {
   type SpawnOptionsWithStdioTuple,
   type StdioPipe,
 } from 'node:child_process';
-import type { Readable, Writable } from 'node:stream';
+import { Readable, type Writable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { randomUUID } from 'node:crypto';
 
 import { log, truncateError } from '../logger/index';
@@ -89,7 +90,7 @@ export class Executor {
       } catch {
         // Inspection or debug failing must not stop the program.
       }
-      process.stdin.end(command.input);
+      writeInput(process.stdin, command.inputStream ?? command.input);
 
       yield* output;
 
@@ -261,6 +262,23 @@ function reportCommand(record: {
 }): void {
   // Without `arguments` the record has none: `[]` would say "no arguments".
   log.debug({ type: 'command', ...record });
+}
+
+/**
+ * A text is written whole and stdin closed; a stream is piped as it comes
+ * and stdin closed when it ends. A program that exits before reading it all
+ * (a broken pipe) is not an error here: its exit says what happened.
+ */
+function writeInput(
+  stdin: Writable,
+  input: string | AsyncIterable<string> | undefined,
+): void {
+  if (input === undefined || typeof input === 'string') {
+    stdin.end(input);
+    return;
+  }
+  stdin.on('error', () => undefined);
+  void pipeline(Readable.from(input), stdin).catch(() => undefined);
 }
 
 function toError(error: unknown): Error {

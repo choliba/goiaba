@@ -17,6 +17,7 @@ import {
 } from '../filesystem/index';
 import { localPorts } from './rules';
 import { NetworkGate, type NetworkGateOptions } from './gate';
+import type { TrafficObserver } from './types';
 import { NetworkProxy } from './proxy';
 import { PublishedPorts, socketFor } from './publish';
 
@@ -28,6 +29,11 @@ export { validatePorts } from './publish';
 
 /** Where the CLIs inside the jail find the proxy (the jail's own loopback). */
 export const PROXY_PORT = 3128;
+
+export interface NetworkBoundaryOptions extends NetworkGateOptions {
+  /** Read what these destinations send back (e.g. a local model's usage). */
+  readonly observe?: readonly TrafficObserver[];
+}
 
 const SOCKET_FILE = 'proxy.sock';
 /** The published ports' sockets: the only place the sandbox writes here. */
@@ -57,15 +63,20 @@ export class NetworkBoundary {
   private published: PublishedPorts | undefined;
   private bridge: Helper | undefined;
 
-  public constructor(options: NetworkGateOptions) {
+  public constructor(options: NetworkBoundaryOptions) {
     this.gate = new NetworkGate(options);
-    this.proxy = new NetworkProxy(this.gate);
+    this.proxy = new NetworkProxy(this.gate, options.observe);
     this.forwards = [
       ...new Set([
         ...(options.alwaysAllow ?? []).filter(isLocal),
         ...localPorts(options.rules),
       ]),
     ];
+  }
+
+  /** Reads a destination's traffic too; the decisions do not change. */
+  public observe(observer: TrafficObserver): void {
+    this.proxy.observe(observer);
   }
 
   /**

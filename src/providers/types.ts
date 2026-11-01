@@ -26,7 +26,31 @@ export type ProviderEvent<TOutput> =
       readonly type: 'partial';
       readonly text: string;
     }
+  | {
+      /** What the model thought before answering, when the CLI reports it. */
+      readonly type: 'reasoning';
+      readonly text: string;
+    }
   | ToolEvent;
+
+/** What a model's traffic says as it passes. */
+export type TrafficEvent =
+  | { readonly type: 'text'; readonly text: string }
+  /** A piece of what the model thinks before answering. */
+  | { readonly type: 'reasoning'; readonly text: string }
+  | { readonly type: 'usage'; readonly usage: TokenUsage };
+
+/** Tokens of one request to the model. */
+export interface TokenUsage {
+  /** What the model read: instructions, tools, conversation, message. */
+  readonly input: number;
+  /** What it wrote, reasoning included. */
+  readonly output: number;
+  /** Of `input`, what the model already had and did not read again. */
+  readonly cachedInput?: number;
+  /** Of `output`, the reasoning before the answer. */
+  readonly reasoning?: number;
+}
 
 /**
  * A tool the CLI used: its call, its result or its failure, with what the
@@ -83,6 +107,21 @@ export interface Provider<TInput, TOutput> {
    */
   networkBlocked?(): readonly string[];
   /**
+   * What the model says as it passes, read from what one of its
+   * `networkEndpoints` sends back on a connection: each piece of the
+   * answer's text and each request's usage. Only where that traffic is
+   * readable (a local model over plain HTTP).
+   */
+  readTraffic?(
+    responses: AsyncIterable<Uint8Array>,
+  ): AsyncIterable<TrafficEvent>;
+  /**
+   * The turn's command with its CLI's stdin kept open: messages sent while
+   * it runs go to the same process, which answers them in order. Only where
+   * the CLI takes messages that way.
+   */
+  createLiveTurn?(input: string, sessionId?: string): LiveTurn;
+  /**
    * What of the host its CLI needs: the paths where it keeps state (mounted
    * in the sandbox; nothing else of the home is), and its own credentials,
    * files and variables. Any other known credential stays out of the sandbox.
@@ -117,4 +156,19 @@ export interface HostAccess {
   readonly credentialFiles: readonly string[];
   /** Environment variables with the CLI's own credentials. */
   readonly credentialEnv: readonly string[];
+}
+
+/**
+ * A turn that takes messages while it runs. Its stdin closes once every
+ * message sent has been answered: the CLI then exits, as any turn does.
+ */
+export interface LiveTurn {
+  readonly command: ProgramCommand;
+  /**
+   * The message to the running CLI, after the ones before it. `false` once
+   * the turn takes no more (it is finishing): send it as the next turn.
+   */
+  send(message: string): boolean;
+  /** Takes no more messages and closes stdin (the turn ended or stopped). */
+  close(): void;
 }

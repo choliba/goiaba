@@ -57,6 +57,12 @@ export interface AgentOptions {
    * one-shot task).
    */
   readonly conversation?: boolean;
+  /**
+   * Continues on its own a task interrupted before (same prompt, stopped
+   * with Ctrl+C) or with something approved for it since. Default `true`;
+   * `false` starts every run anew. `resume()` still continues.
+   */
+  readonly resume?: boolean;
   /** Functions that receive everything the agent reports, as it happens. */
   readonly subscribe?: readonly AgentSubscriber[];
 }

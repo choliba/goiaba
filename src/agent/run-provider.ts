@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { OutputDispatcher, type Executor } from '../execute/index';
 import { log } from '../logger/index';
-import type { Provider, ProviderEvent } from '../providers/types';
+import type { LiveTurn, Provider, ProviderEvent } from '../providers/types';
 import type { Workspace } from '../workspace/index';
 
 export interface ProviderRun<TInput> {
@@ -13,6 +13,12 @@ export interface ProviderRun<TInput> {
   readonly signal?: AbortSignal | undefined;
   /** Where every run's events are also published, for whoever follows them all. */
   readonly dispatcher?: OutputDispatcher<ProviderEvent<string>> | undefined;
+  /**
+   * Wants the turn live, where the provider can: receives it to send what is
+   * typed while the CLI runs. Without it, or a provider that cannot, the
+   * input is written whole, as always.
+   */
+  readonly onLive?: ((turn: LiveTurn) => void) | undefined;
 }
 
 /**
@@ -30,6 +36,7 @@ export function runProvider(
     sessionId,
     signal,
     dispatcher = new OutputDispatcher<ProviderEvent<string>>(),
+    onLive,
   }: ProviderRun<string>,
 ): AsyncIterable<ProviderEvent<string>> {
   const executionId = randomUUID();
@@ -37,7 +44,12 @@ export function runProvider(
 
   const turn = async (): Promise<void> => {
     signal?.throwIfAborted();
-    const inner = provider.createCommand(input, sessionId, workspace.root);
+    const live =
+      onLive === undefined
+        ? undefined
+        : provider.createLiveTurn?.(input, sessionId);
+    const inner =
+      live?.command ?? provider.createCommand(input, sessionId, workspace.root);
     // Before the sandbox wraps it: what the provider asked for.
     log.debug({
       type: 'command',
@@ -59,8 +71,13 @@ export function runProvider(
       logFields: { executionId, provider: provider.id },
     });
 
-    for await (const event of provider.parseOutput(output)) {
-      dispatcher.publish(executionId, provider.id, event);
+    if (live !== undefined) onLive?.(live);
+    try {
+      for await (const event of provider.parseOutput(output)) {
+        dispatcher.publish(executionId, provider.id, event);
+      }
+    } finally {
+      live?.close();
     }
   };
 

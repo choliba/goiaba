@@ -18,6 +18,36 @@ function infoRecord(fields: Record<string, unknown>, message = 'm'): LogRecord {
 }
 
 describe('toLogRecord', () => {
+  test('o consumo vai para gen_ai.usage, com a duração em event', () => {
+    const record = toLogRecord(
+      {
+        ts,
+        type: 'usage',
+        input_tokens: 5000,
+        output_tokens: 300,
+        cached_input_tokens: 4000,
+        reasoning_tokens: 200,
+        duration: 12_000_000_000,
+      },
+      context,
+    );
+
+    expect(record.message).toBe(
+      'Consumo do modelo: 5000 tokens de entrada, 300 de saída',
+    );
+    expect(record.fields).toMatchObject({
+      event: { name: 'usage', duration: 12_000_000_000 },
+      gen_ai: {
+        usage: {
+          input_tokens: 5000,
+          output_tokens: 300,
+          cache_read: { input_tokens: 4000 },
+        },
+      },
+      goiaba: { reasoning_tokens: 200 },
+    });
+  });
+
   test('usa os nomes ECS/OTel e põe o resto em goiaba.*', () => {
     const record = toLogRecord(
       {

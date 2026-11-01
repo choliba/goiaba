@@ -16,6 +16,7 @@ import type {
   Provider,
   ProviderDescription,
   ProviderEvent,
+  LiveTurn,
   ProviderOptions,
   ToolEvent,
   HostAccess,
@@ -52,6 +53,12 @@ export interface ClaudeProviderOptions extends ProviderOptions {
    * every request, which a small local model reads slowly and poorly.
    */
   readonly tools?: readonly string[];
+  /**
+   * The interaction rules go with the first message of a session only (the
+   * history keeps them), not with every one. Default false: every message.
+   * A small model reads them, each time, as part of the request.
+   */
+  readonly rulesOnce?: boolean;
 }
 
 export class ClaudeProvider
@@ -64,12 +71,16 @@ export class ClaudeProvider
   private readonly executable: string;
   private readonly model: string;
   private readonly tools: readonly string[] | undefined;
+  private readonly rulesOnce: boolean;
   private settings: ClaudeSettings | undefined;
+  /** The live turn going on, whose messages each `result` answers. */
+  private live: LiveChannel | undefined;
 
   public constructor({
     executable = 'claude',
     model,
     tools,
+    rulesOnce = false,
   }: ClaudeProviderOptions) {
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
@@ -78,6 +89,7 @@ export class ClaudeProvider
     this.executable = executable;
     this.model = model;
     this.tools = tools;
+    this.rulesOnce = rulesOnce;
   }
 
   /** The policy as Claude Code's `allow`, `ask` and `deny` rules. */
@@ -171,6 +183,44 @@ export class ClaudeProvider
   }
 
   public createCommand(input: string, sessionId?: string): ProgramCommand {
+    return this.command(sessionId, {
+      input: this.withRules(input, sessionId === undefined),
+    });
+  }
+
+  /**
+   * The turn with stdin kept open (`--input-format stream-json`): each
+   * message sent while it runs is written there as it comes and answered,
+   * in order, by the same process, each turn ending with a `result`. Not a
+   * `Provider` method: whoever wraps this provider decides to offer it.
+   */
+  public openLiveTurn(input: string, sessionId?: string): LiveTurn {
+    const channel = new LiveChannel();
+    this.live = channel;
+    channel.send(this.withRules(input, sessionId === undefined));
+    return {
+      command: this.command(sessionId, { inputStream: channel.lines() }, [
+        '--input-format',
+        'stream-json',
+      ]),
+      // Never the session's first message: the one above opened it.
+      send: (message) => channel.send(this.withRules(message, false)),
+      close: () => channel.close(),
+    };
+  }
+
+  /** The message with the interaction rules, unless they went already. */
+  private withRules(message: string, opensSession: boolean): string {
+    return this.rulesOnce && !opensSession
+      ? message
+      : appendInteractionProtocol(message);
+  }
+
+  private command(
+    sessionId: string | undefined,
+    stdin: Pick<ProgramCommand, 'input' | 'inputStream'>,
+    inputFormat: readonly string[] = [],
+  ): ProgramCommand {
     // --print has nobody to approve tools: with execution rules only what they
     // allow runs; otherwise the sandbox is the limit.
     const permissionMode =
@@ -185,6 +235,7 @@ export class ClaudeProvider
         '--output-format',
         'stream-json',
         '--verbose',
+        ...inputFormat,
         // The text also piece by piece (`stream_event`), before the message.
         '--include-partial-messages',
         '--model',
@@ -206,7 +257,7 @@ export class ClaudeProvider
             ]),
         ...(sessionId === undefined ? [] : ['--resume', sessionId]),
       ],
-      input: appendInteractionProtocol(input),
+      ...stdin,
     });
   }
 
@@ -233,6 +284,7 @@ export class ClaudeProvider
           sawAssistant,
           sessionEmitted,
           tools,
+          onResult: () => this.live?.answered(),
         })) {
           if (event.value.type === 'session') {
             sessionEmitted = true;
@@ -250,9 +302,59 @@ export class ClaudeProvider
         sawAssistant,
         sessionEmitted,
         tools,
+        onResult: () => this.live?.answered(),
       })) {
         yield event.value;
       }
+    }
+  }
+}
+
+/**
+ * The messages of a live turn, as stream-json lines for the CLI's stdin.
+ * Ends when every message sent has been answered, or when closed.
+ */
+class LiveChannel {
+  private readonly queue: string[] = [];
+  private wake: (() => void) | undefined;
+  private unanswered = 0;
+  private closed = false;
+
+  public send(message: string): boolean {
+    if (this.closed) return false;
+    this.unanswered += 1;
+    this.queue.push(
+      `${JSON.stringify({
+        type: 'user',
+        message: { role: 'user', content: message },
+      })}\n`,
+    );
+    this.wake?.();
+    return true;
+  }
+
+  public answered(): void {
+    this.unanswered = Math.max(0, this.unanswered - 1);
+    if (this.unanswered === 0) this.close();
+  }
+
+  public close(): void {
+    this.closed = true;
+    this.wake?.();
+  }
+
+  public async *lines(): AsyncIterable<string> {
+    for (;;) {
+      const next = this.queue.shift();
+      if (next !== undefined) {
+        yield next;
+        continue;
+      }
+      if (this.closed) return;
+      await new Promise<void>((resolve) => {
+        this.wake = resolve;
+      });
+      this.wake = undefined;
     }
   }
 }
@@ -262,6 +364,8 @@ interface ParseState {
   readonly sessionEmitted: boolean;
   /** tool_use by id, to name the tool when its result arrives. */
   readonly tools: Map<string, ToolCall>;
+  /** A turn ended (`result`): one message of a live turn was answered. */
+  readonly onResult?: () => void;
 }
 
 interface ToolCall {
@@ -276,7 +380,7 @@ interface ParsedEvent {
 
 function readEvents(
   line: string,
-  { sawAssistant, sessionEmitted, tools }: ParseState,
+  { sawAssistant, sessionEmitted, tools, onResult }: ParseState,
 ): readonly ParsedEvent[] {
   if (line.trim().length === 0) {
     return [];
@@ -330,6 +434,8 @@ function readEvents(
     ) {
       events.push({ value: createEvent(event['result']) });
     }
+
+    if (event['type'] === 'result') onResult?.();
 
     return events;
   } catch {

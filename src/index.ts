@@ -99,6 +99,7 @@ export type {
   Provider,
   ProviderEvent,
   ProviderOptions,
+  TokenUsage,
   ToolEvent,
 } from './providers/types';
 export { Workspace } from './workspace/index';
