@@ -12,10 +12,10 @@
  * is the logger's.
  */
 
-import { currentScope, type ScopeFields } from '../scope/index';
+import { currentContext, type RunContext } from '../context/index';
 
 /** One event, as consumers get it. */
-export interface GoiabaEvent extends ScopeFields {
+export interface GoiabaEvent extends RunContext {
   /** The producer's name: `agent`, `network`, `course`… */
   readonly source: string;
   /** What happened within the producer: `input`, `output`, `thinking`… */
@@ -66,7 +66,7 @@ export function createProducer(source: string): Producer {
     emit(input) {
       const event: GoiabaEvent = {
         ts: new Date().toISOString(),
-        ...currentScope(),
+        ...currentContext(),
         ...input,
         // Last: an input cannot pass for another producer.
         source,

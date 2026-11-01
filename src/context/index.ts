@@ -1,5 +1,5 @@
 /**
- * Which agent is running here: what is emitted or logged inside `asAgent`
+ * Which agent is running here: what is emitted or logged inside `runAs`
  * carries its name, provider and run, whoever emits or logs it (the
  * executor, the sandbox, the gate…).
  */
@@ -10,14 +10,14 @@ import { randomUUID } from 'node:crypto';
 import type { ProviderDescription } from '../providers/types';
 
 /** Who runs: the agent and what it runs on. */
-export interface AgentScope {
+export interface AgentContext {
   readonly name: string;
   readonly provider?: ProviderDescription;
 }
 
 /** Who was running when something was emitted or logged; empty outside an agent. */
-export interface ScopeFields {
-  /** Name of the agent (`AgentScope.name`). */
+export interface RunContext {
+  /** Name of the agent (`AgentContext.name`). */
   readonly agent?: string;
   /** Id of the run: one `Agent.run()`. */
   readonly run?: string;
@@ -26,15 +26,15 @@ export interface ScopeFields {
 }
 
 const runningAgent = new AsyncLocalStorage<
-  AgentScope & { readonly run: string }
+  AgentContext & { readonly run: string }
 >();
 
 /**
  * Runs `work` as `agent`. Inside a run of the same agent, `work` stays in
  * that run.
  */
-export function asAgent<T>(
-  agent: AgentScope,
+export function runAs<T>(
+  agent: AgentContext,
   work: () => T,
   run: string = currentRun(agent.name) ?? randomUUID(),
 ): T {
@@ -47,7 +47,7 @@ export function currentRun(name: string): string | undefined {
   return current?.name === name ? current.run : undefined;
 }
 
-export function currentScope(): ScopeFields {
+export function currentContext(): RunContext {
   const agent = runningAgent.getStore();
   if (agent === undefined) return {};
 

@@ -29,7 +29,7 @@ import {
   openLogger,
   type LogInput,
 } from '../logger/index';
-import { asAgent, currentRun, type AgentScope } from '../scope/index';
+import { runAs, currentRun, type AgentContext } from '../context/index';
 import type {
   AgentEvent,
   ExecutionGate,
@@ -243,7 +243,7 @@ export class Agent {
     // Deferred so `current` is set before the first report: a subscriber
     // calling `run()` gets this run instead of starting another.
     const run = Promise.resolve()
-      .then(() => asAgent(this.scope(), () => this.runConversation()))
+      .then(() => runAs(this.agentContext(), () => this.runConversation()))
       .finally(() => {
         interrupt?.dispose();
         this.current = undefined;
@@ -271,7 +271,7 @@ export class Agent {
   }
 
   /** Who reports: this agent and the provider, model and CLI it runs on. */
-  private scope(): AgentScope {
+  private agentContext(): AgentContext {
     const provider = this.provider.describe?.();
     return provider === undefined
       ? { name: this.name }
@@ -378,7 +378,7 @@ export class Agent {
     const run = currentRun(this.name) ?? randomUUID();
 
     for (;;) {
-      const next = await asAgent(this.scope(), () => turns.next(), run);
+      const next = await runAs(this.agentContext(), () => turns.next(), run);
       if (next.done === true) return;
       yield next.value;
     }

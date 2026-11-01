@@ -18,7 +18,7 @@ import {
   type GoiabaEvent,
 } from '../../src/events/index';
 import { writeOut } from '../../src/output/terminal';
-import { asAgent } from '../../src/scope/index';
+import { runAs } from '../../src/context/index';
 
 function mostrar(texto: string): void {
   writeOut(`${texto}\n`);
@@ -113,7 +113,7 @@ curso.emit({ type: 'gravado', path: 'a.md' });
 
 // Dentro de um agente (tudo o que roda durante um Agent.run() está assim):
 // agent, run e agentProvider entram sozinhos.
-asAgent(
+runAs(
   { name: 'instructor', provider: { name: 'ollama', model: 'instructor' } },
   () => curso.emit({ type: 'gravado', path: 'b.md' }),
 );

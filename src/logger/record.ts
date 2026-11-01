@@ -1,4 +1,4 @@
-import type { ScopeFields } from '../scope/index';
+import type { RunContext } from '../context/index';
 
 /**
  * The log contract, whatever package writes it: ECS for the record
@@ -19,7 +19,7 @@ export interface LogRecord {
 }
 
 /** What a producer logged, with when and who was running. */
-export interface LogEntry extends ScopeFields {
+export interface LogEntry extends RunContext {
   readonly ts: string;
   /** None for `info`. */
   readonly level?: 'debug' | 'error';

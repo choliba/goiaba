@@ -4,7 +4,7 @@ import { userInfo } from 'node:os';
 import { ensureDirectory, readText } from '../filesystem/index';
 import { getConfig, isConfigLoaded } from '../config/index';
 import { UsageError } from '../errors';
-import { currentScope } from '../scope/index';
+import { currentContext } from '../context/index';
 import { adaptLogger, type LogSink } from './adapt';
 import { createJsonlSink } from './jsonl';
 import { maskRecord } from './mask';
@@ -42,7 +42,7 @@ const reportedFailures = new WeakSet<object>();
 function record(level: LogEntry['level'], input: LogInput): void {
   write?.({
     ts: new Date().toISOString(),
-    ...currentScope(),
+    ...currentContext(),
     ...input,
     ...(level === undefined ? {} : { level }),
   });

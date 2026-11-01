@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { asAgent } from '../src/scope/index';
+import { runAs } from '../src/context/index';
 import {
   ALL_SOURCES,
   createConsumer,
@@ -94,7 +94,7 @@ test('o evento leva ts, o agente que rodava e a origem do produtor', () => {
   consumer.subscribe('curso');
   const curso = createProducer('curso');
 
-  asAgent({ name: 'construtor', provider: { name: 'p', model: 'm' } }, () =>
+  runAs({ name: 'construtor', provider: { name: 'p', model: 'm' } }, () =>
     // Um `source` no dado não troca a origem: quem emite é o produtor.
     curso.emit({ type: 'gravado', source: 'outro', path: 'a.md' }),
   );
