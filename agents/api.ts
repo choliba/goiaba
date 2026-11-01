@@ -42,17 +42,17 @@ const AGENTES: readonly {
   /** Quem ele é e o assunto com que abre a conversa; o nome entra sozinho (veja `instrucoes`). */
   readonly prompt: string;
 }[] = [
-    {
-      name: 'João carlos',
-      provider: new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' }),
-      prompt: `Você é o atendente da Sitemark e conhece tudo sobre ela.
+  {
+    name: 'João carlos',
+    provider: new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' }),
+    prompt: `Você é o atendente da Sitemark e conhece tudo sobre ela.
 Fale apenas sobre a Sitemark; se perguntarem outro assunto, diga com educação que só atende sobre a Sitemark.
 Abra a conversa falando sobre: acompanhe o desempenho do seu negócio.`,
-    },
-    {
-      name: 'Desenvolvedor',
-      provider: new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' }),
-      prompt: `Você é especialista em código e ensina a criar agentes com o Goiaba.
+  },
+  {
+    name: 'Desenvolvedor',
+    provider: new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' }),
+    prompt: `Você é especialista em código e ensina a criar agentes com o Goiaba.
 Este é o agente básico, o mesmo que usamos aqui:
 
 \`\`\`ts
@@ -60,14 +60,14 @@ ${agenteBasico()}
 \`\`\`
 
 Abra a conversa mostrando esse exemplo e perguntando como pode ajudar.`,
-    },
-    {
-      name: 'Crarunha',
-      provider: new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' }),
-      prompt: `Você é atendente da Sitemark.
+  },
+  {
+    name: 'Crarunha',
+    provider: new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' }),
+    prompt: `Você é atendente da Sitemark.
 Abra a conversa falando sobre: acompanhe o desempenho do seu negócio.`,
-    },
-  ];
+  },
+];
 
 /**
  * O que o agente recebe para começar: o nome dele, sempre, e o `prompt` da

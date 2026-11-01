@@ -11,10 +11,10 @@ O módulo não faz I/O: nada sai do processo por aqui. Entregar para fora é pap
 
 ## Os arquivos
 
-| Arquivo | Papel |
-| --- | --- |
+| Arquivo               | Papel                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `src/events/index.ts` | O módulo inteiro: os tipos (`GoiabaEvent`, `EventInput`, `Producer`, `Consumer`, `EventListener`), `createProducer`, `createConsumer` e `ALL_SOURCES`. |
-| `src/scope/index.ts` | Não é do módulo, mas é usado por ele: `currentScope()` diz qual agente está rodando, e esses dados entram em todo evento. |
+| `src/scope/index.ts`  | Não é do módulo, mas é usado por ele: `currentScope()` diz qual agente está rodando, e esses dados entram em todo evento.                              |
 
 ## Como funciona
 
@@ -206,7 +206,12 @@ Com isso, um consumidor pode separar os eventos por agente (`event.agent`) ou po
 `createProducer` e `createConsumer` não são exportados por `src/index.ts`: só o tipo `GoiabaEvent` é. Quem usa o Goiaba ouve **um agente** pela opção `subscribe`, que recebe um `AgentOutput` (`type()`, `data()`, `ts()`, `agent()`), já filtrado para aquele agente:
 
 ```ts
-import { Agent, type AgentOutput, OllamaProvider, Workspace } from '../src/index';
+import {
+  Agent,
+  type AgentOutput,
+  OllamaProvider,
+  Workspace,
+} from '../src/index';
 
 const agente = new Agent({
   name: 'assistente',

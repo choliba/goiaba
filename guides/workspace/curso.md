@@ -6,18 +6,18 @@ O workspace mantém juntas a raiz do projeto, as permissões de arquivos, o aces
 
 ## Os arquivos
 
-| Arquivo | Papel |
-| --- | --- |
-| `src/workspace/index.ts` | Define as opções e a classe `Workspace`; valida a raiz e as portas, cria o sandbox e encaminha as configurações e o ciclo de vida. |
-| `src/workspace/sandbox/types.ts` | Define a interface `Sandbox` e o contrato `NetworkExit` usados pelas implementações. |
-| `src/workspace/sandbox/index.ts` | Exporta os tipos e as implementações de Bubblewrap e Docker. |
-| `src/workspace/sandbox/bubblewrap.ts` | Cria e mantém a jaula Bubblewrap, monta os caminhos, configura rede e prepara comandos com `nsenter`. |
-| `src/workspace/sandbox/docker.ts` | Prepara comandos em contêineres Docker e define montagens, ambiente, rede e encerramento. |
-| `src/workspace/sandbox/host-access.ts` | Decide quais diretórios, credenciais e variáveis do host são compartilhados com o sandbox. |
-| `src/workspace/sandbox/host-state.ts` | Lista os diretórios de estado genéricos das ferramentas do host. |
-| `src/workspace/sandbox/protect.ts` | Converte caminhos existentes em máscaras somente leitura. |
-| `src/workspace/sandbox/wrap-command.ts` | Coloca um comando dentro de outro executável, preservando argumentos, diretório atual e entrada. |
-| `src/workspace/sandbox/debug.ts` | Registra detalhes do comando e dados adicionais no log de depuração do sandbox. |
+| Arquivo                                 | Papel                                                                                                                              |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `src/workspace/index.ts`                | Define as opções e a classe `Workspace`; valida a raiz e as portas, cria o sandbox e encaminha as configurações e o ciclo de vida. |
+| `src/workspace/sandbox/types.ts`        | Define a interface `Sandbox` e o contrato `NetworkExit` usados pelas implementações.                                               |
+| `src/workspace/sandbox/index.ts`        | Exporta os tipos e as implementações de Bubblewrap e Docker.                                                                       |
+| `src/workspace/sandbox/bubblewrap.ts`   | Cria e mantém a jaula Bubblewrap, monta os caminhos, configura rede e prepara comandos com `nsenter`.                              |
+| `src/workspace/sandbox/docker.ts`       | Prepara comandos em contêineres Docker e define montagens, ambiente, rede e encerramento.                                          |
+| `src/workspace/sandbox/host-access.ts`  | Decide quais diretórios, credenciais e variáveis do host são compartilhados com o sandbox.                                         |
+| `src/workspace/sandbox/host-state.ts`   | Lista os diretórios de estado genéricos das ferramentas do host.                                                                   |
+| `src/workspace/sandbox/protect.ts`      | Converte caminhos existentes em máscaras somente leitura.                                                                          |
+| `src/workspace/sandbox/wrap-command.ts` | Coloca um comando dentro de outro executável, preservando argumentos, diretório atual e entrada.                                   |
+| `src/workspace/sandbox/debug.ts`        | Registra detalhes do comando e dados adicionais no log de depuração do sandbox.                                                    |
 
 ## Como funciona
 
@@ -43,10 +43,7 @@ const network = configureNetwork({
 });
 
 // What enforces the policy stays read-only for the agent.
-workspace.protect([
-  ...(broker === undefined ? [] : [broker.dir]),
-  ...cliFiles,
-]);
+workspace.protect([...(broker === undefined ? [] : [broker.dir]), ...cliFiles]);
 ```
 
 `configureNetwork` também chama `workspace.configureNetwork(network)` quando há regras de rede. O trecho mostra a divisão de responsabilidades: `agent.ts` decide quais regras e caminhos se aplicam; o workspace encaminha essas decisões ao sandbox, que as aplica ao preparar o ambiente.

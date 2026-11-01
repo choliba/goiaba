@@ -10,12 +10,12 @@ Sem isso, cada comando precisaria: ler argumentos, validar, mostrar ajuda, carre
 
 ## Os arquivos (tabela: arquivo, papel)
 
-| Arquivo | Papel |
-|---------|-------|
-| `src/command/types.ts` | Define os tipos de argumentos/ops, o que uma declaração pode ter, e como o contexto chega ao `run`. |
+| Arquivo                | Papel                                                                                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/command/types.ts` | Define os tipos de argumentos/ops, o que uma declaração pode ter, e como o contexto chega ao `run`.  |
 | `src/command/parse.ts` | Lê a linha de comando, valida contra a declaração e devolve `{ args, options }` ou `{ help: true }`. |
-| `src/command/help.ts` | Gera o texto da ajuda (`--help`) a partir da declaração. |
-| `src/command/index.ts` | Exporta tudo e fornece `runCommand`, que executa um comando como script. |
+| `src/command/help.ts`  | Gera o texto da ajuda (`--help`) a partir da declaração.                                             |
+| `src/command/index.ts` | Exporta tudo e fornece `runCommand`, que executa um comando como script.                             |
 
 ## Como funciona (o caminho de uma chamada, do começo ao fim)
 

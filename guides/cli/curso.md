@@ -4,10 +4,10 @@ O módulo "cli" permite aprovar comandos negados pelo gate de forma interativa. 
 
 ## Os arquivos (tabela: arquivo, papel)
 
-| Arquivo | Papel |
-|---------|-------|
+| Arquivo                | Papel                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `src/cli/approvals.ts` | Define o comando executável que lista comandos negados e permite selecionar quais aprovar via interface interativa |
-| `src/cli/selection.ts` | Fornece funções para analisar e validar seleções de usuários como "1,3,5-8" ou intervalos como "5-8" |
+| `src/cli/selection.ts` | Fornece funções para analisar e validar seleções de usuários como "1,3,5-8" ou intervalos como "5-8"               |
 
 ## Como funciona (o caminho de uma chamada, do começo ao fim)
 
@@ -45,11 +45,13 @@ Esse arquivo recebe a seleção do usuário e processa os comandos aprovados. O 
 ## Regras do módulo (o que só ele pode fazer, o que ninguém deve fazer fora dele)
 
 **O que o módulo pode fazer:**
+
 - Ler negações do gate via `Store.open()` e `ApprovalReview.run()`
 - Interpretar seleções de usuários como listas ou intervalos numéricos
 - Validar que os índices estejam dentro do tamanho da lista (1 a N)
 
 **O que ninguém deve fazer fora dele:**
+
 - Não interpretar seleções manualmente — sempre use `parseSelection(text, size)`
 - Não executar aprovações sem passar pelo fluxo de `ApprovalReview`
 - Não usar índices fora do intervalo válido (1 até o tamanho da lista)

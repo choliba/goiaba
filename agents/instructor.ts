@@ -52,8 +52,10 @@ export const instructorPermissions: AgentPolicy = {
  * not by a person. The sandbox is the boundary (read-only workspace, writes
  * only in guides/), so a command the gate cannot verify (a pipe, a
  * redirection, any program: requireApproval `*`) runs; a `deny` rule never
- * gets here. The network stays shut: it is what the sandbox would not hold.
- * `once` saves nothing: no approval is left to reopen a finished run.
+ * gets here. The policy's `default` shuts the network (only the provider's
+ * endpoint gets through); should a network rule ever send one here, it is
+ * denied too. `once` saves nothing: no approval is left to reopen a finished
+ * run.
  */
 export const sandboxApprover: CommandApprover = ({ category }) =>
   Promise.resolve(category === 'network' ? 'deny' : 'once');
