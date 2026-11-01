@@ -1,5 +1,5 @@
 import { hostname } from 'node:os';
-import { join, dirname } from 'node:path';
+import { dirname, join } from './src/filesystem/index';
 import { ecsFormat } from '@elastic/ecs-pino-format';
 import pino from 'pino';
 import { defineConfig } from './src/config';

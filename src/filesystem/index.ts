@@ -67,6 +67,14 @@ export function readText(path: string): string {
   return readFileSync(path, 'utf8');
 }
 
+/**
+ * Everything readable from an open file descriptor, as text: `0` is stdin
+ * (the request a hook receives, a piped input).
+ */
+export function readDescriptor(descriptor: number): string {
+  return readFileSync(descriptor, 'utf8');
+}
+
 export function listDirectory(path: string): string[] {
   return readdirSync(path);
 }

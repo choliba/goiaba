@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { createInterface, type Interface } from 'node:readline';
 
 import { interruptProgram } from '../execute/process';
+import { readDescriptor } from '../filesystem/index';
 import { log } from '../logger/index';
 import { writeOut } from '../output/terminal';
 
@@ -69,7 +69,7 @@ export class KeyDecoder {
 
 /** Everything piped to stdin, at once (e.g. the request a hook receives). */
 export function readAllInput(): string {
-  return readFileSync(0, 'utf8');
+  return readDescriptor(0);
 }
 
 /** Owns process stdin. Consumers receive complete messages, never raw bytes. */

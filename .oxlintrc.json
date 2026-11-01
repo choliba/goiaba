@@ -32,7 +32,54 @@
     "typescript/no-explicit-any": "error",
     "typescript/no-non-null-assertion": "error",
     "typescript/consistent-type-imports": "error",
-    "eslint/no-await-in-loop": "off"
+    "eslint/no-await-in-loop": "off",
+    "eslint/no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "node:fs",
+            "message": "Só src/filesystem importa node:fs: o disco passa pelo src/filesystem. Veja AGENTS.md."
+          },
+          {
+            "name": "fs",
+            "message": "Só src/filesystem importa fs: o disco passa pelo src/filesystem. Veja AGENTS.md."
+          },
+          {
+            "name": "node:fs/promises",
+            "message": "Só src/filesystem importa node:fs/promises: o disco passa pelo src/filesystem. Veja AGENTS.md."
+          },
+          {
+            "name": "fs/promises",
+            "message": "Só src/filesystem importa fs/promises: o disco passa pelo src/filesystem. Veja AGENTS.md."
+          },
+          {
+            "name": "node:path",
+            "message": "Só src/filesystem importa node:path: caminhos vêm do src/filesystem (join, resolve…). Veja AGENTS.md."
+          },
+          {
+            "name": "path",
+            "message": "Só src/filesystem importa path: caminhos vêm do src/filesystem (join, resolve…). Veja AGENTS.md."
+          },
+          {
+            "name": "node:child_process",
+            "message": "Só src/execute importa node:child_process: programas rodam pelo src/execute (Executor, runProgram…). Veja AGENTS.md."
+          },
+          {
+            "name": "child_process",
+            "message": "Só src/execute importa child_process: programas rodam pelo src/execute (Executor, runProgram…). Veja AGENTS.md."
+          },
+          {
+            "name": "node:readline",
+            "message": "Só src/input importa node:readline: o terminal é lido só pelo src/input. Veja AGENTS.md."
+          },
+          {
+            "name": "readline",
+            "message": "Só src/input importa readline: o terminal é lido só pelo src/input. Veja AGENTS.md."
+          }
+        ]
+      }
+    ]
   },
   "ignorePatterns": ["storage/**", "node_modules/**", "logs/**", ".goiaba/**"],
   "overrides": [
@@ -41,7 +88,124 @@
       "rules": {
         "typescript/await-thenable": "off",
         "typescript/no-unsafe-argument": "off",
-        "typescript/no-unsafe-assignment": "off"
+        "typescript/no-unsafe-assignment": "off",
+        "eslint/no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": ["src/execute/**/*.ts"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:fs",
+                "message": "Só src/filesystem importa node:fs: o disco passa pelo src/filesystem. Veja AGENTS.md."
+              },
+              {
+                "name": "fs",
+                "message": "Só src/filesystem importa fs: o disco passa pelo src/filesystem. Veja AGENTS.md."
+              },
+              {
+                "name": "node:fs/promises",
+                "message": "Só src/filesystem importa node:fs/promises: o disco passa pelo src/filesystem. Veja AGENTS.md."
+              },
+              {
+                "name": "fs/promises",
+                "message": "Só src/filesystem importa fs/promises: o disco passa pelo src/filesystem. Veja AGENTS.md."
+              },
+              {
+                "name": "node:path",
+                "message": "Só src/filesystem importa node:path: caminhos vêm do src/filesystem (join, resolve…). Veja AGENTS.md."
+              },
+              {
+                "name": "path",
+                "message": "Só src/filesystem importa path: caminhos vêm do src/filesystem (join, resolve…). Veja AGENTS.md."
+              },
+              {
+                "name": "node:readline",
+                "message": "Só src/input importa node:readline: o terminal é lido só pelo src/input. Veja AGENTS.md."
+              },
+              {
+                "name": "readline",
+                "message": "Só src/input importa readline: o terminal é lido só pelo src/input. Veja AGENTS.md."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/filesystem/**/*.ts"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:child_process",
+                "message": "Só src/execute importa node:child_process: programas rodam pelo src/execute (Executor, runProgram…). Veja AGENTS.md."
+              },
+              {
+                "name": "child_process",
+                "message": "Só src/execute importa child_process: programas rodam pelo src/execute (Executor, runProgram…). Veja AGENTS.md."
+              },
+              {
+                "name": "node:readline",
+                "message": "Só src/input importa node:readline: o terminal é lido só pelo src/input. Veja AGENTS.md."
+              },
+              {
+                "name": "readline",
+                "message": "Só src/input importa readline: o terminal é lido só pelo src/input. Veja AGENTS.md."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/input/**/*.ts"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:fs",
+                "message": "Só src/filesystem importa node:fs: o disco passa pelo src/filesystem. Veja AGENTS.md."
+              },
+              {
+                "name": "fs",
+                "message": "Só src/filesystem importa fs: o disco passa pelo src/filesystem. Veja AGENTS.md."
+              },
+              {
+                "name": "node:fs/promises",
+                "message": "Só src/filesystem importa node:fs/promises: o disco passa pelo src/filesystem. Veja AGENTS.md."
+              },
+              {
+                "name": "fs/promises",
+                "message": "Só src/filesystem importa fs/promises: o disco passa pelo src/filesystem. Veja AGENTS.md."
+              },
+              {
+                "name": "node:path",
+                "message": "Só src/filesystem importa node:path: caminhos vêm do src/filesystem (join, resolve…). Veja AGENTS.md."
+              },
+              {
+                "name": "path",
+                "message": "Só src/filesystem importa path: caminhos vêm do src/filesystem (join, resolve…). Veja AGENTS.md."
+              },
+              {
+                "name": "node:child_process",
+                "message": "Só src/execute importa node:child_process: programas rodam pelo src/execute (Executor, runProgram…). Veja AGENTS.md."
+              },
+              {
+                "name": "child_process",
+                "message": "Só src/execute importa child_process: programas rodam pelo src/execute (Executor, runProgram…). Veja AGENTS.md."
+              }
+            ]
+          }
+        ]
       }
     }
   ]
