@@ -30,12 +30,12 @@ export const todasAsPermissoes: AgentPolicy = {
         // 'browse' ou '*'.
         operations: ['search', 'read_text'],
         domains: ['*'],
-        // ignores: { domains: ['google.com', '*.google.com'] },
+        ignores: { domains: ['github.com', '*.google.com'] },
       },
-      {
-        operations: ['browse', 'interact'],
-        domains: ['github.com', '*.github.com'],
-      },
+      // {
+      //   operations: ['browse', 'interact'],
+      //   domains: ['github.com', '*.github.com'],
+      // },
     ],
     network: [
       {
@@ -43,11 +43,11 @@ export const todasAsPermissoes: AgentPolicy = {
         operations: ['connect'],
         // Host, com ou sem porta.
         hosts: [
-          'github.com',
-          '*.github.com',
-          'registry.npmjs.org',
-          'github.com',
-          '*.github.com',
+          // 'github.com',
+          // '*.github.com',
+          // 'registry.npmjs.org',
+          // 'github.com',
+          // '*.github.com',
           'localhost:3000',
           'localhost:5173',
           // URL não é host: use 'duckduckgo.com' e '*.duckduckgo.com'.
@@ -122,20 +122,21 @@ export const todasAsPermissoes: AgentPolicy = {
     //     ignores: { domains: ['localhost'] },
     //   },
     // ],
-    network: [
-      {
-        operations: ['connect'],
-        hosts: ['*'],
-        ignores: {
-          hosts: [
-            'www.google.com.br',
-            '*.google.com',
-            'localhost',
-            'localhost:*',
-          ],
-        },
-      },
-    ],
+    // network: [
+    //   {
+    //     operations: ['*'],
+    //     hosts: ['*'],
+    //     ignores: {
+    //       hosts: [
+    //         '*.github.com',
+    //         'www.google.com.br',
+    //         '*.google.com',
+    //         'localhost',
+    //         'localhost:*',
+    //       ],
+    //     },
+    //   },
+    // ],
     execution: [
       {
         commands: ['git commit *', 'git push *', 'rm *', 'mv *'],
