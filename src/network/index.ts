@@ -3,16 +3,17 @@ import { randomUUID } from 'node:crypto';
 import { UsageError } from '../errors';
 import type { ProgramCommand } from '../execute/types';
 import {
-  goiabaCacheDir,
   runtimeExecutable,
   startHelper,
   type Helper,
+  environment,
 } from '../execute/process';
 import {
   ensureDirectory,
   join,
   pathExists,
   removePath,
+  goiabaCacheDir,
 } from '../filesystem/index';
 import { localPorts } from './rules';
 import { NetworkGate, type NetworkGateOptions } from './gate';
@@ -47,7 +48,7 @@ export class NetworkBoundary {
   private readonly gate: NetworkGate;
   private readonly proxy: NetworkProxy;
   private readonly dir = join(
-    goiabaCacheDir(),
+    goiabaCacheDir(environment()),
     'network',
     randomUUID().slice(0, 8),
   );

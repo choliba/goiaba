@@ -8,7 +8,6 @@ import { randomUUID } from 'node:crypto';
 import { getEnv, loadConfig } from '../../../src/config/index';
 import {
   environment,
-  goiabaCacheDir,
   setEnvironmentDefault,
 } from '../../../src/execute/process';
 import {
@@ -16,10 +15,15 @@ import {
   join,
   removePath,
   writeText,
+  goiabaCacheDir,
 } from '../../../src/filesystem/index';
 import { writeOut } from '../../../src/output/terminal';
 
-const project = join(goiabaCacheDir(), 'config-exemplo', randomUUID());
+const project = join(
+  goiabaCacheDir(environment()),
+  'config-exemplo',
+  randomUUID(),
+);
 ensureDirectory(project);
 writeText(
   join(project, 'goiaba.config.ts'),

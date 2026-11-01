@@ -1,8 +1,7 @@
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { constants, homedir } from 'node:os';
+import { constants } from 'node:os';
 import { promisify } from 'node:util';
-import { join } from '../filesystem/index';
 
 /**
  * The current process and the programs Goiaba starts besides the agent's CLI
@@ -86,17 +85,6 @@ export interface ProcessUser {
 
 export function currentUser(): ProcessUser {
   return { uid: process.getuid?.(), gid: process.getgid?.() };
-}
-
-/** Goiaba's cache directory (`$XDG_CACHE_HOME/goiaba`, default `~/.cache/goiaba`). */
-export function goiabaCacheDir(): string {
-  const cache = environment()['XDG_CACHE_HOME'];
-  return join(
-    cache === undefined || cache.length === 0
-      ? join(homedir(), '.cache')
-      : cache,
-    'goiaba',
-  );
 }
 
 /** Runs a short helper program and returns its stdout. */

@@ -5,13 +5,9 @@ import {
   ensureDirectory,
   isDirectory,
   pathExists,
-} from '../../filesystem/index';
-import {
-  currentUser,
-  environment,
   goiabaCacheDir,
-  runProgram,
-} from '../../execute/process';
+} from '../../filesystem/index';
+import { currentUser, environment, runProgram } from '../../execute/process';
 import type { ProgramCommand } from '../../execute/types';
 import { UsageError } from '../../errors';
 import { isDebug } from '../../logger/index';
@@ -107,7 +103,7 @@ export class DockerSandbox implements Sandbox {
       .toSorted();
     if (host !== undefined) {
       for (const path of host.state) {
-        if (path === goiabaCacheDir()) ensureDirectory(path);
+        if (path === goiabaCacheDir(environment())) ensureDirectory(path);
       }
     }
     const envArgs = envNames.flatMap((name) => ['-e', name]);

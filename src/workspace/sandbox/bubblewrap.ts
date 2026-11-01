@@ -7,6 +7,7 @@ import {
   pathExists,
   readLink,
   join,
+  goiabaCacheDir,
 } from '../../filesystem/index';
 import {
   canEnterUserNamespace,
@@ -14,13 +15,8 @@ import {
   processCwd,
   processName,
   processNamespace,
-} from '../../execute/proc';
-import {
-  environment,
-  goiabaCacheDir,
-  startHelper,
-  type Helper,
-} from '../../execute/process';
+} from '../../filesystem/proc';
+import { environment, startHelper, type Helper } from '../../execute/process';
 import type { ProgramCommand } from '../../execute/types';
 import { UsageError } from '../../errors';
 import { isDebug } from '../../logger/index';
@@ -173,7 +169,7 @@ export class BubblewrapSandbox implements Sandbox {
 
     for (const path of this.host?.state ?? []) {
       // Goiaba's own cache (gate, bridge) is created here if missing.
-      if (path === goiabaCacheDir()) ensureDirectory(path);
+      if (path === goiabaCacheDir(environment())) ensureDirectory(path);
     }
     const writable = writableBinds(
       this.root,

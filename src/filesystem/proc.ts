@@ -4,7 +4,7 @@ import {
   pathExists,
   readLink,
   readText,
-} from '../filesystem/index';
+} from './index';
 
 /** Inspection of other processes through /proc (Linux). */
 

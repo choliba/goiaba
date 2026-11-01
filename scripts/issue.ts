@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { defineCommand, runCommand } from '../src/command/index';
 import { UsageError } from '../src/errors';
-import { goiabaCacheDir, runProgram } from '../src/execute/process';
+import { runProgram, environment } from '../src/execute/process';
 import {
   ensureDirectory,
   pathExists,
@@ -10,6 +10,7 @@ import {
   removePath,
   writeText,
   join,
+  goiabaCacheDir,
 } from '../src/filesystem/index';
 
 /**
@@ -71,7 +72,7 @@ await runCommand(
         await ensureLabel(label, repoArgs);
       }
 
-      const dir = join(goiabaCacheDir(), 'issue', randomUUID());
+      const dir = join(goiabaCacheDir(environment()), 'issue', randomUUID());
       ensureDirectory(dir, 0o700);
       try {
         const bodyFile = join(dir, 'body.md');

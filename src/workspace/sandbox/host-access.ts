@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 
-import { goiabaCacheDir } from '../../execute/process';
-import { join, pathExists } from '../../filesystem/index';
+import { environment } from '../../execute/process';
+import { join, pathExists, goiabaCacheDir } from '../../filesystem/index';
 import type { HostAccess } from '../../providers/types';
 
 /**
@@ -58,7 +58,7 @@ export function sandboxHost(
   allowSecret: (name: string) => boolean,
 ): SandboxHost {
   const home = source['HOME'] ?? homedir();
-  const state = [...access.state, goiabaCacheDir()];
+  const state = [...access.state, goiabaCacheDir(environment())];
   const hidden = knownCredentials(home).filter(
     (file) =>
       !access.credentialFiles.includes(file) &&

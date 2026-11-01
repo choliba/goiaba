@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { OutputDispatcher, OutputStream } from '../src/output/index';
+import { OutputDispatcher, OutputStream } from '../src/execute/index';
 
 test('OutputStream entrega e encerra uma sequência de valores', async () => {
   const output = new OutputStream<string>();

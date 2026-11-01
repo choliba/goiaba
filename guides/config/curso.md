@@ -163,16 +163,21 @@ Cada exemplo é um arquivo de `agents/meus-testes/config-exemplos/` que roda com
 import { randomUUID } from 'node:crypto';
 
 import { loadConfig } from '../../../src/config/index';
-import { goiabaCacheDir } from '../../../src/execute/process';
+import { environment } from '../../../src/execute/process';
 import {
   ensureDirectory,
   join,
   removePath,
   writeText,
+  goiabaCacheDir,
 } from '../../../src/filesystem/index';
 import { writeOut } from '../../../src/output/terminal';
 
-const project = join(goiabaCacheDir(), 'config-exemplo', randomUUID());
+const project = join(
+  goiabaCacheDir(environment()),
+  'config-exemplo',
+  randomUUID(),
+);
 ensureDirectory(project);
 writeText(
   join(project, 'goiaba.config.ts'),
@@ -223,15 +228,20 @@ Saída real:
 import { randomUUID } from 'node:crypto';
 
 import { loadConfig } from '../../../src/config/index';
-import { goiabaCacheDir } from '../../../src/execute/process';
+import { environment } from '../../../src/execute/process';
 import {
   ensureDirectory,
   join,
   removePath,
+  goiabaCacheDir,
 } from '../../../src/filesystem/index';
 import { writeOut } from '../../../src/output/terminal';
 
-const empty = join(goiabaCacheDir(), 'config-exemplo', randomUUID());
+const empty = join(
+  goiabaCacheDir(environment()),
+  'config-exemplo',
+  randomUUID(),
+);
 ensureDirectory(empty);
 
 try {
@@ -274,7 +284,6 @@ import { randomUUID } from 'node:crypto';
 import { getEnv, loadConfig } from '../../../src/config/index';
 import {
   environment,
-  goiabaCacheDir,
   setEnvironmentDefault,
 } from '../../../src/execute/process';
 import {
@@ -282,10 +291,15 @@ import {
   join,
   removePath,
   writeText,
+  goiabaCacheDir,
 } from '../../../src/filesystem/index';
 import { writeOut } from '../../../src/output/terminal';
 
-const project = join(goiabaCacheDir(), 'config-exemplo', randomUUID());
+const project = join(
+  goiabaCacheDir(environment()),
+  'config-exemplo',
+  randomUUID(),
+);
 ensureDirectory(project);
 writeText(
   join(project, 'goiaba.config.ts'),
@@ -349,12 +363,13 @@ E o `API_URL` do segundo env não apareceu: só o primeiro vale.
 import { randomUUID } from 'node:crypto';
 
 import { clearConfigCache, loadConfig } from '../../../src/config/index';
-import { goiabaCacheDir } from '../../../src/execute/process';
+import { environment } from '../../../src/execute/process';
 import {
   ensureDirectory,
   join,
   removePath,
   writeText,
+  goiabaCacheDir,
 } from '../../../src/filesystem/index';
 import { writeOut } from '../../../src/output/terminal';
 
@@ -367,7 +382,11 @@ const wrong = [
 ];
 
 for (const source of wrong) {
-  const project = join(goiabaCacheDir(), 'config-exemplo', randomUUID());
+  const project = join(
+    goiabaCacheDir(environment()),
+    'config-exemplo',
+    randomUUID(),
+  );
   ensureDirectory(project);
   writeText(join(project, 'goiaba.config.ts'), `${source}\n`);
   clearConfigCache();
@@ -416,16 +435,21 @@ Uma opção com nome errado não fica sem efeito em silêncio: ela impede o carr
 import { randomUUID } from 'node:crypto';
 
 import { loadConfig } from '../../../src/config/index';
-import { goiabaCacheDir } from '../../../src/execute/process';
+import { environment } from '../../../src/execute/process';
 import {
   ensureDirectory,
   join,
   removePath,
   writeText,
+  goiabaCacheDir,
 } from '../../../src/filesystem/index';
 import { writeOut } from '../../../src/output/terminal';
 
-const project = join(goiabaCacheDir(), 'config-exemplo', randomUUID());
+const project = join(
+  goiabaCacheDir(environment()),
+  'config-exemplo',
+  randomUUID(),
+);
 ensureDirectory(project);
 writeText(
   join(project, 'goiaba.config.ts'),

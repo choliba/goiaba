@@ -46,8 +46,18 @@ export type {
   AgentStatus,
   AgentSubscriber,
 } from './agent/types';
-export { Executor, ProgramExecutionError } from './execute/index';
-export type { ExecutorOptions, SpawnProcess } from './execute/index';
+export {
+  Executor,
+  OutputDispatcher,
+  OutputStream,
+  ProgramExecutionError,
+} from './execute/index';
+export type {
+  ExecutorOptions,
+  OutputEvent,
+  RunOptions,
+  SpawnProcess,
+} from './execute/index';
 export type { ProgramCommand, ProgramOutput } from './execute/types';
 export { PolicyEngine, wildmatch } from './policy/index';
 export type {
@@ -76,8 +86,8 @@ export type {
   WebOperation,
   WebRule,
 } from './policy/index';
-export { OutputDispatcher, OutputStream, StandardOutput } from './output/index';
-export type { OutputAdapter, OutputEvent } from './output/index';
+export { StandardOutput } from './output/index';
+export type { OutputAdapter } from './output/index';
 export type { GoiabaEvent } from './events/index';
 export type {
   AgentEvent,

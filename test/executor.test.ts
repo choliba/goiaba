@@ -2,115 +2,107 @@ import { spawn } from 'node:child_process';
 
 import { afterAll, describe, expect, test } from 'bun:test';
 
-import { Executor, ProgramExecutionError } from '../src/execute/index';
-import { OutputDispatcher } from '../src/output/index';
+import { runProvider } from '../src/agent/run-provider';
+import {
+  Executor,
+  OutputDispatcher,
+  ProgramExecutionError,
+} from '../src/execute/index';
+import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
 import type { Provider, ProviderEvent } from '../src/providers/types';
 import { Workspace } from '../src/workspace/index';
-import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
 
-const workspace = new Workspace({
-  type: 'bubblewrap',
-  root: process.cwd(),
-});
-
-afterAll(() => workspace.close());
+/** A bun script as a command: no sandbox, no provider. */
+function script(source: string, input?: string): ProgramCommand {
+  return {
+    executable: process.execPath,
+    arguments: ['-e', source],
+    ...(input === undefined ? {} : { input }),
+  };
+}
 
 describe('Executor', () => {
-  test('envia a entrada e encaminha stdout e stderr pelo provider', async () => {
-    const provider = new TestProvider(`
-      let input = '';
-      process.stdin.setEncoding('utf8');
-      process.stdin.on('data', chunk => input += chunk);
-      process.stdin.on('end', () => {
-        process.stdout.write('out:' + input);
-        process.stderr.write('err:' + input);
-      });
-    `);
-
-    const values = await collect(
-      new Executor().run(provider, workspace, 'comando'),
+  test('envia a entrada e entrega stdout e stderr', async () => {
+    const chunks = await collect(
+      new Executor().run(
+        script(
+          `let input = '';
+           process.stdin.setEncoding('utf8');
+           process.stdin.on('data', chunk => input += chunk);
+           process.stdin.on('end', () => {
+             process.stdout.write('out:' + input);
+             process.stderr.write('err:' + input);
+           });`,
+          'comando',
+        ),
+      ),
     );
 
-    expect(values.map(readOutput).toSorted()).toEqual([
+    expect(chunks.map(readChunk).toSorted()).toEqual([
       'stderr:err:comando',
       'stdout:out:comando',
     ]);
   });
 
   test('o signal mata o processo e encerra com AbortError', async () => {
-    const provider = new TestProvider('setInterval(() => {}, 1000);');
     const controller = new AbortController();
     const started = Date.now();
     setTimeout(() => controller.abort(), 100);
 
-    const values = collect(
-      new Executor().run(provider, workspace, '', undefined, controller.signal),
+    const chunks = collect(
+      new Executor().run(script('setInterval(() => {}, 1000);'), {
+        signal: controller.signal,
+      }),
     );
 
-    await expect(values).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(chunks).rejects.toMatchObject({ name: 'AbortError' });
     expect(Date.now() - started).toBeLessThan(1500);
   });
 
-  test('publica execuções simultâneas no fluxo global sem misturá-las', async () => {
-    const output = new OutputDispatcher<ProviderEvent<string>>();
-    let nextId = 0;
-    const executor = new Executor({
-      output,
-      createExecutionId: () => `execution-${++nextId}`,
-    });
-    const subscription = output.subscribe()[Symbol.asyncIterator]();
-    const provider = new TestProvider('process.stdin.pipe(process.stdout);');
+  test('no abort, chama onAbort além de matar o processo', async () => {
+    const controller = new AbortController();
+    let aborted = false;
+    setTimeout(() => controller.abort(), 50);
 
-    const first = collect(executor.run(provider, workspace, 'primeiro'));
-    const second = collect(executor.run(provider, workspace, 'segundo'));
-    const events = await Promise.all([
-      subscription.next(),
-      subscription.next(),
-    ]);
-
-    expect((await first).map(readOutput)).toEqual(['stdout:primeiro']);
-    expect((await second).map(readOutput)).toEqual(['stdout:segundo']);
-    expect(
-      new Set(
-        events.map((event) =>
-          event.done === true ? undefined : event.value.executionId,
-        ),
+    await expect(
+      collect(
+        new Executor().run(script('setInterval(() => {}, 1000);'), {
+          signal: controller.signal,
+          onAbort: () => {
+            aborted = true;
+          },
+        }),
       ),
-    ).toEqual(new Set(['execution-1', 'execution-2']));
-    await subscription.return?.();
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(aborted).toBe(true);
   });
 
   test('entrega a saída pendente antes do erro de término', async () => {
-    const provider = new TestProvider(
-      `process.stdout.write('resultado'); process.exitCode = 7;`,
-    );
-    const values: ProviderEvent<string>[] = [];
+    const chunks: ProgramOutput[] = [];
     let failure: unknown;
 
     try {
-      for await (const value of new Executor().run(provider, workspace, '')) {
-        values.push(value);
+      for await (const chunk of new Executor().run(
+        script(`process.stdout.write('resultado'); process.exitCode = 7;`),
+      )) {
+        chunks.push(chunk);
       }
     } catch (error) {
       failure = error;
     }
 
-    expect(values.map(readOutput)).toEqual(['stdout:resultado']);
+    expect(chunks.map(readChunk)).toEqual(['stdout:resultado']);
     expect(failure).toBeInstanceOf(ProgramExecutionError);
     expect(failure).toHaveProperty('code', 7);
   });
 
   test('propaga falha ao iniciar o programa', async () => {
-    const provider = new TestProvider('');
-    // Inside the jail a missing program is an exit 127; only spawn can fail to start.
-    const executor = new Executor({
-      spawnProcess: (_executable, _args, options) =>
-        spawn('/programa/inexistente', [], options),
-    });
     let failure: unknown;
 
     try {
-      await collect(executor.run(provider, workspace, ''));
+      await collect(
+        new Executor().run({ executable: '/programa/inexistente' }),
+      );
     } catch (error) {
       failure = error;
     }
@@ -120,66 +112,140 @@ describe('Executor', () => {
   });
 
   test('informa quando o programa termina por sinal', async () => {
-    const provider = new TestProvider(`process.kill(process.pid, 'SIGTERM');`);
-    let failure: unknown;
-
-    try {
-      await collect(new Executor().run(provider, workspace, ''));
-    } catch (error) {
-      failure = error;
-    }
-
-    expect(failure).toBeInstanceOf(ProgramExecutionError);
-    expect(failure).toHaveProperty('signal', 'SIGTERM');
+    await expect(
+      collect(
+        new Executor().run(script(`process.kill(process.pid, 'SIGTERM');`)),
+      ),
+    ).rejects.toMatchObject({ signal: 'SIGTERM' });
   });
 
-  test('executa o comando na raiz do workspace', async () => {
-    const provider = new TestProvider('process.stdout.write(process.cwd());');
-    const values = await collect(new Executor().run(provider, workspace, ''));
+  test('roda no cwd do comando e avisa o pid em onStart', async () => {
+    let pid: number | undefined;
+    const chunks = await collect(
+      new Executor().run(
+        { ...script('process.stdout.write(process.cwd());'), cwd: '/tmp' },
+        {
+          onStart: (started) => {
+            pid = started;
+          },
+        },
+      ),
+    );
 
-    expect(values.map(readOutput)).toEqual([`stdout:${process.cwd()}`]);
+    expect(chunks.map(readChunk)).toEqual(['stdout:/tmp']);
+    expect(pid).toBeNumber();
+  });
+
+  test('sair antes do fim (break) mata o programa', async () => {
+    const started = Date.now();
+    for await (const _ of new Executor().run(
+      script(`process.stdout.write('a'); setInterval(() => {}, 1000);`),
+    )) {
+      break;
+    }
+    expect(Date.now() - started).toBeLessThan(1500);
+  });
+
+  test('usa o spawnProcess dado', async () => {
+    const executor = new Executor({
+      spawnProcess: (_executable, _args, options) =>
+        spawn(
+          process.execPath,
+          ['-e', 'process.stdout.write("trocado")'],
+          options,
+        ),
+    });
+
+    const chunks = await collect(executor.run({ executable: 'qualquer' }));
+    expect(chunks.map(readChunk)).toEqual(['stdout:trocado']);
+  });
+});
+
+describe('runProvider', () => {
+  const workspace = new Workspace({
+    type: 'bubblewrap',
+    root: process.cwd(),
+  });
+
+  afterAll(() => workspace.close());
+
+  test('o provider cria o comando e lê a saída; roda na raiz do workspace', async () => {
+    const events = await collect(
+      runProvider(new TestProvider('process.stdout.write(process.cwd());'), {
+        executor: new Executor(),
+        workspace,
+        input: '',
+      }),
+    );
+
+    expect(events.map(readEvent)).toEqual([`stdout:${process.cwd()}`]);
+  });
+
+  test('publica execuções simultâneas no despachante sem misturá-las', async () => {
+    const dispatcher = new OutputDispatcher<ProviderEvent<string>>();
+    const subscription = dispatcher.subscribe()[Symbol.asyncIterator]();
+    const provider = new TestProvider('process.stdin.pipe(process.stdout);');
+    const run = (input: string): Promise<ProviderEvent<string>[]> =>
+      collect(
+        runProvider(provider, {
+          executor: new Executor(),
+          workspace,
+          input,
+          dispatcher,
+        }),
+      );
+
+    const first = run('primeiro');
+    const second = run('segundo');
+    const published = await Promise.all([
+      subscription.next(),
+      subscription.next(),
+    ]);
+
+    expect((await first).map(readEvent)).toEqual(['stdout:primeiro']);
+    expect((await second).map(readEvent)).toEqual(['stdout:segundo']);
+    expect(
+      new Set(
+        published.map((event) =>
+          event.done === true ? undefined : event.value.programId,
+        ),
+      ),
+    ).toEqual(new Set(['test-program']));
+    expect(
+      new Set(
+        published.map((event) =>
+          event.done === true ? undefined : event.value.executionId,
+        ),
+      ).size,
+    ).toBe(2);
+    await subscription.return?.();
   });
 });
 
 class TestProvider implements Provider<string, string> {
   public readonly id = 'test-program';
 
-  public constructor(private readonly script: string) {}
+  public constructor(private readonly source: string) {}
 
   public createCommand(input: string): ProgramCommand {
-    return {
-      executable: process.execPath,
-      arguments: ['-e', this.script],
-      input,
-    };
+    return script(this.source, input);
   }
 
   public async *parseOutput(
     output: AsyncIterable<ProgramOutput>,
   ): AsyncIterable<ProviderEvent<string>> {
-    for await (const value of output) {
-      yield {
-        type: 'output',
-        value: `${value.channel}:${value.chunk}`,
-      };
+    for await (const chunk of output) {
+      yield { type: 'output', value: readChunk(chunk) };
     }
   }
 }
 
-function readOutput(event: ProviderEvent<string>): string {
-  if (event.type === 'ask') {
-    return `ask:${event.question}`;
-  }
+function readChunk({ channel, chunk }: ProgramOutput): string {
+  return `${channel}:${chunk}`;
+}
 
-  if (event.type === 'session') {
-    return `session:${event.id}`;
-  }
-
-  if (event.type === 'tool') {
-    return `tool:${event.phase}`;
-  }
-
-  return event.value;
+function readEvent(event: ProviderEvent<string>): string {
+  return event.type === 'output' ? event.value : event.type;
 }
 
 async function collect<T>(values: AsyncIterable<T>): Promise<T[]> {

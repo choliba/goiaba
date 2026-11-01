@@ -14,7 +14,12 @@ import { ApprovalReview } from '../approval/review';
 import { WorkspaceLock } from './lock';
 import { AgentOutput } from './output';
 import { getConfig, isConfigLoaded } from '../config/index';
-import { Executor, ProgramExecutionError } from '../execute/index';
+import {
+  Executor,
+  ProgramExecutionError,
+  type OutputDispatcher,
+} from '../execute/index';
+import { runProvider } from './run-provider';
 import { createConsumer, createProducer } from '../events/index';
 import {
   closeLogger,
@@ -25,7 +30,12 @@ import {
   type LogInput,
 } from '../logger/index';
 import { asAgent, currentRun, type AgentScope } from '../scope/index';
-import type { AgentEvent, ExecutionGate, ToolEvent } from '../providers/types';
+import type {
+  AgentEvent,
+  ExecutionGate,
+  ProviderEvent,
+  ToolEvent,
+} from '../providers/types';
 import {
   networkLedger,
   Store,
@@ -53,6 +63,9 @@ export class Agent {
 
   public readonly provider: AgentProvider;
   private readonly executor: Executor;
+  /** Where every CLI turn's events are also published (`output` option). */
+  private readonly dispatcher:
+    OutputDispatcher<ProviderEvent<string>> | undefined;
   public readonly workspace: Workspace;
   private readonly output: OutputAdapter;
   private readonly signal: AbortSignal | undefined;
@@ -106,17 +119,13 @@ export class Agent {
       throw new Error('O prompt do agente não pode estar vazio.');
     }
 
-    if (executor !== undefined && output !== undefined) {
-      throw new Error('Informe executor ou output, não ambos.');
-    }
-
     this.prompt = prompt;
     this.name = name;
     this.provider = provider;
     this.workspace = workspace;
     this.lock = new WorkspaceLock(workspace.root, name);
-    this.executor =
-      executor ?? new Executor(output === undefined ? {} : { output });
+    this.executor = executor ?? new Executor();
+    this.dispatcher = output;
     this.output = interaction;
     this.signal = signal;
     this.conversation = conversation;
@@ -441,13 +450,14 @@ export class Agent {
         );
 
         try {
-          for await (const event of this.executor.run(
-            this.provider,
-            this.workspace,
-            nextInput,
+          for await (const event of runProvider(this.provider, {
+            executor: this.executor,
+            workspace: this.workspace,
+            input: nextInput,
             sessionId,
-            this.runSignal(),
-          )) {
+            signal: this.runSignal(),
+            dispatcher: this.dispatcher,
+          })) {
             if (event.type === 'session') {
               resuming = undefined;
               // A brand-new session replaces the open ones it cannot resume.

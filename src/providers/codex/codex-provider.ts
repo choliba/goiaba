@@ -7,9 +7,10 @@ import {
   pathExists,
   writeText,
   join,
+  goiabaCacheDir,
 } from '../../filesystem/index';
 import { UsageError } from '../../errors';
-import { goiabaCacheDir } from '../../execute/process';
+import { environment } from '../../execute/process';
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
 import { truncateError } from '../../logger/index';
 import { log } from '../../logger/index';
@@ -386,7 +387,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 function codexHomeFor(root: string): string {
   const id = createHash('sha256').update(root).digest('hex').slice(0, 16);
-  return join(goiabaCacheDir(), 'codex', id);
+  return join(goiabaCacheDir(environment()), 'codex', id);
 }
 
 /** Wires Codex's PreToolUse hook to the gate; returns the hooks.json path. */

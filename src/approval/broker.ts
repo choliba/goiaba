@@ -2,12 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { createServer, type Server, type Socket } from 'node:net';
 
 import { UsageError } from '../errors';
-import { processAlive } from '../execute/proc';
-import {
-  currentPid,
-  goiabaCacheDir,
-  runtimeExecutable,
-} from '../execute/process';
+import { processAlive } from '../filesystem/proc';
+import { currentPid, runtimeExecutable, environment } from '../execute/process';
 import {
   ensureDirectory,
   listDirectory,
@@ -17,6 +13,7 @@ import {
   removePath,
   writeText,
   join,
+  goiabaCacheDir,
 } from '../filesystem/index';
 import {
   CommandGate,
@@ -100,7 +97,7 @@ export class ApprovalBroker {
 }
 
 function gatesDir(): string {
-  return join(goiabaCacheDir(), 'gate');
+  return join(goiabaCacheDir(environment()), 'gate');
 }
 
 /** Gate directories whose owner process is gone (it died without closing). */

@@ -1,5 +1,5 @@
 import type { Executor } from '../execute/index';
-import type { OutputDispatcher } from '../output/index';
+import type { OutputDispatcher } from '../execute/index';
 import type { OutputAdapter } from '../output/index';
 import type { Provider, ProviderEvent } from '../providers/types';
 import type { Workspace } from '../workspace/index';
@@ -35,7 +35,9 @@ export interface AgentOptions {
   readonly prompt: string;
   readonly provider: AgentProvider;
   readonly workspace: Workspace;
+  /** Runs the CLI; defaults to a new one. */
   readonly executor?: Executor;
+  /** Where every CLI turn's events are also published, for whoever follows them all. */
   readonly output?: OutputDispatcher<ProviderEvent<string>>;
   readonly interaction?: OutputAdapter;
   readonly permissions?: AgentPolicy;

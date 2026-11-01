@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 
 import { UsageError } from '../errors';
-import { processAlive, processName } from '../execute/proc';
-import { currentPid, goiabaCacheDir } from '../execute/process';
+import { processAlive, processName } from '../filesystem/proc';
+import { currentPid, environment } from '../execute/process';
 import {
   ensureDirectory,
   pathExists,
@@ -10,6 +10,7 @@ import {
   removePath,
   writeText,
   join,
+  goiabaCacheDir,
 } from '../filesystem/index';
 
 interface LockOwner {
@@ -35,7 +36,7 @@ export class WorkspaceLock {
     private readonly agent: string,
   ) {
     const id = createHash('sha256').update(root).digest('hex').slice(0, 16);
-    this.path = join(goiabaCacheDir(), 'agents', `${id}.json`);
+    this.path = join(goiabaCacheDir(environment()), 'agents', `${id}.json`);
   }
 
   public acquire(): void {
@@ -49,7 +50,7 @@ export class WorkspaceLock {
       );
     }
 
-    ensureDirectory(join(goiabaCacheDir(), 'agents'), 0o700);
+    ensureDirectory(join(goiabaCacheDir(environment()), 'agents'), 0o700);
     const lock: LockOwner = {
       pid: currentPid(),
       command: processName(currentPid()),

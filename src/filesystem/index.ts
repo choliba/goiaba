@@ -14,6 +14,8 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 /**
  * Disk access. Nothing else imports `node:fs`: what goes to the disk goes
@@ -100,4 +102,20 @@ export function createSymlink(target: string, path: string): void {
 /** Removes a file or directory tree; missing paths are ignored. */
 export function removePath(path: string): void {
   rmSync(path, { recursive: true, force: true });
+}
+
+/**
+ * Goiaba's cache directory: `$XDG_CACHE_HOME/goiaba`, or `~/.cache/goiaba`.
+ * `env` is the environment to read `XDG_CACHE_HOME` from (`environment()`).
+ */
+export function goiabaCacheDir(
+  env: Readonly<Record<string, string | undefined>>,
+): string {
+  const cache = env['XDG_CACHE_HOME'];
+  return join(
+    cache === undefined || cache.length === 0
+      ? join(homedir(), '.cache')
+      : cache,
+    'goiaba',
+  );
 }

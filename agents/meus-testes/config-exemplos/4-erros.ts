@@ -5,12 +5,13 @@
 import { randomUUID } from 'node:crypto';
 
 import { clearConfigCache, loadConfig } from '../../../src/config/index';
-import { goiabaCacheDir } from '../../../src/execute/process';
+import { environment } from '../../../src/execute/process';
 import {
   ensureDirectory,
   join,
   removePath,
   writeText,
+  goiabaCacheDir,
 } from '../../../src/filesystem/index';
 import { writeOut } from '../../../src/output/terminal';
 
@@ -23,7 +24,11 @@ const wrong = [
 ];
 
 for (const source of wrong) {
-  const project = join(goiabaCacheDir(), 'config-exemplo', randomUUID());
+  const project = join(
+    goiabaCacheDir(environment()),
+    'config-exemplo',
+    randomUUID(),
+  );
   ensureDirectory(project);
   writeText(join(project, 'goiaba.config.ts'), `${source}\n`);
   clearConfigCache();

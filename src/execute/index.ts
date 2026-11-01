@@ -9,10 +9,10 @@ import type { Readable, Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 
 import { log, truncateError } from '../logger/index';
-import { OutputDispatcher, OutputStream } from '../output/index';
+import { OutputStream } from './stream';
 import type { ProgramCommand, ProgramOutput } from './types';
-import type { Provider, ProviderEvent } from '../providers/types';
-import type { Workspace } from '../workspace/index';
+
+export { OutputDispatcher, OutputStream, type OutputEvent } from './stream';
 
 /** Starts a process with piped stdio; injectable for tests. */
 export type SpawnProcess = (
@@ -21,115 +21,84 @@ export type SpawnProcess = (
   options: SpawnOptionsWithStdioTuple<StdioPipe, StdioPipe, StdioPipe>,
 ) => ChildProcessByStdio<Writable, Readable, Readable>;
 
-export interface ExecutorOptions<TOutput> {
-  readonly output?: OutputDispatcher<ProviderEvent<TOutput>>;
+export interface ExecutorOptions {
   readonly createExecutionId?: () => string;
   readonly spawnProcess?: SpawnProcess;
 }
 
-export class Executor<TOutput = string> {
-  private readonly output: OutputDispatcher<ProviderEvent<TOutput>>;
+export interface RunOptions {
+  /** Aborting kills the program (SIGTERM, then SIGKILL) and ends the run with its reason. */
+  readonly signal?: AbortSignal;
+  /** The program started: e.g. a sandbox inspecting it. A failure here is ignored. */
+  readonly onStart?: (pid: number | undefined) => void | Promise<void>;
+  /** Besides killing the program on abort: e.g. tearing down a sandbox it runs in. */
+  readonly onAbort?: () => void;
+  /** Fields added to this run's log records (who asked for it, an id of yours…). */
+  readonly logFields?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Runs one program and hands over what it prints, as it prints it: stdout
+ * and stderr chunks, in the order they arrive. Knows nothing of who asked
+ * or what the output means: prepare the command (a sandbox) before, read
+ * the output after. A program that fails ends the sequence with an error.
+ */
+export class Executor {
   private readonly createExecutionId: () => string;
   private readonly spawnProcess: SpawnProcess;
 
   public constructor({
-    output = new OutputDispatcher<ProviderEvent<TOutput>>(),
     createExecutionId = randomUUID,
     spawnProcess = (executable, args, options) =>
       spawn(executable, args, options),
-  }: ExecutorOptions<TOutput> = {}) {
-    this.output = output;
+  }: ExecutorOptions = {}) {
     this.createExecutionId = createExecutionId;
     this.spawnProcess = spawnProcess;
   }
 
-  public run<TInput>(
-    provider: Provider<TInput, TOutput>,
-    workspace: Workspace,
-    input: TInput,
-    sessionId?: string,
-    signal?: AbortSignal,
-  ): AsyncIterable<ProviderEvent<TOutput>> {
-    const executionId = this.createExecutionId();
-    const result = this.output.open(executionId, provider.id);
+  public async *run(
+    command: ProgramCommand,
+    { signal, onStart, onAbort, logFields = {} }: RunOptions = {},
+  ): AsyncGenerator<ProgramOutput> {
+    signal?.throwIfAborted();
+    const fields = { executionId: this.createExecutionId(), ...logFields };
+    reportCommand({
+      phase: 'spawn',
+      ...fields,
+      executable: command.executable,
+      arguments: command.arguments ?? [],
+      cwd: command.cwd,
+    });
 
-    void this.execute(
-      executionId,
-      provider,
-      workspace,
-      input,
-      sessionId,
-      signal,
-    );
-    return result;
-  }
-
-  private async execute<TInput>(
-    executionId: string,
-    provider: Provider<TInput, TOutput>,
-    workspace: Workspace,
-    input: TInput,
-    sessionId?: string,
-    signal?: AbortSignal,
-  ): Promise<void> {
-    let stopOnAbort: (() => void) | undefined;
+    const startedAt = performance.now();
+    const { process, output, completion } = this.start(command);
+    const stop = (): void => {
+      terminate(process);
+      // A program that forks (nsenter -p) may leave its child behind:
+      // only the caller knows how to reach it.
+      onAbort?.();
+    };
+    signal?.addEventListener('abort', stop, { once: true });
 
     try {
-      signal?.throwIfAborted();
-      const inner = provider.createCommand(input, sessionId, workspace.root);
-      reportCommand({
-        phase: 'inner',
-        executionId,
-        provider: provider.id,
-        executable: inner.executable,
-        arguments: inner.arguments ?? [],
-        cwd: inner.cwd ?? workspace.root,
-      });
-
-      const command = await workspace.prepare(inner);
-      reportCommand({
-        phase: 'spawn',
-        executionId,
-        provider: provider.id,
-        executable: command.executable,
-        arguments: command.arguments ?? [],
-        cwd: command.cwd,
-      });
-
-      signal?.throwIfAborted();
-      const startedAt = performance.now();
-      const { process, output, completion } = this.start(command);
-      stopOnAbort = () => {
-        terminate(process);
-        // The CLI may run as a grandchild (nsenter -p forks); only tearing
-        // down the sandbox reaches it.
-        void workspace.close();
-      };
-      signal?.addEventListener('abort', stopOnAbort, { once: true });
-
       if (process.stdin === null) {
         throw new Error('O processo não expôs entrada.');
       }
-
       try {
-        await workspace.sandbox.started?.(process.pid);
+        await onStart?.(process.pid);
       } catch {
-        // Falha de inspect/debug não deve abortar a execução.
+        // Inspection or debug failing must not stop the program.
       }
-
       process.stdin.end(command.input);
 
-      for await (const value of provider.parseOutput(output)) {
-        this.output.publish(executionId, provider.id, value);
-      }
+      yield* output;
 
       const status = await completion;
-      // A killed CLI exits with a signal; report the abort, not the exit.
+      // A killed program exits with a signal: report the abort, not the exit.
       signal?.throwIfAborted();
       reportCommand({
         phase: 'exit',
-        executionId,
-        provider: provider.id,
+        ...fields,
         executable: command.executable,
         // Which command ended, without looking up its spawn record.
         commandLine: truncateError(
@@ -143,10 +112,7 @@ export class Executor<TOutput = string> {
         signal: status.signal,
       });
 
-      if (status.error !== undefined) {
-        throw status.error;
-      }
-
+      if (status.error !== undefined) throw status.error;
       if (status.code !== 0 || status.signal !== null) {
         throw new ProgramExecutionError(
           command.executable,
@@ -154,18 +120,12 @@ export class Executor<TOutput = string> {
           status.signal,
         );
       }
-
-      this.output.close(executionId, provider.id);
     } catch (error) {
-      this.output.fail(
-        executionId,
-        provider.id,
-        toError(signal?.aborted === true ? signal.reason : error),
-      );
+      throw toError(signal?.aborted === true ? signal.reason : error);
     } finally {
-      if (stopOnAbort !== undefined) {
-        signal?.removeEventListener('abort', stopOnAbort);
-      }
+      signal?.removeEventListener('abort', stop);
+      // Left before the end (a `break`): the program is not wanted anymore.
+      terminate(process);
     }
   }
 
@@ -214,7 +174,11 @@ interface ProcessStatus {
   readonly error?: Error;
 }
 
-async function* readProcessOutput(
+/**
+ * The program's output as one sequence. Listens right away, at start: an
+ * error starting the program comes before anyone reads, and would be lost.
+ */
+function readProcessOutput(
   process: ChildProcess,
 ): AsyncIterable<ProgramOutput> {
   const stdout = process.stdout;
@@ -259,7 +223,7 @@ async function* readProcessOutput(
     }
   });
 
-  yield* output;
+  return output;
 }
 
 function waitForCompletion(process: ChildProcess): Promise<ProcessStatus> {
