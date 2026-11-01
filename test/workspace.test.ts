@@ -26,7 +26,7 @@ import {
 } from '../src/workspace/sandbox/docker';
 import { Workspace } from '../src/workspace/index';
 
-const root = '/home/dev/dev/goiaba';
+const root = process.cwd();
 
 const command: ProgramCommand = {
   executable: 'agent',
