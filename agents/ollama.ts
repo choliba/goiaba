@@ -1,5 +1,5 @@
 import {
-  AGENT_TERMINAL,
+  AGENT_SHORTCUTS,
   Agent,
   ensureDirectory,
   humanApprover,
@@ -30,7 +30,7 @@ const MODEL = 'qwen3.5:4b-64k';
 // const MODEL = 'tech-stack-analyzer:latest';
 // const MODEL = 'qwen3.5:4b';
 
-const terminal = new TerminalInteraction(AGENT_TERMINAL);
+const terminal = new TerminalInteraction(AGENT_SHORTCUTS);
 
 /** The provider of each agent: the same model, only the CLI changes. */
 function providerOf(cli: OllamaCli): OllamaProvider {

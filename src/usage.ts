@@ -3,7 +3,7 @@ import { UsageError } from './errors';
 import { listenForInterrupt } from './execute/interrupt';
 import { exitProgram, onUncaughtError } from './execute/process';
 import { closeLogger, log, openLogger } from './logger/index';
-import { writeErr } from './output/terminal';
+import { writeErr } from './output/stdio';
 import { TerminalInteraction, type Interaction } from './interaction/index';
 
 export { UsageError };

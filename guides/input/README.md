@@ -120,11 +120,11 @@ Uma escolha (`choose`) pendente tem prioridade sobre a linha sendo digitada: a t
 
 ### Quem usa
 
-| Quem                                  | Como                                                                                                                                                       |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TerminalInteraction` (`interaction`) | o terminal de quem roda um script ou um agente: `ask`, `listen` e `choose` são `next` e `choose`                                                           |
-| o agente                              | cria o terminal com `AGENT_TERMINAL`: Ctrl+A vira `:approvals` (abre a tela de aprovações) e um comando de aprovações digitado vai na frente das mensagens |
-| o hook do gate                        | lê o pedido da CLI com `readAllInput`                                                                                                                      |
+| Quem                                  | Como                                                                                                                                                        |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TerminalInteraction` (`interaction`) | o terminal de quem roda um script ou um agente: `ask`, `listen` e `choose` são `next` e `choose`                                                            |
+| o agente                              | cria o terminal com `AGENT_SHORTCUTS`: Ctrl+A vira `:approvals` (abre a tela de aprovações) e um comando de aprovações digitado vai na frente das mensagens |
+| o hook do gate                        | lê o pedido da CLI com `readAllInput`                                                                                                                       |
 
 [↑ topo](#topo)
 
@@ -144,7 +144,7 @@ Cada exemplo é um arquivo de `agents/meus-testes/input-exemplos/` que roda como
  *   printf '{"tool":"Bash","command":"ls"}' | bun agents/meus-testes/input-exemplos/1-tudo.ts
  */
 import { readAllInput } from '../../../src/input/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const request: unknown = JSON.parse(readAllInput());
 writeOut(`recebido: ${JSON.stringify(request)}\n`);
@@ -178,7 +178,7 @@ import {
   runtimeExecutable,
 } from '../../../src/execute/process';
 import { StdinReader } from '../../../src/input/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 if (programArguments()[0] === 'leitor') {
   const input = new StdinReader();
@@ -234,7 +234,7 @@ next depois do fim: stdin foi fechado.
  * cancela o `next` (por exemplo, a resposta chegou por outro caminho).
  */
 import { StdinReader } from '../../../src/input/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const input = new StdinReader();
 const controller = new AbortController();
@@ -270,7 +270,7 @@ AbortError: A entrada foi cancelada.
  * colado, descarta setas e outras sequências, e aguenta sequências partidas.
  */
 import { KeyDecoder } from '../../../src/input/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const ESC = '\u001b';
 const show = (label: string, chunks: readonly string[]): void => {
@@ -322,7 +322,7 @@ As opções em ação. `agents/meus-testes/input-exemplos/5-terminal.ts`:
  *   4. "s" para a escolha.
  */
 import { StdinReader } from '../../../src/input/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const input = new StdinReader({
   // Sem `write`, o terminal em modo raw não mostraria o que se digita.
@@ -376,7 +376,7 @@ oi
 - Ctrl+O não virou texto: o atalho enviou `:menu`;
 - `s` respondeu a escolha com uma tecla.
 
-É o mesmo mecanismo que o agente usa: `AGENT_TERMINAL` registra o Ctrl+A como atalho para `:approvals`.
+É o mesmo mecanismo que o agente usa: `AGENT_SHORTCUTS` registra o Ctrl+A como atalho para `:approvals`.
 
 [↑ topo](#topo)
 
@@ -401,6 +401,6 @@ oi
 
 2. **Intermediário.** Mude o Exemplo 5 para que linhas começando com `!` também furem a fila, e registre o Ctrl+R como atalho para `:repetir`. O que acontece se você digitar `oi` (sem Enter) e então apertar Ctrl+R?
 
-3. **Difícil.** O agente está trabalhando, e a pessoa digita `corrija o teste` e Enter, e depois `:approvals` e Enter. Seguindo `submit` e `urgent`, em que ordem as duas linhas chegam ao agente, e por quê? O que mudaria se o agente não passasse o `AGENT_TERMINAL` ao seu `TerminalInteraction`?
+3. **Difícil.** O agente está trabalhando, e a pessoa digita `corrija o teste` e Enter, e depois `:approvals` e Enter. Seguindo `submit` e `urgent`, em que ordem as duas linhas chegam ao agente, e por quê? O que mudaria se o agente não passasse o `AGENT_SHORTCUTS` ao seu `TerminalInteraction`?
 
 [↑ topo](#topo)

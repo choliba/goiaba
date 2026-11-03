@@ -154,7 +154,7 @@ O método `describe` informa qual modelo e provider serão usados. Ele não inic
 
 ```ts
 /** Exemplo 1 do curso de providers: descrever um provider sem rodar a CLI. */
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { ClaudeProvider } from '../../../src/providers/claude/claude-provider';
 
 const provider = new ClaudeProvider({ model: 'claude-haiku' });
@@ -176,7 +176,7 @@ CLI precisa saber qual pasta tratar como projeto.
 
 ```ts
 /** Exemplo 2 do curso de providers: ver o comando que uma CLI receberia. */
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { CursorProvider } from '../../../src/providers/cursor-provider';
 
 const provider = new CursorProvider({ model: 'modelo-local' });
@@ -201,7 +201,7 @@ de Cursor contém o ID de sessão e a resposta do assistente.
 ```ts
 /** Exemplo 3 do curso de providers: converter JSON da CLI em eventos. */
 import type { ProgramOutput } from '../../../src/execute/types';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { CursorProvider } from '../../../src/providers/cursor-provider';
 
 async function* cliOutput(): AsyncIterable<ProgramOutput> {
@@ -236,7 +236,7 @@ Neste caso, leitura da pasta e comando simples têm correspondência direta nas 
 ```ts
 /** Exemplo 4 do curso de providers: traduzir política para as regras do Claude. */
 import type { AgentPolicy } from '../../../src/policy/policy.interface';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { buildClaudePermissions } from '../../../src/providers/claude/permissions';
 
 const policy: AgentPolicy = {

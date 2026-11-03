@@ -119,7 +119,7 @@ export class Agent {
     workspace,
     executor,
     output,
-    interaction = new TerminalInteraction(AGENT_TERMINAL),
+    interaction = new TerminalInteraction(AGENT_SHORTCUTS),
     permissions,
     signal = scriptSignal(),
     approve,
@@ -1046,14 +1046,16 @@ const APPROVAL_COMMANDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The agent's terminal: Ctrl+A opens the approvals, and an approvals
- * command typed during a turn goes ahead of the messages waiting. Pass it
- * to the TerminalInteraction an agent uses: `new TerminalInteraction(AGENT_TERMINAL)`.
+ * The agent's shortcuts: Ctrl+A opens the approvals, and an approvals
+ * command typed during a turn goes ahead of the messages waiting. Pass them
+ * to the interaction an agent uses: `new TerminalInteraction(AGENT_SHORTCUTS)`.
  */
-export const AGENT_TERMINAL = {
+export const AGENT_SHORTCUTS = {
   shortcuts: { '\u0001': ':approvals' },
   urgent: (line: string): boolean => isApprovalsCommand(line),
 } as const;
+/** @deprecated The old name of {@link AGENT_SHORTCUTS}. */
+export const AGENT_TERMINAL = AGENT_SHORTCUTS;
 export const APPROVALS_FINISHED = '\u0000goiaba:approvals-finished';
 
 function isApprovalsCommand(input: string): boolean {

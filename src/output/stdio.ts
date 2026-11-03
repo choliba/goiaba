@@ -1,6 +1,9 @@
 /**
- * The only writer of the process's stdout and stderr: `terminalOutput` and
- * the echo of what is typed both go through here.
+ * The only writer of the process's stdout and stderr (stdio): `stdioOutput`
+ * and the echo of what is typed both go through here. stdio is there for
+ * every program, on a terminal, a pipe or a file; what only a terminal has
+ * (columns, rows, the alternate screen, a status rewritten in place) is
+ * named `tty` and does nothing, or answers `undefined`, without one.
  */
 
 const ESC = '\u001b';
@@ -28,9 +31,9 @@ export function writeErr(text: string): void {
 
 /**
  * A line that each call rewrites in place (e.g. `⏳ pensando…`), and
- * `undefined` erases; anything else written erases it first. Only on a
- * terminal, and only at the start of a line, so it never covers what is
- * being typed.
+ * `undefined` erases; anything else written erases it first. Only on a tty
+ * (ignored otherwise), and only at the start of a line, so it never covers
+ * what is being typed.
  */
 export function writeStatus(text: string | undefined): void {
   if (!process.stdout.isTTY) return;
@@ -45,18 +48,18 @@ export function writeStatus(text: string | undefined): void {
   status = text;
 }
 
-/** Columns of the terminal, or `undefined` when stdout is not one. */
-export function terminalColumns(): number | undefined {
+/** Columns of the tty, or `undefined` when stdout is not one. */
+export function ttyColumns(): number | undefined {
   return process.stdout.isTTY ? process.stdout.columns : undefined;
 }
 
-/** Rows of the terminal, or `undefined` when stdout is not one. */
-export function terminalRows(): number | undefined {
+/** Rows of the tty, or `undefined` when stdout is not one. */
+export function ttyRows(): number | undefined {
   return process.stdout.isTTY ? process.stdout.rows : undefined;
 }
 
-/** Calls `listener` when the terminal changes size; returns how to stop. */
-export function onTerminalResize(listener: () => void): () => void {
+/** Calls `listener` when the tty changes size; returns how to stop. */
+export function onTtyResize(listener: () => void): () => void {
   process.stdout.on('resize', listener);
   return () => {
     process.stdout.off('resize', listener);
@@ -67,14 +70,14 @@ export function onTerminalResize(listener: () => void): () => void {
  * A screen of its own (the alternate screen), as full-screen programs use:
  * what was on the terminal comes back when it is left.
  */
-export function enterFullScreen(): void {
+export function enterAlternateScreen(): void {
   clearStatus();
   // The mouse wheel sends ↑ and ↓ there (alternate scroll): it scrolls
   // without the mouse being taken, so text can still be selected.
   process.stdout.write(`${ESC}[?1049h${ESC}[?1007h${ESC}[H`);
 }
 
-export function leaveFullScreen(): void {
+export function leaveAlternateScreen(): void {
   process.stdout.write(`${ESC}[?1007l${ESC}[?1049l`);
   atLineStart = true;
 }

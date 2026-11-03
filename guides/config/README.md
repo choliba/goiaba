@@ -171,7 +171,7 @@ import {
   writeText,
   goiabaCacheDir,
 } from '../../../src/filesystem/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const project = join(
   goiabaCacheDir(environment()),
@@ -235,7 +235,7 @@ import {
   removePath,
   goiabaCacheDir,
 } from '../../../src/filesystem/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const empty = join(
   goiabaCacheDir(environment()),
@@ -293,7 +293,7 @@ import {
   writeText,
   goiabaCacheDir,
 } from '../../../src/filesystem/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const project = join(
   goiabaCacheDir(environment()),
@@ -371,7 +371,7 @@ import {
   writeText,
   goiabaCacheDir,
 } from '../../../src/filesystem/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const wrong = [
   `export default { databasePath: 'dados/goiaba.db' };`,
@@ -443,7 +443,7 @@ import {
   writeText,
   goiabaCacheDir,
 } from '../../../src/filesystem/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const project = join(
   goiabaCacheDir(environment()),
@@ -491,7 +491,7 @@ Com o `goiaba.config.ts` deste repositório (o logger é o pino, o banco fica em
  */
 import { getConfig, isConfigLoaded } from '../../../src/index';
 import { currentDirectory } from '../../../src/execute/process';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const root = currentDirectory();
 const config = getConfig();

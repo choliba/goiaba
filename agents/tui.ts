@@ -1,5 +1,5 @@
 import {
-  AGENT_TERMINAL,
+  AGENT_SHORTCUTS,
   Agent,
   ensureDirectory,
   humanApprover,
@@ -43,7 +43,7 @@ await runScript(async ({ signal }) => {
     `agente-tui-${cli}`,
   );
   ensureDirectory(root);
-  const tui = new TuiInteraction(AGENT_TERMINAL);
+  const tui = new TuiInteraction(AGENT_SHORTCUTS);
 
   await new Agent({
     resume: false,

@@ -1,469 +1,136 @@
-import { createInterface, type Interface } from 'node:readline';
+import { UsageError } from '../errors';
+import { onProgramExit } from '../execute/process';
 
-import { readDescriptor } from '../filesystem/index';
-import { log } from '../logger/index';
+/**
+ * The process's stdin as a source, and nothing else: what arrives, as text,
+ * whole or piece by piece. What the text means (keys, lines, messages) is
+ * up to whoever reads it. The only reader of stdin: a second one at the
+ * same time is refused, so a key never reaches two readers.
+ */
 
-const CTRL_C = '\u0003';
-const CTRL_D = '\u0004';
-const BACKSPACE = new Set(['\b', '\u007f']);
-const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-const ESC = '\u001b';
-/** Bracketed paste: the terminal marks where pasted text starts and ends. */
-const PASTE_ON = `${ESC}[?2004h`;
-const PASTE_OFF = `${ESC}[?2004l`;
-const PASTE_START = `${ESC}[200~`;
-const PASTE_END = `${ESC}[201~`;
+export interface ReadStreamOptions {
+  /**
+   * On a tty, each key as it is typed, without the terminal's echo or line
+   * editing (raw mode); ignored when stdin is not a tty. Undone when the
+   * stream ends, however it ends.
+   */
+  readonly raw?: boolean;
+  /** Ends the stream: it stops reading and the reader gets an `AbortError`. */
+  readonly signal?: AbortSignal;
+}
 
-/** A key as typed, or as part of pasted text. */
-export interface DecodedKey {
-  readonly key: string;
-  readonly pasted: boolean;
+/** Whether stdin is a tty (someone typing) rather than a pipe or a file. */
+export function stdinIsTty(): boolean {
+  return process.stdin.isTTY;
+}
+
+/** Everything stdin has, once it ends (e.g. the request a hook receives). */
+export async function read(): Promise<string> {
+  let text = '';
+  for await (const piece of readStream()) text += piece;
+  return text;
 }
 
 /**
- * Turns what the terminal sends into keys: pasted text is marked (its line
- * breaks are text, not Enter) and escape sequences (arrows, Alt+key) are
- * dropped instead of becoming text like `[A`. Sequences may arrive split
- * across chunks.
+ * What arrives on stdin, piece by piece, until it ends (EOF, Ctrl+D on a
+ * tty). Opens on the first read, not when called; a `break` stops reading
+ * and gives stdin back.
  */
-export class KeyDecoder {
-  private escape: string | undefined;
-  private pasting = false;
-
-  /**
-   * `onSequence` hears the sequences that are not text (arrows, PageUp…),
-   * whole, for whoever gives them a meaning; they still never become keys.
-   */
-  public constructor(
-    private readonly onSequence?: (sequence: string) => void,
-  ) {}
-
-  public feed(chunk: string): DecodedKey[] {
-    const keys: DecodedKey[] = [];
-
-    for (const key of chunk) {
-      if (this.escape === undefined) {
-        if (key === ESC) this.escape = key;
-        else keys.push({ key, pasted: this.pasting });
-        continue;
-      }
-
-      const sequence = this.escape + key;
-      if (sequence === PASTE_START || sequence === PASTE_END) {
-        this.pasting = sequence === PASTE_START;
-        this.escape = undefined;
-      } else if (
-        PASTE_START.startsWith(sequence) ||
-        PASTE_END.startsWith(sequence)
-      ) {
-        this.escape = sequence;
-      } else if (sequence.length === 2 && key !== '[') {
-        // Alt+key or a lone Esc: the key still counts.
-        this.escape = undefined;
-        keys.push({ key, pasted: this.pasting });
-      } else {
-        // A CSI sequence (arrows…) ends at its final byte.
-        const ended = /[@-~]/.test(key) && sequence.length > 2;
-        this.escape = ended ? undefined : sequence;
-        if (ended) this.onSequence?.(sequence);
-      }
-    }
-
-    return keys;
+export async function* readStream({
+  raw = false,
+  signal,
+}: ReadStreamOptions = {}): AsyncGenerator<string> {
+  if (ended) return;
+  if (reading) {
+    throw new UsageError(
+      'O stdin já está sendo lido: ele tem um leitor só por vez.',
+    );
   }
-}
+  signal?.throwIfAborted();
 
-/** Everything piped to stdin, at once (e.g. the request a hook receives). */
-export function readAllInput(): string {
-  return readDescriptor(0);
-}
-
-/**
- * What the terminal input does besides reading, decided by whoever creates
- * it: the input only reads, and knows nothing of the screen, the process or
- * what a line means.
- */
-export interface StdinReaderOptions {
-  /**
-   * What the input writes to the terminal: the echo of what is typed (raw
-   * mode shows nothing by itself) and the sequences that mark pasted text.
-   * Without it, nothing is shown and a paste's line breaks submit it.
-   */
-  readonly write?: (text: string) => void;
-  /** Ctrl+C: raw mode does not send SIGINT, so someone has to. */
-  readonly onInterrupt?: () => void;
-  /** A key that submits a line of its own, ahead of the queue (Ctrl+A → `:approvals`). */
-  readonly shortcuts?: Readonly<Record<string, string>>;
-  /** Typed lines that go ahead of the queue. */
-  readonly urgent?: (line: string) => boolean;
-  /**
-   * The keys that are not text, as the terminal sends them (`\u001b[A` for
-   * ↑, `\u001b[5~` for PageUp…): nothing else is done with them.
-   */
-  readonly onSequence?: (sequence: string) => void;
-}
-
-/** Owns process stdin. Consumers receive complete messages, never raw bytes. */
-export class StdinReader {
-  private readonly lines = new LineInput();
-  private readonly terminal: TtyInput;
-
-  public constructor(options: StdinReaderOptions = {}) {
-    this.terminal = new TtyInput(options);
-  }
-
-  /**
-   * The next line. In a terminal, a key of `instant` typed on an empty line
-   * is the answer at once, without Enter (e.g. `q` to quit).
-   */
-  public next(
-    signal?: AbortSignal,
-    instant: readonly string[] = [],
-  ): Promise<string> {
-    if (!process.stdin.isTTY) return this.lines.next(signal);
-    return this.terminal.next(signal, instant);
-  }
-
-  public async choose(
-    keys: readonly string[],
-    signal?: AbortSignal,
-  ): Promise<string> {
-    if (process.stdin.isTTY) return this.terminal.choose(keys, signal);
-    return (await this.lines.next(signal)).trim().toLowerCase().charAt(0);
-  }
-
-  public close(): void {
-    this.terminal.close();
-    this.lines.close();
-  }
-}
-
-/** Canonical input for pipes and tests; the terminal uses raw input instead. */
-class LineInput {
-  private readonly lines: string[] = [];
-  private readonly waiting: ((line: string | undefined) => void)[] = [];
-  private ended = false;
-  private readonly reader: Interface;
-
-  public constructor() {
-    this.reader = createInterface({ input: process.stdin, terminal: false });
-    this.reader.on('line', (line) => this.receive(line));
-    this.reader.on('close', () => this.close());
-    this.reader.pause();
-  }
-
-  public next(signal?: AbortSignal): Promise<string> {
-    const queued = this.lines.shift();
-    if (queued !== undefined) return Promise.resolve(queued);
-    if (this.ended) return Promise.reject(abortError('stdin foi fechado.'));
-
-    return new Promise((resolve, reject) => {
-      const onLine = (line: string | undefined): void => {
-        signal?.removeEventListener('abort', onAbort);
-        if (line === undefined) reject(abortError('stdin foi fechado.'));
-        else {
-          recordInput('input_submitted', { value: line });
-          resolve(line);
-        }
-      };
-      const onAbort = (): void => {
-        remove(this.waiting, onLine);
-        this.pauseIfIdle();
-        reject(abortError('A entrada foi cancelada.'));
-      };
-
-      if (signal?.aborted === true) {
-        reject(abortError('A entrada foi cancelada.'));
-        return;
-      }
-
-      signal?.addEventListener('abort', onAbort, { once: true });
-      this.waiting.push(onLine);
-      this.reader.resume();
-    });
-  }
-
-  private receive(line: string): void {
-    const waiter = this.waiting.shift();
-    if (waiter === undefined) this.lines.push(line);
-    else waiter(line);
-    this.pauseIfIdle();
-  }
-
-  public close(): void {
-    this.ended = true;
-    for (const waiter of this.waiting.splice(0)) waiter(undefined);
-  }
-
-  private pauseIfIdle(): void {
-    if (this.waiting.length === 0) this.reader.pause();
-  }
-}
-
-interface WaitingInput {
-  readonly resolve: (value: string) => void;
-  readonly reject: (error: Error) => void;
-  readonly signal: AbortSignal | undefined;
-  readonly onAbort: () => void;
-  readonly instant: readonly string[];
-}
-
-interface WaitingChoice {
-  readonly keys: readonly string[];
-  readonly resolve: (value: string) => void;
-  readonly reject: (error: Error) => void;
-  readonly signal: AbortSignal | undefined;
-  readonly onAbort: () => void;
-}
-
-/**
- * Persistent TTY listener: submitted lines stay queued during a model turn.
- * The only reader of the terminal: one-key choices (e.g. approvals) are answered
- * here too, ahead of the line being typed, so a key never reaches two
- * readers.
- */
-class TtyInput {
-  public constructor(private readonly options: StdinReaderOptions) {}
-
-  private readonly queued: string[] = [];
-  private readonly waiting: WaitingInput[] = [];
-  private readonly choices: WaitingChoice[] = [];
-  private buffer = '';
-  private started = false;
-  private active = false;
-  private readonly decoder = new KeyDecoder((sequence) => {
-    this.options.onSequence?.(sequence);
-  });
-
-  public next(
-    signal?: AbortSignal,
-    instant: readonly string[] = [],
-  ): Promise<string> {
-    const queued = this.queued.shift();
-    if (queued !== undefined) return Promise.resolve(queued);
-
-    this.start();
-    return new Promise((resolve, reject) => {
-      const onAbort = (): void => {
-        const waiting = this.waiting.find((item) => item.onAbort === onAbort);
-        if (waiting !== undefined) remove(this.waiting, waiting);
-        reject(abortError('A entrada foi cancelada.'));
-      };
-      if (signal?.aborted === true) {
-        reject(abortError('A entrada foi cancelada.'));
-        return;
-      }
-      signal?.addEventListener('abort', onAbort, { once: true });
-      this.waiting.push({ resolve, reject, signal, onAbort, instant });
-    });
-  }
-
-  /** One of `keys` (or `''` for Enter), before any line being typed. */
-  public choose(
-    keys: readonly string[],
-    signal?: AbortSignal,
-  ): Promise<string> {
-    this.start();
-    return new Promise((resolve, reject) => {
-      const onAbort = (): void => {
-        const waiting = this.choices.find((item) => item.onAbort === onAbort);
-        if (waiting !== undefined) remove(this.choices, waiting);
-        reject(abortError('A escolha foi cancelada.'));
-      };
-      if (signal?.aborted === true) {
-        reject(abortError('A escolha foi cancelada.'));
-        return;
-      }
-      signal?.addEventListener('abort', onAbort, { once: true });
-      this.choices.push({ keys, resolve, reject, signal, onAbort });
-    });
-  }
-
-  private pause(): void {
-    if (!this.active) return;
-    this.write(PASTE_OFF);
-    process.stdin.off('data', this.onData);
-    process.stdin.setRawMode(false);
-    process.stdin.pause();
-    this.active = false;
-  }
-
-  public close(): void {
-    this.pause();
-    const error = abortError('stdin foi fechado.');
-    for (const waiter of [
-      ...this.choices.splice(0),
-      ...this.waiting.splice(0),
-    ]) {
-      waiter.signal?.removeEventListener('abort', waiter.onAbort);
-      waiter.reject(error);
-    }
-  }
-
-  private readonly onData = (chunk: Buffer): void => {
-    for (const { key, pasted } of this.decoder.feed(chunk.toString('utf8'))) {
-      // A choice takes typed keys only; pasted text cannot answer it.
-      if (this.choices.length > 0) {
-        if (!pasted) this.answerChoice(key);
-      } else if (pasted) this.paste(key);
-      else this.accept(key);
-    }
+  reading = true;
+  const stdin = process.stdin;
+  const decoder = new TextDecoder();
+  const pieces: string[] = [];
+  // Changed by the listeners while the reader waits.
+  const state: { finished: boolean; failure: unknown } = {
+    finished: false,
+    failure: undefined,
+  };
+  let wake: (() => void) | undefined;
+  const notify = (): void => {
+    wake?.();
+    wake = undefined;
   };
 
-  private start(): void {
-    if (this.active) return;
-    this.active = true;
-    process.stdin.setRawMode(true);
-    // Pasted text arrives marked, so its line breaks do not submit it.
-    this.write(PASTE_ON);
-    process.stdin.on('data', this.onData);
-    process.stdin.resume();
-  }
+  const onData = (chunk: Buffer): void => {
+    const text = decoder.decode(chunk, { stream: true });
+    if (text !== '') pieces.push(text);
+    notify();
+  };
+  const onEnd = (): void => {
+    ended = true;
+    state.finished = true;
+    const rest = decoder.decode();
+    if (rest !== '') pieces.push(rest);
+    notify();
+  };
+  const onError = (error: Error): void => {
+    state.failure = error;
+    notify();
+  };
+  const onAbort = (): void => {
+    state.failure = signal?.reason;
+    // Given back at once, not when the reader next resumes: whoever reads
+    // stdin next may start right away.
+    release();
+    notify();
+  };
 
-  /** Pasted text joins the line being typed; only a typed Enter sends it. */
-  private paste(key: string): void {
-    if (key === '\r' || key === '\n') {
-      this.buffer += '\n';
-      this.write('\n');
-      return;
-    }
-    if (key !== '\t' && !isPrintable(key)) return;
-    if (!this.started) {
-      this.started = true;
-      recordInput('input_started');
-    }
-    this.buffer += key;
-    this.write(key);
-  }
+  const rawMode = raw && stdin.isTTY;
+  const restore = (): void => {
+    if (rawMode) stdin.setRawMode(false);
+  };
+  const stopRestoring = rawMode ? onProgramExit(restore) : undefined;
+  let released = false;
+  const release = (): void => {
+    if (released) return;
+    released = true;
+    signal?.removeEventListener('abort', onAbort);
+    stdin.off('data', onData);
+    stdin.off('end', onEnd);
+    stdin.off('error', onError);
+    stdin.pause();
+    restore();
+    stopRestoring?.();
+    reading = false;
+  };
+  if (rawMode) stdin.setRawMode(true);
+  stdin.on('data', onData);
+  stdin.on('end', onEnd);
+  stdin.on('error', onError);
+  signal?.addEventListener('abort', onAbort, { once: true });
+  stdin.resume();
 
-  private accept(key: string): void {
-    const shortcut = this.options.shortcuts?.[key];
-    if (shortcut !== undefined) {
-      this.write('\n');
-      recordInput('input_shortcut', { value: shortcut });
-      this.resetBuffer();
-      // Ahead of anything queued, and the terminal stays read: whoever
-      // reads next gets the shortcut's line, and no key turns into `^A`.
-      this.submit(shortcut, { first: true });
-      return;
+  try {
+    for (;;) {
+      if (state.failure !== undefined) throw state.failure;
+      const piece = pieces.shift();
+      if (piece !== undefined) {
+        yield piece;
+        continue;
+      }
+      if (state.finished) return;
+      await new Promise<void>((resolve) => {
+        wake = resolve;
+      });
     }
-    if (key === CTRL_C) {
-      this.options.onInterrupt?.();
-      this.close();
-      return;
-    }
-    if (key === CTRL_D) {
-      this.close();
-      return;
-    }
-    if (key === '\r' || key === '\n') {
-      this.write('\n');
-      recordInput('input_submitted', { value: this.buffer });
-      const value = this.buffer;
-      this.resetBuffer();
-      this.submit(value, { first: this.options.urgent?.(value) ?? false });
-      return;
-    }
-    if (BACKSPACE.has(key)) {
-      this.erase();
-      return;
-    }
-    if (!isPrintable(key)) return;
-    if (this.buffer === '' && this.isInstant(key)) {
-      this.write(`${key}\n`);
-      recordInput('input_submitted', { value: key });
-      this.submit(key);
-      return;
-    }
-    if (!this.started) {
-      this.started = true;
-      recordInput('input_started');
-    }
-    this.buffer += key;
-    this.write(key);
-  }
-
-  /** Ctrl+C interrupts, Ctrl+D cancels; other keys outside the choice wait. */
-  private answerChoice(raw: string): void {
-    const choice = this.choices.at(0);
-    if (choice === undefined) return;
-    const key = raw.toLowerCase();
-
-    if (key === CTRL_C) {
-      this.options.onInterrupt?.();
-      this.close();
-      return;
-    }
-    if (key === CTRL_D) {
-      this.settleChoice(choice);
-      choice.reject(abortError('A escolha foi cancelada.'));
-      return;
-    }
-    const value = key === '\r' || key === '\n' ? '' : key;
-    if (value !== '' && !choice.keys.includes(value)) return;
-
-    // The output side shows the answer (see TerminalInteraction.choose).
-    recordInput('input_choice', { value });
-    this.settleChoice(choice);
-    choice.resolve(value);
-  }
-
-  private settleChoice(choice: WaitingChoice): void {
-    remove(this.choices, choice);
-    choice.signal?.removeEventListener('abort', choice.onAbort);
-  }
-
-  private isInstant(key: string): boolean {
-    return this.waiting[0]?.instant.includes(key.toLowerCase()) ?? false;
-  }
-
-  private erase(): void {
-    if (this.buffer.length === 0) return;
-    this.buffer = removeLastGrapheme(this.buffer);
-    this.write('\b \b');
-  }
-
-  private submit(value: string, { first = false } = {}): void {
-    const waiter = this.waiting.shift();
-    if (waiter === undefined) {
-      if (first) this.queued.unshift(value);
-      else this.queued.push(value);
-      return;
-    }
-    waiter.signal?.removeEventListener('abort', waiter.onAbort);
-    waiter.resolve(value);
-  }
-
-  private write(text: string): void {
-    this.options.write?.(text);
-  }
-
-  private resetBuffer(): void {
-    this.buffer = '';
-    this.started = false;
+  } finally {
+    release();
   }
 }
 
-function isPrintable(key: string): boolean {
-  return key.length > 0 && key >= ' ' && key !== '\u007f';
-}
-
-function removeLastGrapheme(value: string): string {
-  const segments = Array.from(GRAPHEMES.segment(value), (part) => part.segment);
-  segments.pop();
-  return segments.join('');
-}
-
-function remove<T>(values: T[], value: T): void {
-  const index = values.indexOf(value);
-  if (index !== -1) values.splice(index, 1);
-}
-
-/** What was typed goes to the log (debug). */
-function recordInput(type: string, fields: Record<string, unknown> = {}): void {
-  log.debug({ type, ...fields });
-}
-
-function abortError(message: string): DOMException {
-  return new DOMException(message, 'AbortError');
-}
+/** A stream is reading stdin now. */
+let reading = false;
+/** stdin has ended: there is nothing left to read. */
+let ended = false;

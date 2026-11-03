@@ -45,6 +45,54 @@ export function onUncaughtError(handle: (error: unknown) => void): void {
   process.on('uncaughtException', handle);
 }
 
+const exitListeners = new Set<() => void>();
+/** Termination signals that end the program without an `exit` event. */
+const TERMINATION_SIGNALS: readonly NodeJS.Signals[] = ['SIGTERM', 'SIGHUP'];
+
+/**
+ * Runs `listener` once when the program ends, however it ends: the work is
+ * over, `exitProgram`, an uncaught error, a termination signal. For undoing
+ * what was done to the world outside (a terminal left in raw mode), so it
+ * must be synchronous. Returns how to stop: call it once the thing is undone
+ * by its owner.
+ */
+export function onProgramExit(listener: () => void): () => void {
+  if (exitListeners.size === 0) {
+    process.on('exit', runExitListeners);
+    for (const signal of TERMINATION_SIGNALS) process.on(signal, endBySignal);
+  }
+  exitListeners.add(listener);
+
+  return () => {
+    exitListeners.delete(listener);
+    if (exitListeners.size > 0) return;
+    process.off('exit', runExitListeners);
+    for (const signal of TERMINATION_SIGNALS) process.off(signal, endBySignal);
+  };
+}
+
+function runExitListeners(): void {
+  const listeners = [...exitListeners];
+  exitListeners.clear();
+  for (const listener of listeners) {
+    try {
+      listener();
+    } catch {
+      // One failing cleanup must not keep the others from running.
+    }
+  }
+}
+
+/** Cleans up, then lets the signal end the program as it would have. */
+function endBySignal(signal: NodeJS.Signals): void {
+  runExitListeners();
+  process.off('exit', runExitListeners);
+  for (const each of TERMINATION_SIGNALS) process.off(each, endBySignal);
+  // Someone else (runAttached) decides what this signal does.
+  if (process.listenerCount(signal) > 0) return;
+  process.kill(process.pid, signal);
+}
+
 /** The code the program ends with, without ending it now. */
 export function setExitCode(code: number): void {
   process.exitCode = code;

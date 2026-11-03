@@ -277,7 +277,7 @@ Os caminhos usam `/workspace` como apelido da raiz (o caminho real também é ac
 
 ```ts
 /** Exemplo 1 do curso de policy: a decisão de uma ação (`check`). */
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { PolicyEngine } from '../../../src/policy/index';
 
 const policy = new PolicyEngine({
@@ -323,7 +323,7 @@ rm -rf build → deny (default)
 
 ```ts
 /** Exemplo 2 do curso de policy: uma linha de shell inteira (`checkCommand`). */
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { PolicyEngine } from '../../../src/policy/index';
 
 const policy = new PolicyEngine({
@@ -450,7 +450,7 @@ O gate de comandos passa as aprovações salvas (`[s]` sessão, `[w]` workspace)
  * como allow (`checkCommand` com `approved`), e o padrão que uma aprovação
  * ampla salvaria (`suggestPattern`).
  */
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { PolicyEngine, suggestPattern } from '../../../src/policy/index';
 
 const policy = new PolicyEngine({
@@ -520,7 +520,7 @@ O padrão que uma aprovação ampla salva vem de `suggestPattern`: um comando si
  * caminhos mascarados precisam existir (node_modules, .env, guides).
  */
 import { currentDirectory } from '../../../src/execute/process';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import {
   compileFilesystemAccess,
   type AgentPolicy,
@@ -605,7 +605,7 @@ guidesOnly: {
  * Exemplo 5 do curso de policy: as categorias que a sandbox não aplica e
  * ficam para o provider traduzir (`delegatedCategories`).
  */
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import {
   delegatedCategories,
   type AgentPolicy,

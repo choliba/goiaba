@@ -1,4 +1,5 @@
 import type { Interaction } from '../interaction/index';
+import { DEFAULT_LINE_LENGTH } from '../output/constants';
 import { parseSelection } from './selection';
 import type { Store, StoredDecision } from '../store/index';
 import { suggestPattern } from '../policy/index';
@@ -57,7 +58,6 @@ const KIND_HELP = [
   '[d] descartar (não aprova; some da lista)',
 ].join('\n');
 const MIN_COMMAND_WIDTH = 20;
-const DEFAULT_WIDTH = 120;
 
 /**
  * Lists commands the execution gate denied and lets you select and approve
@@ -157,7 +157,7 @@ export class ApprovalReview {
     denied: readonly StoredDecision[],
     selected: ReadonlySet<number>,
   ): void {
-    const width = this.output.width?.() ?? DEFAULT_WIDTH;
+    const width = this.output.lineLength?.() ?? DEFAULT_LINE_LENGTH;
     const commandWidth = Math.max(MIN_COMMAND_WIDTH, width - fixedWidth() - 1);
     // One block per workspace; numbers go on across blocks, as selected.
     let number = 0;

@@ -18,14 +18,14 @@ A tela tem três partes:
 └──────────────────────────────┘
 ```
 
-O `tui` não lê o teclado nem escreve na tela por conta própria: lê pelo `StdinReader` (`src/input`), o único leitor do teclado, e escreve pelo `writeOut` (`src/output/terminal.ts`), o único escritor da tela. Não depende de biblioteca nenhuma.
+O `tui` não lê o teclado nem escreve na tela por conta própria: lê pelo `StdinReader` (`src/input`), o único leitor do teclado, e escreve pelo `writeOut` (`src/output/stdio.ts`), o único escritor da tela. Não depende de biblioteca nenhuma.
 
 ## Índice
 
 - [Os arquivos](#os-arquivos)
 - [Interface](#interface)
   - [`TuiInteraction`](#tuiinteraction)
-  - [`TuiScreen` e `terminalScreen`](#tuiscreen-e-terminalscreen)
+  - [`TuiScreen` e `ttyScreen`](#tuiscreen-e-terminalscreen)
   - [`TuiInput`](#tuiinput)
   - [O cálculo da tela: `frame`, `wrap`, `displayWidth`, `transcript`](#o-cálculo-da-tela-frame-wrap-displaywidth-transcript)
   - [O que mudou fora do módulo](#o-que-mudou-fora-do-módulo)
@@ -48,7 +48,7 @@ O `tui` não lê o teclado nem escreve na tela por conta própria: lê pelo `Std
 
 | Arquivo     | Papel                                                                                                                                                          |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts`  | A `TuiInteraction` (a conversa), o `terminalScreen` (o terminal como tela) e os tipos `TuiScreen`, `TuiInput`, `TuiOptions`.                                   |
+| `index.ts`  | A `TuiInteraction` (a conversa), o `ttyScreen` (o terminal como tela) e os tipos `TuiScreen`, `TuiInput`, `TuiOptions`.                                        |
 | `layout.ts` | O cálculo da tela, sem efeito nenhum: o quadro (`frame`), a quebra de linha (`wrap`), a largura na tela (`displayWidth`) e a conversa em texto (`transcript`). |
 
 [↑ topo](#topo)
@@ -63,9 +63,9 @@ new TuiInteraction(options?: TuiOptions)
 
 | Opção                 | O que é                                                                                                                                              |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `screen`              | onde desenha (`TuiScreen`); o terminal por padrão (`terminalScreen()`)                                                                               |
+| `screen`              | onde desenha (`TuiScreen`); o terminal por padrão (`ttyScreen()`)                                                                                    |
 | `input`               | o que lê, a partir de para onde vão o eco e as teclas que não são texto: `({ echo, sequence }) => TuiInput`; um `StdinReader` no terminal por padrão |
-| `shortcuts`, `urgent` | os mesmos do `StdinReader` (o `Ctrl+A` das aprovações vem no `AGENT_TERMINAL`)                                                                       |
+| `shortcuts`, `urgent` | os mesmos do `StdinReader` (o `Ctrl+A` das aprovações vem no `AGENT_SHORTCUTS`)                                                                      |
 | `frameDelayMs`        | o intervalo entre redesenhos enquanto o texto chega (16 ms)                                                                                          |
 
 É uma `Interaction`:
@@ -81,7 +81,7 @@ new TuiInteraction(options?: TuiOptions)
 | `width()`                                              | as colunas da tela                                                                    |
 | `close()`                                              | sai da tela e deixa a conversa impressa no terminal                                   |
 
-### `TuiScreen` e `terminalScreen`
+### `TuiScreen` e `ttyScreen`
 
 ```ts
 interface TuiScreen {
@@ -94,7 +94,7 @@ interface TuiScreen {
 }
 ```
 
-`terminalScreen()` é o terminal: a tela alternativa, o `writeOut` e o aviso de redimensionamento. Sem um terminal (um pipe, um redirecionamento), ele recusa na hora com um `UsageError`, antes de qualquer coisa rodar.
+`ttyScreen()` é o terminal: a tela alternativa, o `writeOut` e o aviso de redimensionamento. Sem um terminal (um pipe, um redirecionamento), ele recusa na hora com um `UsageError`, antes de qualquer coisa rodar.
 
 ### `TuiInput`
 
@@ -117,7 +117,7 @@ Uma `Entry` é `{ kind: 'user' | 'text' | 'reasoning' | 'note', text, open }`. `
 
 ### O que mudou fora do módulo
 
-- **`src/output/terminal.ts`**: `terminalRows()`, `onTerminalResize(listener)`, `enterFullScreen()` e `leaveFullScreen()`. Continua sendo o único escritor da tela.
+- **`src/output/stdio.ts`**: `ttyRows()`, `onTtyResize(listener)`, `enterAlternateScreen()` e `leaveAlternateScreen()`. Continua sendo o único escritor da tela.
 - **`src/input`**: o `KeyDecoder` aceita uma função que recebe as sequências que não são texto (setas, PageUp…), e o `StdinReader` ganha a opção `onSequence`. Antes elas eram descartadas; continuam sem virar tecla.
 - **`terminal.ts`**: ao entrar na tela cheia, liga o modo em que a rodinha do mouse manda ↑ e ↓ (`?1007h`). Assim ela rola sem o TUI capturar o mouse, e dá para selecionar texto.
 - **`Interaction`**: o método opcional `reasoning(text)`. O agente o usa quando a interação o tem; quem não o tem recebe o raciocínio como texto, depois de `💭`, como antes.
@@ -178,7 +178,7 @@ Os exemplos 1 a 3 rodam sem terminal e sem modelo: usam uma **tela de texto** (u
 ```ts
 /** Exemplo 1 do curso de tui: o cálculo da tela, sem tela nenhuma. */
 import { displayWidth, frame, wrap } from '../../../src/tui/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 writeOut(`${JSON.stringify(wrap('o mar azul sob o céu', 10))}\n`);
 writeOut(`largura de "💭 oi": ${String(displayWidth('💭 oi'))}\n\n`);
@@ -226,7 +226,7 @@ Com 8 linhas, sobram 6 para as mensagens. A primeira ("Oi! Em que posso ajudar?"
 ```ts
 /** Exemplo 2 do curso de tui: uma conversa numa tela de texto. */
 import { TuiInteraction, type TuiScreen } from '../../../src/tui/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 /** Uma tela de 9 linhas por 36 colunas que guarda o último quadro. */
 let last = '';
@@ -303,7 +303,7 @@ Oi! Em que posso ajudar?
 ```ts
 /** Exemplo 3 do curso de tui: os comandos com / ficam no TUI. */
 import { TuiInteraction, type TuiScreen } from '../../../src/tui/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 let last = '';
 const screen: TuiScreen = {
@@ -368,7 +368,7 @@ Das quatro linhas digitadas, o agente recebeu só a última: `/help`, `/thinking
 
 ```ts
 import {
-  AGENT_TERMINAL,
+  AGENT_SHORTCUTS,
   Agent,
   ensureDirectory,
   humanApprover,
@@ -412,7 +412,7 @@ await runScript(async ({ signal }) => {
     `agente-tui-${cli}`,
   );
   ensureDirectory(root);
-  const tui = new TuiInteraction(AGENT_TERMINAL);
+  const tui = new TuiInteraction(AGENT_SHORTCUTS);
 
   await new Agent({
     resume: false,
@@ -447,7 +447,7 @@ O TUI precisa de um terminal: rode o programa direto, sem pipe nem redirecioname
 **Ninguém deve:**
 
 - **Ler o teclado por fora do `StdinReader`.** O TUI recebe o eco pela opção `write` dele; um segundo leitor do teclado já travou um agente.
-- **Escrever na tela por fora do `terminal.ts`.** O `terminalScreen` usa o `writeOut` e as funções de tela de lá.
+- **Escrever na tela por fora do `terminal.ts`.** O `ttyScreen` usa o `writeOut` e as funções de tela de lá.
 - **Usar uma biblioteca de tela cheia** (Ink, blessed…): elas leem e escrevem no terminal por conta própria, passando por cima dos dois donos.
 - **Fazer o agente saber que está num TUI.** Ele usa a `Interaction`; o TUI decide como mostrar.
 

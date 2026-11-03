@@ -7,7 +7,7 @@ Um programa **mostra coisas**: uma resposta, um aviso, uma linha de "pensando…
 O terminal é só um destino. A mesma mensagem pode ir para um arquivo, para uma página web, para a memória de um teste, ou para vários lugares ao mesmo tempo, **sem que quem a escreve saiba disso**:
 
 ```
-quem mostra ──▶ Output ──▶ terminalOutput  (stdout / stderr)
+quem mostra ──▶ Output ──▶ stdioOutput  (stdout / stderr)
 (agente,           │
  comando,          ├─────▶ um arquivo
  relatório…)       ├─────▶ a página do site
@@ -21,7 +21,7 @@ O `output` **só mostra**. Ele não pergunta nem ouve ninguém: a conversa (perg
 - [Os arquivos](#os-arquivos)
 - [Interface](#interface)
   - [O contrato: `Output`](#o-contrato-output)
-  - [O terminal: `terminalOutput`](#o-terminal-terminaloutput)
+  - [O terminal: `stdioOutput`](#o-terminal-terminaloutput)
   - [Por baixo: `terminal.ts`](#por-baixo-terminalts)
 - [Como funciona](#como-funciona)
   - [Uma mensagem é uma linha](#uma-mensagem-é-uma-linha)
@@ -38,10 +38,10 @@ O `output` **só mostra**. Ele não pergunta nem ouve ninguém: a conversa (perg
 
 ## Os arquivos
 
-| Arquivo       | Papel                                                                                                                                                           |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts`    | O contrato `Output` e o destino padrão, `terminalOutput`.                                                                                                       |
-| `terminal.ts` | **O único que escreve no stdout e no stderr** (`writeOut`, `writeErr`) e cuida da linha de status (`writeStatus`) e da largura do terminal (`terminalColumns`). |
+| Arquivo       | Papel                                                                                                                                                      |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`    | O contrato `Output` e o destino padrão, `stdioOutput`.                                                                                                     |
+| `terminal.ts` | **O único que escreve no stdout e no stderr** (`writeOut`, `writeErr`) e cuida da linha de status (`writeStatus`) e da largura do terminal (`ttyColumns`). |
 
 [↑ topo](#topo)
 
@@ -67,7 +67,7 @@ interface Output {
 
 Qualquer objeto com esses métodos é uma `Output`: não há classe para herdar.
 
-### O terminal: `terminalOutput`
+### O terminal: `stdioOutput`
 
 | Método   | Vai para                                                    |
 | -------- | ----------------------------------------------------------- |
@@ -85,7 +85,7 @@ As funções de baixo nível, para quem precisa escrever no terminal **sem** pas
 | `writeOut(text)`    | escreve no stdout como está (sem acrescentar `\n`) |
 | `writeErr(text)`    | escreve no stderr como está                        |
 | `writeStatus(text)` | a linha de status (veja abaixo)                    |
-| `terminalColumns()` | as colunas do terminal, ou `undefined`             |
+| `ttyColumns()`      | as colunas do terminal, ou `undefined`             |
 
 [↑ topo](#topo)
 
@@ -93,7 +93,7 @@ As funções de baixo nível, para quem precisa escrever no terminal **sem** pas
 
 ### Uma mensagem é uma linha
 
-`terminalOutput.write('oi')` e `terminalOutput.write('oi\n')` mostram a mesma coisa: cada mensagem é uma linha. Para escrever pedaços na mesma linha (o eco de cada tecla), use `writeOut`, que escreve como está.
+`stdioOutput.write('oi')` e `stdioOutput.write('oi\n')` mostram a mesma coisa: cada mensagem é uma linha. Para escrever pedaços na mesma linha (o eco de cada tecla), use `writeOut`, que escreve como está.
 
 ### A linha de status
 
@@ -108,7 +108,7 @@ As funções de baixo nível, para quem precisa escrever no terminal **sem** pas
 | ----------- | -------------------------------------- | ------------------------------------------------------------------------- |
 | o que é     | a saída: para onde vai o que se mostra | a conversa: perguntar, ouvir e mostrar                                    |
 | métodos     | `write`, `error`, `status`, `width`    | `ask`, `listen`, `choose`, mais `write`, `status`, `width`                |
-| no terminal | `terminalOutput`                       | `TerminalInteraction`, que ouve pelo `StdinReader` e mostra numa `Output` |
+| no terminal | `stdioOutput`                          | `TerminalInteraction`, que ouve pelo `StdinReader` e mostra numa `Output` |
 
 O agente, os comandos e a tela de aprovações conversam por uma `Interaction`. A `TerminalInteraction` recebe a `Output` para onde mostrar: o terminal, se nenhuma for dada.
 
@@ -130,12 +130,12 @@ Cada exemplo é um arquivo de `agents/meus-testes/output-exemplos/` que roda com
  *   bun agents/meus-testes/output-exemplos/1-terminal.ts
  *   bun agents/meus-testes/output-exemplos/1-terminal.ts 2>/dev/null   # só o stdout
  */
-import { terminalOutput } from '../../../src/output/index';
+import { stdioOutput } from '../../../src/output/index';
 
-terminalOutput.write('uma mensagem');
-terminalOutput.write('outra, já com quebra de linha\n');
-terminalOutput.error?.('um aviso, no stderr');
-terminalOutput.write(`largura: ${String(terminalOutput.width?.())}`);
+stdioOutput.write('uma mensagem');
+stdioOutput.write('outra, já com quebra de linha\n');
+stdioOutput.error?.('um aviso, no stderr');
+stdioOutput.write(`largura: ${String(stdioOutput.width?.())}`);
 ```
 
 Saída real (stdout e stderr juntos):
@@ -167,7 +167,7 @@ O aviso foi para o stderr: some quando só o stdout é visto. A largura é 120 p
  * objeto com `write` (e, se quiser, `error`, `status`, `width`). Esta guarda
  * tudo na memória, como um teste faria para conferir o que foi mostrado.
  */
-import { terminalOutput, type Output } from '../../../src/output/index';
+import { stdioOutput, type Output } from '../../../src/output/index';
 
 /** Guarda cada mensagem, com o tipo dela. */
 function memoryOutput(): Output & { readonly lines: string[] } {
@@ -190,7 +190,7 @@ function relatorio(output: Output): void {
 
 const memory = memoryOutput();
 relatorio(memory);
-terminalOutput.write(`o que ficou na memória:\n  ${memory.lines.join('\n  ')}`);
+stdioOutput.write(`o que ficou na memória:\n  ${memory.lines.join('\n  ')}`);
 ```
 
 Saída real:
@@ -226,7 +226,7 @@ import {
   readText,
   removePath,
 } from '../../../src/filesystem/index';
-import { terminalOutput, type Output } from '../../../src/output/index';
+import { stdioOutput, type Output } from '../../../src/output/index';
 
 /** Cada mensagem vira uma linha do arquivo. */
 function fileOutput(path: string): Output {
@@ -265,10 +265,10 @@ ensureDirectory(dir);
 const log = join(dir, 'relatorio.txt');
 
 try {
-  terminalOutput.write('--- no terminal e no arquivo:');
-  relatorio(both(terminalOutput, fileOutput(log)));
-  terminalOutput.write('--- o que ficou no arquivo:');
-  terminalOutput.write(readText(log));
+  stdioOutput.write('--- no terminal e no arquivo:');
+  relatorio(both(stdioOutput, fileOutput(log)));
+  stdioOutput.write('--- o que ficou no arquivo:');
+  stdioOutput.write(readText(log));
 } finally {
   removePath(dir);
 }
@@ -299,7 +299,7 @@ O mesmo `relatorio` escreveu no terminal e no arquivo ao mesmo tempo. No arquivo
  * mostra vai para a memória; quem lê o stdin continua sendo o terminal.
  */
 import { TerminalInteraction } from '../../../src/interaction/index';
-import { terminalOutput, type Output } from '../../../src/output/index';
+import { stdioOutput, type Output } from '../../../src/output/index';
 
 const shown: string[] = [];
 const memory: Output = {
@@ -312,7 +312,7 @@ interaction.status('⏳ pensando…'); // esta Output não tem status: ignorado
 interaction.write('pronto');
 interaction.close();
 
-terminalOutput.write(`a conversa mostrou: ${JSON.stringify(shown)}`);
+stdioOutput.write(`a conversa mostrou: ${JSON.stringify(shown)}`);
 ```
 
 Saída real:
@@ -348,7 +348,7 @@ O caso do site: o que um trabalho mostra vira a resposta de uma requisição. O 
  *
  *   bun agents/meus-testes/output-exemplos/5-http.ts
  */
-import { terminalOutput, type Output } from '../../../src/output/index';
+import { stdioOutput, type Output } from '../../../src/output/index';
 
 const pause = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -430,7 +430,7 @@ async function ask(path: string): Promise<void> {
   const response = await fetch(
     `http://127.0.0.1:${String(server.port)}${path}`,
   );
-  terminalOutput.write(
+  stdioOutput.write(
     `GET ${path} → ${String(response.status)} ${response.headers.get('content-type') ?? ''}`,
   );
   if (response.body === null) return;
@@ -446,7 +446,7 @@ async function ask(path: string): Promise<void> {
     const value = read.value;
     const ms = `${String(Math.round(performance.now() - startedAt)).padStart(4)} ms`;
     for (const line of readable(decoder.decode(value))) {
-      terminalOutput.write(`  ${ms}  ${line}`);
+      stdioOutput.write(`  ${ms}  ${line}`);
     }
   }
 }

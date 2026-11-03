@@ -1,4 +1,4 @@
-export { AGENT_TERMINAL, Agent } from './agent/agent';
+export { AGENT_SHORTCUTS, AGENT_TERMINAL, Agent } from './agent/agent';
 export { AgentOutput } from './agent/output';
 export { humanApprover } from './approval/human';
 export type { CommandApprover, CommandApprovalRequest } from './approval/gate';
@@ -91,14 +91,14 @@ export type {
   Interaction,
   TerminalInteractionOptions,
 } from './interaction/index';
-export { TuiInteraction, terminalScreen } from './tui/index';
+export { TuiInteraction, ttyScreen } from './tui/index';
 export type {
   TuiInput,
   TuiInputHandlers,
   TuiOptions,
   TuiScreen,
 } from './tui/index';
-export { terminalOutput } from './output/index';
+export { stdioOutput } from './output/index';
 export type { Output } from './output/index';
 export type { GoiabaEvent } from './events/index';
 export type {

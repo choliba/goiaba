@@ -1,14 +1,14 @@
 import { interruptProgram } from '../execute/process';
-import { StdinReader, type StdinReaderOptions } from '../input/index';
+import { StdinReader, type StdinReaderOptions } from '../adapters/stdio/reader';
 import type { Interaction } from '../interaction/index';
 import {
-  enterFullScreen,
-  leaveFullScreen,
-  onTerminalResize,
-  terminalColumns,
-  terminalRows,
+  enterAlternateScreen,
+  leaveAlternateScreen,
+  onTtyResize,
+  ttyColumns,
+  ttyRows,
   writeOut,
-} from '../output/terminal';
+} from '../output/stdio';
 import { UsageError } from '../errors';
 import { frame, transcript, type Entry } from './layout';
 
@@ -100,7 +100,7 @@ export class TuiInteraction implements Interaction {
   private stopResize: (() => void) | undefined;
 
   public constructor({
-    screen = terminalScreen(),
+    screen = ttyScreen(),
     input,
     frameDelayMs = DEFAULT_FRAME_DELAY_MS,
     ...options
@@ -161,7 +161,7 @@ export class TuiInteraction implements Interaction {
     this.render();
   }
 
-  public width(): number {
+  public lineLength(): number {
     return this.screen.columns();
   }
 
@@ -327,7 +327,7 @@ export class TuiInteraction implements Interaction {
  * The terminal as the TUI's screen. Refused at once without one (a pipe, a
  * redirection): nothing would be seen.
  */
-export function terminalScreen(): TuiScreen {
+export function ttyScreen(): TuiScreen {
   if (screenRows() === 0) {
     throw new UsageError(
       'O TUI precisa de um terminal: rode o programa direto, sem pipe nem redirecionamento.',
@@ -336,20 +336,20 @@ export function terminalScreen(): TuiScreen {
   return {
     rows: screenRows,
     columns: screenColumns,
-    enter: enterFullScreen,
+    enter: enterAlternateScreen,
     leave: (text) => {
-      leaveFullScreen();
+      leaveAlternateScreen();
       if (text !== '') writeOut(`${text}\n`);
     },
     draw: writeOut,
-    onResize: onTerminalResize,
+    onResize: onTtyResize,
   };
 }
 
 function screenRows(): number {
-  return terminalRows() ?? 0;
+  return ttyRows() ?? 0;
 }
 
 function screenColumns(): number {
-  return terminalColumns() ?? 0;
+  return ttyColumns() ?? 0;
 }

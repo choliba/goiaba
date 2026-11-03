@@ -10,6 +10,7 @@
 import { connect } from 'node:net';
 
 import { exitProgram, programArguments } from '../execute/process';
+import { read } from '../input/index';
 import { TerminalInteraction } from '../interaction/index';
 
 const TIMEOUT_MS = 55 * 60 * 1000;
@@ -39,8 +40,8 @@ function fail(reason: string): never {
   return exitProgram(2);
 }
 
-function readCommand(): string {
-  const input: unknown = JSON.parse(io.readInput());
+async function readCommand(): Promise<string> {
+  const input: unknown = JSON.parse(await read());
   const tool =
     typeof input === 'object' && input !== null && 'tool_input' in input
       ? input.tool_input
@@ -126,7 +127,7 @@ if (socketPath === undefined) {
 }
 
 try {
-  reply(await ask(socketPath, readCommand()));
+  reply(await ask(socketPath, await readCommand()));
 } catch (error) {
   fail(
     `Gate de execução indisponível (${error instanceof Error ? error.message : String(error)}): bloqueado.`,

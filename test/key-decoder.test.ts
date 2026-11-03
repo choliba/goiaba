@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { KeyDecoder } from '../src/input/index';
+import { KeyDecoder } from '../src/adapters/stdio/keys';
 
 const typed = (keys: string): { key: string; pasted: boolean }[] =>
   Array.from(keys, (key) => ({ key, pasted: false }));

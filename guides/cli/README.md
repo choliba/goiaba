@@ -126,7 +126,7 @@ Por isso a tela e o agente podem estar em **processos diferentes**: o banco é o
 
 ### A mesma tela dentro do agente
 
-Num agente rodando, `Ctrl+A` (o atalho do `AGENT_TERMINAL`) abre a mesma `ApprovalReview`, **no mesmo processo e no mesmo terminal**. Rodar `bun run approvals` em outro terminal também funciona, mas nunca dois leitores no mesmo terminal: a tela usa a conversa do agente em vez de abrir outra.
+Num agente rodando, `Ctrl+A` (o atalho do `AGENT_SHORTCUTS`) abre a mesma `ApprovalReview`, **no mesmo processo e no mesmo terminal**. Rodar `bun run approvals` em outro terminal também funciona, mas nunca dois leitores no mesmo terminal: a tela usa a conversa do agente em vez de abrir outra.
 
 [↑ topo](#topo)
 
@@ -147,7 +147,7 @@ Cada exemplo é um arquivo de `agents/meus-testes/cli-exemplos/` que roda como e
  */
 import { Executor } from '../../../src/execute/index';
 import { runtimeExecutable } from '../../../src/execute/process';
-import { terminalOutput } from '../../../src/output/index';
+import { stdioOutput } from '../../../src/output/index';
 
 const approvals = new URL('../../../src/cli/approvals.ts', import.meta.url)
   .pathname;
@@ -156,7 +156,7 @@ for await (const { chunk } of new Executor().run({
   executable: runtimeExecutable(),
   arguments: [approvals, '--help'],
 })) {
-  terminalOutput.write(chunk.trimEnd());
+  stdioOutput.write(chunk.trimEnd());
 }
 ```
 
@@ -197,7 +197,7 @@ import {
   removePath,
   writeText,
 } from '../../../src/filesystem/index';
-import { terminalOutput } from '../../../src/output/index';
+import { stdioOutput } from '../../../src/output/index';
 
 const approvals = new URL('../../../src/cli/approvals.ts', import.meta.url)
   .pathname;
@@ -219,7 +219,7 @@ try {
     arguments: [approvals],
     cwd: project,
   })) {
-    terminalOutput.write(chunk.trimEnd());
+    stdioOutput.write(chunk.trimEnd());
   }
 } finally {
   removePath(project);
@@ -258,7 +258,7 @@ import {
   removePath,
   writeText,
 } from '../../../src/filesystem/index';
-import { terminalOutput } from '../../../src/output/index';
+import { stdioOutput } from '../../../src/output/index';
 import { Store } from '../../../src/store/index';
 
 const approvals = new URL('../../../src/cli/approvals.ts', import.meta.url)
@@ -299,18 +299,18 @@ try {
     cwd: project,
     input: '1\nr\nw\n',
   })) {
-    terminalOutput.write(
+    stdioOutput.write(
       chunk.trimEnd().replaceAll(/\d{2}-\d{2} \d{2}:\d{2}:\d{2}/g, '<horário>'),
     );
   }
 
   const after = Store.open(databasePath);
-  terminalOutput.write('\n--- no banco, depois:');
+  stdioOutput.write('\n--- no banco, depois:');
   for (const approval of after.activeApprovals(workspace)) {
-    terminalOutput.write(`aprovação: ${approval.kind} "${approval.pattern}"`);
+    stdioOutput.write(`aprovação: ${approval.kind} "${approval.pattern}"`);
   }
   for (const pending of after.deniedDecisions(workspace)) {
-    terminalOutput.write(`ainda pendente: ${pending.command}`);
+    stdioOutput.write(`ainda pendente: ${pending.command}`);
   }
   after.close();
 } finally {

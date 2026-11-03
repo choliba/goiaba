@@ -174,7 +174,7 @@ Cada exemplo é um arquivo de `agents/meus-testes/execute-exemplos/` que roda co
  * o canal (stdout ou stderr) de cada um.
  */
 import { Executor } from '../../../src/execute/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const executor = new Executor();
 
@@ -216,7 +216,7 @@ O `printf` imprimiu as duas linhas de uma vez: chegou **um** pedaço com as duas
  */
 import { Executor, ProgramExecutionError } from '../../../src/execute/index';
 import type { ProgramCommand } from '../../../src/execute/types';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const executor = new Executor();
 const commands: readonly ProgramCommand[] = [
@@ -270,7 +270,7 @@ programa-que-nao-existe
  * com o motivo do abort.
  */
 import { Executor } from '../../../src/execute/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const controller = new AbortController();
 setTimeout(() => {
@@ -318,7 +318,7 @@ O Executor entrega pedaços; o sentido é de quem lê. Este é o papel de um `pa
  */
 import { Executor } from '../../../src/execute/index';
 import type { ProgramOutput } from '../../../src/execute/types';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 /** Linhas inteiras do stdout, por mais partida que a saída chegue. */
 async function* lines(
@@ -382,7 +382,7 @@ O mesmo Executor, com um comando preparado pelo workspace. `agents/meus-testes/e
  */
 import { Executor } from '../../../src/execute/index';
 import { currentDirectory } from '../../../src/execute/process';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { Workspace } from '../../../src/workspace/index';
 
 const workspace = new Workspace({
@@ -434,7 +434,7 @@ O Executor rodou um `nsenter`, sem saber que era uma jaula. Por isso, numa sandb
  */
 import { Executor, OutputDispatcher } from '../../../src/execute/index';
 import type { ProgramOutput } from '../../../src/execute/types';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 const dispatcher = new OutputDispatcher<ProgramOutput>();
 const executor = new Executor();
@@ -507,7 +507,7 @@ import {
   programArguments,
   runProgram,
 } from '../../../src/execute/process';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 
 // O processo atual, sem tocar em `process` direto.
 writeOut(`argumentos: ${JSON.stringify(programArguments())}\n`);

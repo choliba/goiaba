@@ -1,43 +1,100 @@
-import { terminalColumns, writeErr, writeOut, writeStatus } from './terminal';
+import { DEFAULT_LINE_LENGTH } from './constants';
+import { ttyColumns, writeErr, writeOut, writeStatus } from './stdio';
+
+export { DEFAULT_LINE_LENGTH } from './constants';
 
 /**
- * Where what the program shows goes. Only output: the terminal is one
- * destination (`terminalOutput`); a file, a web page or a test is another,
- * by writing an object with these methods.
+ * Where what the program shows goes. Only output: stdio is one destination
+ * (`stdioOutput`); a file, a web page or a test is another. Every mode is
+ * there, and awaited: whoever writes picks the mode it has (a whole
+ * message, or pieces as they come), never checks which ones exist.
  */
 export interface Output {
   /** A message, as a line: a missing `\n` at the end is added. */
-  write(text: string): void;
+  write(text: string): Promise<void>;
   /**
-   * Text exactly as given, with no line of its own: a reply shown while it
-   * is being written. Outputs without it get only whole messages.
+   * Pieces exactly as given, with no line of their own (a reply shown
+   * while it is written), until `pieces` ends. Two streams never cross:
+   * the next write waits for this one.
    */
-  stream?(text: string): void;
+  writeStream(pieces: Iterable<string> | AsyncIterable<string>): Promise<void>;
   /** Diagnostics for whoever runs the program, apart from the output. */
-  error?(text: string): void;
+  error(text: string): Promise<void>;
   /**
    * A status line rewritten in place (e.g. `⏳ pensando…`); `undefined`
-   * erases it. Outputs without it show no status.
+   * erases it.
    */
-  status?(text: string | undefined): void;
-  /** Characters per line, for tables; outputs without it get 120. */
-  width?(): number;
+  status(text: string | undefined): Promise<void>;
+  /**
+   * Columns of a line, for whoever lays out text in columns. Columns of the
+   * screen, not characters: an emoji takes two.
+   */
+  lineLength(): number;
 }
 
-const DEFAULT_WIDTH = 120;
+/**
+ * What a destination may have: only `write` is needed. The rest is made
+ * from it, here and nowhere else: pieces joined into one message, errors
+ * as messages, no status, and `DEFAULT_LINE_LENGTH`.
+ */
+export interface PartialOutput {
+  write(text: string): Promise<void> | void;
+  writeStream?(pieces: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  error?(text: string): Promise<void> | void;
+  status?(text: string | undefined): Promise<void> | void;
+  lineLength?(): number;
+}
 
-/** The terminal: stdout for messages, stderr for errors. */
-export const terminalOutput: Output = {
-  write: (text) => {
+/** An `Output` from a destination that has only some of the modes. */
+export function completeOutput(destination: PartialOutput): Output {
+  const write = async (text: string): Promise<void> => {
+    await destination.write(text);
+  };
+  return {
+    write,
+    writeStream: async (pieces) => {
+      if (destination.writeStream !== undefined) {
+        await destination.writeStream(pieces);
+        return;
+      }
+      await write(await joined(pieces));
+    },
+    error: async (text) => {
+      if (destination.error === undefined) await write(text);
+      else await destination.error(text);
+    },
+    status: async (text) => {
+      await destination.status?.(text);
+    },
+    lineLength: () => destination.lineLength?.() ?? DEFAULT_LINE_LENGTH,
+  };
+}
+
+/** stdio: stdout for messages, stderr for errors. */
+export const stdioOutput: Output = {
+  write: async (text) => {
     writeOut(asLine(text));
   },
-  stream: writeOut,
-  error: (text) => {
+  writeStream: async (pieces) => {
+    for await (const piece of pieces) writeOut(piece);
+  },
+  error: async (text) => {
     writeErr(asLine(text));
   },
-  status: writeStatus,
-  width: () => terminalColumns() ?? DEFAULT_WIDTH,
+  status: async (text) => {
+    writeStatus(text);
+  },
+  lineLength: () => ttyColumns() ?? DEFAULT_LINE_LENGTH,
 };
+
+/** The whole of a stream, once it ends. */
+async function joined(
+  pieces: Iterable<string> | AsyncIterable<string>,
+): Promise<string> {
+  let text = '';
+  for await (const piece of pieces) text += piece;
+  return text;
+}
 
 function asLine(text: string): string {
   return text.endsWith('\n') ? text : `${text}\n`;

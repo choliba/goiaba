@@ -120,7 +120,7 @@ Fora de `runAs`, o contexto está vazio. Dentro, há o nome, o provider se infor
 
 ```ts
 /** Exemplo 1 do curso de context: consultar o contexto antes e durante um agente. */
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { runAs, currentContext } from '../../../src/context/index';
 
 writeOut(`fora: ${JSON.stringify(currentContext())}\n`);
@@ -149,7 +149,7 @@ O contexto permanece disponível depois de uma espera assíncrona iniciada dentr
 
 ```ts
 /** Exemplo 2 do curso de context: manter o contexto depois de um await. */
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { runAs, currentContext } from '../../../src/context/index';
 
 async function consultar(): Promise<void> {
@@ -175,7 +175,7 @@ do coordenador volta.
 
 ```ts
 /** Exemplo 3 do curso de context: herdar e trocar o contexto de agente. */
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { runAs, currentContext } from '../../../src/context/index';
 
 runAs({ name: 'coordenador' }, () => {
@@ -215,7 +215,7 @@ import {
   createProducer,
   type GoiabaEvent,
 } from '../../../src/events/index';
-import { writeOut } from '../../../src/output/terminal';
+import { writeOut } from '../../../src/output/stdio';
 import { runAs } from '../../../src/context/index';
 
 const received: GoiabaEvent[] = [];
