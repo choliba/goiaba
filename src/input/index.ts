@@ -30,6 +30,14 @@ export class KeyDecoder {
   private escape: string | undefined;
   private pasting = false;
 
+  /**
+   * `onSequence` hears the sequences that are not text (arrows, PageUp…),
+   * whole, for whoever gives them a meaning; they still never become keys.
+   */
+  public constructor(
+    private readonly onSequence?: (sequence: string) => void,
+  ) {}
+
   public feed(chunk: string): DecodedKey[] {
     const keys: DecodedKey[] = [];
 
@@ -55,8 +63,9 @@ export class KeyDecoder {
         keys.push({ key, pasted: this.pasting });
       } else {
         // A CSI sequence (arrows…) ends at its final byte.
-        this.escape =
-          /[@-~]/.test(key) && sequence.length > 2 ? undefined : sequence;
+        const ended = /[@-~]/.test(key) && sequence.length > 2;
+        this.escape = ended ? undefined : sequence;
+        if (ended) this.onSequence?.(sequence);
       }
     }
 
@@ -87,6 +96,11 @@ export interface StdinReaderOptions {
   readonly shortcuts?: Readonly<Record<string, string>>;
   /** Typed lines that go ahead of the queue. */
   readonly urgent?: (line: string) => boolean;
+  /**
+   * The keys that are not text, as the terminal sends them (`\u001b[A` for
+   * ↑, `\u001b[5~` for PageUp…): nothing else is done with them.
+   */
+  readonly onSequence?: (sequence: string) => void;
 }
 
 /** Owns process stdin. Consumers receive complete messages, never raw bytes. */
@@ -217,7 +231,9 @@ class TtyInput {
   private buffer = '';
   private started = false;
   private active = false;
-  private readonly decoder = new KeyDecoder();
+  private readonly decoder = new KeyDecoder((sequence) => {
+    this.options.onSequence?.(sequence);
+  });
 
   public next(
     signal?: AbortSignal,

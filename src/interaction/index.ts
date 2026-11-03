@@ -35,6 +35,12 @@ export interface Interaction {
    */
   stream?(text: string): void;
   /**
+   * What the model thinks before answering, apart from the answer: whole or
+   * piece by piece, as it comes. Interactions without it get it as text,
+   * after a 💭.
+   */
+  reasoning?(text: string): void;
+  /**
    * A status line rewritten in place (e.g. `⏳ pensando…`); `undefined`
    * erases it. Interactions without it get the first status as a line.
    */

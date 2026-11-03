@@ -7,19 +7,20 @@ Valem para quem escreve código no Goiaba: pessoas e agentes. O `bun run check` 
 
 Tudo o que o Goiaba faz com o mundo de fora passa por **um módulo só**. Ninguém mais faz aquilo por conta própria.
 
-| Capacidade                                                                  | Dono                                                                   | Ninguém mais                       |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------- |
-| disco e caminhos                                                            | `src/filesystem`                                                       | importa `node:fs` ou `node:path`   |
-| rodar programas                                                             | `src/execute` (`Executor`, `runProgram`, `startHelper`, `runAttached`) | importa `node:child_process`       |
-| o processo atual (argumentos, ambiente, diretório, sinais, código de saída) | `src/execute/process.ts`                                               | toca em `process`                  |
-| a saída: para onde vai o que o programa mostra                              | `src/output` (`Output`; o terminal é o destino `terminalOutput`)       | escreve na saída por conta própria |
-| escrever na tela (stdout, stderr)                                           | `src/output/terminal.ts`                                               | usa `console` ou `process.stdout`  |
-| ler o stdin (teclas, pipe)                                                  | `src/input` (`StdinReader`)                                            | abre outro leitor do stdin         |
-| a conversa com quem usa (perguntar, ouvir, mostrar)                         | `src/interaction` (`Interaction`; no terminal, `TerminalInteraction`)  | conversa direto com o terminal     |
-| log                                                                         | `src/logger`                                                           | grava log por conta própria        |
-| configuração do projeto                                                     | `src/config`                                                           | lê o `goiaba.config.ts`            |
-| eventos dentro do processo                                                  | `src/events`                                                           | cria outro barramento              |
-| permissões                                                                  | `src/policy` (`AgentPolicy`, o modelo único)                           | define outro modelo de permissão   |
+| Capacidade                                                                  | Dono                                                                   | Ninguém mais                             |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
+| disco e caminhos                                                            | `src/filesystem`                                                       | importa `node:fs` ou `node:path`         |
+| rodar programas                                                             | `src/execute` (`Executor`, `runProgram`, `startHelper`, `runAttached`) | importa `node:child_process`             |
+| o processo atual (argumentos, ambiente, diretório, sinais, código de saída) | `src/execute/process.ts`                                               | toca em `process`                        |
+| a saída: para onde vai o que o programa mostra                              | `src/output` (`Output`; o terminal é o destino `terminalOutput`)       | escreve na saída por conta própria       |
+| escrever na tela (stdout, stderr)                                           | `src/output/terminal.ts`                                               | usa `console` ou `process.stdout`        |
+| ler o stdin (teclas, pipe)                                                  | `src/input` (`StdinReader`)                                            | abre outro leitor do stdin               |
+| a conversa com quem usa (perguntar, ouvir, mostrar)                         | `src/interaction` (`Interaction`; no terminal, `TerminalInteraction`)  | conversa direto com o terminal           |
+| a conversa em tela cheia                                                    | `src/tui` (`TuiInteraction`, uma `Interaction`)                        | desenha uma tela cheia por conta própria |
+| log                                                                         | `src/logger`                                                           | grava log por conta própria              |
+| configuração do projeto                                                     | `src/config`                                                           | lê o `goiaba.config.ts`                  |
+| eventos dentro do processo                                                  | `src/events`                                                           | cria outro barramento                    |
+| permissões                                                                  | `src/policy` (`AgentPolicy`, o modelo único)                           | define outro modelo de permissão         |
 
 **Por quê:** um lugar só para cada coisa é o que permite trocar como ela é feita, saber quem a usa e confiar no que
 ela garante. Um leitor do terminal a mais já travou um agente (as teclas iam para o leitor errado).

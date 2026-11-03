@@ -28,6 +28,16 @@ test('as marcas de colagem podem chegar partidas entre pedaços', () => {
   expect(decoder.feed('[201~y')).toEqual([{ key: 'y', pasted: false }]);
 });
 
+test('as sequências vão inteiras a quem pediu, sem virar tecla', () => {
+  const sequences: string[] = [];
+  const keys = new KeyDecoder((sequence) => sequences.push(sequence)).feed(
+    'a\u001b[Ab\u001b[5~',
+  );
+
+  expect(keys).toEqual(typed('ab'));
+  expect(sequences).toEqual(['\u001b[A', '\u001b[5~']);
+});
+
 test('setas e outras sequências não viram texto', () => {
   expect(new KeyDecoder().feed('a\u001b[Ab\u001b[1;5Cc')).toEqual(typed('abc'));
 });

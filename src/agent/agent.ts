@@ -306,7 +306,15 @@ export class Agent {
    * own line; the answer's first piece ends that line.
    */
   private showReasoningPiece(text: string): void {
-    if (this.output.stream === undefined || this.held !== undefined) return;
+    if (this.held !== undefined) return;
+    // An interaction that tells reasoning apart shows it its own way.
+    if (this.output.reasoning !== undefined) {
+      this.spoke?.();
+      this.output.reasoning(text);
+      this.reasoningStreamed = true;
+      return;
+    }
+    if (this.output.stream === undefined) return;
     this.spoke?.();
     if (!this.reasoning) {
       if (this.streamed !== undefined && !this.streamed.endsWith('\n')) {
@@ -606,7 +614,12 @@ export class Agent {
               thinking.spoke();
               publish({ type: 'reasoning', text: event.text }, 'debug');
               if (this.reasoningStreamed) this.endReasoning();
-              else this.say(`${REASONING_MARK} ${event.text}`);
+              else if (
+                this.output.reasoning !== undefined &&
+                this.held === undefined
+              ) {
+                this.output.reasoning(event.text);
+              } else this.say(`${REASONING_MARK} ${event.text}`);
               this.reasoningStreamed = false;
               reasoned = event.text;
               continue;

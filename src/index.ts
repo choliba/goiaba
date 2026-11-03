@@ -91,6 +91,13 @@ export type {
   Interaction,
   TerminalInteractionOptions,
 } from './interaction/index';
+export { TuiInteraction, terminalScreen } from './tui/index';
+export type {
+  TuiInput,
+  TuiInputHandlers,
+  TuiOptions,
+  TuiScreen,
+} from './tui/index';
 export { terminalOutput } from './output/index';
 export type { Output } from './output/index';
 export type { GoiabaEvent } from './events/index';

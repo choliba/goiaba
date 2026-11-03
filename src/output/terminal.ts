@@ -3,6 +3,7 @@
  * the echo of what is typed both go through here.
  */
 
+const ESC = '\u001b';
 const CLEAR_LINE = '\r\u001b[2K';
 /** Escape sequences: they change no text on screen. */
 // oxlint-disable-next-line no-control-regex -- ESC starts every sequence.
@@ -47,6 +48,35 @@ export function writeStatus(text: string | undefined): void {
 /** Columns of the terminal, or `undefined` when stdout is not one. */
 export function terminalColumns(): number | undefined {
   return process.stdout.isTTY ? process.stdout.columns : undefined;
+}
+
+/** Rows of the terminal, or `undefined` when stdout is not one. */
+export function terminalRows(): number | undefined {
+  return process.stdout.isTTY ? process.stdout.rows : undefined;
+}
+
+/** Calls `listener` when the terminal changes size; returns how to stop. */
+export function onTerminalResize(listener: () => void): () => void {
+  process.stdout.on('resize', listener);
+  return () => {
+    process.stdout.off('resize', listener);
+  };
+}
+
+/**
+ * A screen of its own (the alternate screen), as full-screen programs use:
+ * what was on the terminal comes back when it is left.
+ */
+export function enterFullScreen(): void {
+  clearStatus();
+  // The mouse wheel sends ↑ and ↓ there (alternate scroll): it scrolls
+  // without the mouse being taken, so text can still be selected.
+  process.stdout.write(`${ESC}[?1049h${ESC}[?1007h${ESC}[H`);
+}
+
+export function leaveFullScreen(): void {
+  process.stdout.write(`${ESC}[?1007l${ESC}[?1049l`);
+  atLineStart = true;
 }
 
 function clearStatus(): void {
