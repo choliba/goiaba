@@ -996,6 +996,8 @@ export function listenInput(
   /** Who awaits the input (a question, the end of the turn), if anyone. */
   let waiter: ((value: string) => void) | undefined;
   let failed: ((error: unknown) => void) | undefined;
+  /** The reading failed (e.g. the input ended) before anyone waited. */
+  let failure: { readonly error: unknown } | undefined;
   let taken: Promise<string> | undefined;
 
   const deliver = (value: string): void => {
@@ -1022,6 +1024,7 @@ export function listenInput(
     }
   };
   void read().catch((error: unknown) => {
+    failure = { error };
     failed?.(error);
   });
 
@@ -1035,6 +1038,8 @@ export function listenInput(
         controller.abort();
         return Promise.resolve(APPROVALS_FINISHED);
       }
+      // Kept for whoever waits later, or they would wait forever.
+      if (failure !== undefined) return Promise.reject(failure.error);
       return new Promise<string>((resolve, reject) => {
         waiter = resolve;
         failed = reject;

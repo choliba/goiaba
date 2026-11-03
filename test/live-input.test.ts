@@ -90,3 +90,17 @@ test('Ctrl+A continua funcionando depois de uma mensagem digitada', async () => 
   // The messages go together, in order, as the next input.
   expect(await typed?.submitted()).toBe('use curl\n\ne depois');
 });
+
+test('a entrada que acaba antes de alguém esperar recusa quem esperar depois', async () => {
+  const ended = new DOMException('stdin foi fechado.', 'AbortError');
+  const typed = listenInput(() => Promise.reject(ended), undefined);
+  await settle();
+
+  let error: unknown;
+  try {
+    await typed?.promise;
+  } catch (caught) {
+    error = caught;
+  }
+  expect(error).toBe(ended);
+});
