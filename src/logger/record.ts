@@ -149,6 +149,8 @@ function messageOf(entry: LogEntry): string {
       return 'Pergunta do agente';
     case 'answer':
       return 'Resposta recebida';
+    case 'live_input':
+      return 'Mensagem entregue durante o passo';
     case 'approved':
       return 'Aprovação recebida';
     case 'message':

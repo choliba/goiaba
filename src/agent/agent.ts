@@ -548,15 +548,20 @@ export class Agent {
             const message = await this.dispatchLiveInput(value, sessionId);
             // Straight to the running CLI; once it takes no more, kept for
             // the next turn as before.
-            if (
+            const delivered =
               message !== undefined &&
               message !== APPROVALS_FINISHED &&
-              live?.send(message) === true
-            ) {
-              return undefined;
+              live?.send(message) === true;
+            if (delivered) {
+              publish({ type: 'live_input', value: message });
+              this.say(LIVE_DELIVERED_MESSAGE);
             }
-            return message;
+            // Whatever was written over it (the echo, a notice), the turn
+            // goes on: its status line comes back.
+            this.renderStatus();
+            return delivered ? undefined : message;
           },
+          () => this.say(LIVE_KEPT_MESSAGE),
         );
 
         // The loop runs while the CLI does (it ends when the process exits).
@@ -622,16 +627,16 @@ export class Agent {
               continue;
             }
 
-            if (event.type === 'partial') {
-              this.showPiece(event.text);
-              continue;
-            }
-
             if (event.type === 'stderr') {
               // The CLI's own words: on screen and in the log, never passed
               // on as the model's answer.
               publish({ type: 'stderr', value: event.text });
               this.say(event.text.trimEnd());
+              continue;
+            }
+
+            if (event.type === 'partial') {
+              this.showPiece(event.text);
               continue;
             }
 
@@ -989,7 +994,8 @@ interface PendingInput {
 /**
  * Reads the terminal for the whole turn, while the provider works. `map`
  * returns `undefined` for input handled locally (Ctrl+A with nothing
- * approved): then it reads again. Ctrl+A keeps working after a message was
+ * approved): then it reads again. `onKept` hears of each message kept
+ * because nobody waits for it yet. Ctrl+A keeps working after a message was
  * typed; messages typed during the turn are kept and go together, in order,
  * as the next input. Approvals given before anyone awaits the input do not
  * end the reading either; whoever awaits it later gets them first.
@@ -999,6 +1005,7 @@ export function listenInput(
   signal: AbortSignal | undefined,
   map: (input: string) => Promise<string | undefined> = (input) =>
     Promise.resolve(input),
+  onKept?: (message: string) => void,
 ): PendingInput | undefined {
   if (listen === undefined) return undefined;
 
@@ -1035,7 +1042,10 @@ export function listenInput(
       // Nobody waits yet: keep reading (Ctrl+A again, more messages); the
       // end of the turn goes on with what was typed or approved.
       if (mapped === APPROVALS_FINISHED) approved = true;
-      else messages.push(mapped);
+      else {
+        messages.push(mapped);
+        onKept?.(mapped);
+      }
     }
   };
   void read().catch((error: unknown) => {
@@ -1456,6 +1466,12 @@ const THINKING_MESSAGE = '⏳ pensando…';
 const FORGOTTEN_SESSION_MESSAGE =
   'A conversa anterior não existe mais na CLI: começando uma nova.';
 const BACKGROUND_MESSAGE = '⏳ rodando em background…';
+/** A message typed during a turn, given to the CLI that is running. */
+const LIVE_DELIVERED_MESSAGE =
+  'Mensagem entregue: o agente responde quando terminar o que está fazendo.';
+/** A message typed during a turn, kept for the next one. */
+const LIVE_KEPT_MESSAGE =
+  'Mensagem guardada: vai para o agente quando ele terminar o passo atual.';
 /** Before the model's reasoning on screen, apart from its answer. */
 const REASONING_MARK = '💭';
 /** How often a `thinking` tick is reported while the model works. */

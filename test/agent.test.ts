@@ -156,6 +156,10 @@ test('Agent.run escreve output e ask pelos ports injetados', async () => {
 
 /** The line shown when the model starts working on a turn. */
 const THINKING = '⏳ pensando…';
+const DELIVERED =
+  'Mensagem entregue: o agente responde quando terminar o que está fazendo.';
+const KEPT =
+  'Mensagem guardada: vai para o agente quando ele terminar o passo atual.';
 
 test('Agent entrega a conversa aos subscribers, sem os detalhes do log', async () => {
   const received: AgentOutput[] = [];
@@ -230,6 +234,8 @@ test('Agent.run envia na mesma sessão uma linha digitada durante o turno', asyn
   ]);
   expect(values).toEqual([
     THINKING,
+    // Nenhum CLI aceita mensagens no meio do turno: a linha espera o próximo.
+    KEPT,
     'primeiro turno',
     THINKING,
     'segundo turno',
@@ -263,10 +269,42 @@ test('Agent manda ao CLI em execução o que é digitado durante o turno, em ord
   expect(provider.started).toEqual(['primeira']);
   expect(provider.sent).toEqual(['segunda', 'terceira']);
   expect(written.filter((value) => value !== THINKING)).toEqual([
+    DELIVERED,
+    DELIVERED,
     'primeira',
     'segunda',
     'terceira',
   ]);
+});
+
+test('Agent volta a mostrar o status depois de Ctrl+A durante o turno', async () => {
+  const provider = new LiveProvider();
+  const commands = [':approvals'];
+  const screen: string[] = [];
+
+  await new Agent({
+    conversation: false,
+    name: 'teste',
+    prompt: 'primeira',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    interaction: {
+      ask: unusedAsk,
+      listen: async () => {
+        await provider.reading;
+        return commands.shift() ?? new Promise<string>(() => undefined);
+      },
+      write: (value) => screen.push(value),
+      status: (text) => screen.push(`[status] ${text ?? ''}`),
+    },
+  }).run();
+
+  // O aviso apaga a linha de status; o turno segue, e ela volta logo depois.
+  const notice = screen.findIndex((value) =>
+    value.startsWith('Nenhum comando negado'),
+  );
+  expect(notice).toBeGreaterThan(-1);
+  expect(screen[notice + 1]).toBe(`[status] ${THINKING}`);
 });
 
 test('Agent leva ao turno seguinte o que chega quando o CLI já não aceita', async () => {
@@ -771,44 +809,6 @@ test('se a CLI não tem mais a sessão guardada, começa uma nova em vez de para
   expect(store.openSession('forgetful', process.cwd())).toBeUndefined();
 });
 
-/** Fails to resume any session (its history is gone); a new one works. */
-class ForgetfulProvider implements Provider<string, string> {
-  public readonly id = 'forgetful';
-  public readonly calls: { session: string | undefined; input: string }[] = [];
-
-  public createCommand(input: string, sessionId?: string): ProgramCommand {
-    this.calls.push({ session: sessionId, input });
-    return {
-      executable: process.execPath,
-      arguments: [
-        '-e',
-        sessionId === undefined
-          ? 'process.stdout.write("nova")'
-          : 'process.exit(1)',
-      ],
-    };
-  }
-
-  public async *parseOutput(
-    output: AsyncIterable<ProgramOutput>,
-  ): AsyncIterable<ProviderEvent<string>> {
-    let first = true;
-    for await (const { channel, chunk } of output) {
-      if (channel !== 'stdout') continue;
-      if (first) yield { type: 'session', id: 'nova-sessao' };
-      first = false;
-      yield { type: 'output', value: chunk };
-    }
-  }
-}
-
-class SessionProvider implements Provider<string, string> {
-  public readonly id = 'session';
-  public readonly calls: { session: string | undefined; input: string }[] = [];
-
-  public constructor(private readonly session: string) {}
-
-  public createCommand(input: string, sessionId?: string): ProgramCommand {
 test('o que a CLI escreve no stderr aparece na tela, mas não é resposta do modelo', async () => {
   const written: string[] = [];
   const outputs: unknown[] = [];
@@ -857,6 +857,44 @@ class StderrProvider implements Provider<string, string> {
   }
 }
 
+/** Fails to resume any session (its history is gone); a new one works. */
+class ForgetfulProvider implements Provider<string, string> {
+  public readonly id = 'forgetful';
+  public readonly calls: { session: string | undefined; input: string }[] = [];
+
+  public createCommand(input: string, sessionId?: string): ProgramCommand {
+    this.calls.push({ session: sessionId, input });
+    return {
+      executable: process.execPath,
+      arguments: [
+        '-e',
+        sessionId === undefined
+          ? 'process.stdout.write("nova")'
+          : 'process.exit(1)',
+      ],
+    };
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    let first = true;
+    for await (const { channel, chunk } of output) {
+      if (channel !== 'stdout') continue;
+      if (first) yield { type: 'session', id: 'nova-sessao' };
+      first = false;
+      yield { type: 'output', value: chunk };
+    }
+  }
+}
+
+class SessionProvider implements Provider<string, string> {
+  public readonly id = 'session';
+  public readonly calls: { session: string | undefined; input: string }[] = [];
+
+  public constructor(private readonly session: string) {}
+
+  public createCommand(input: string, sessionId?: string): ProgramCommand {
     this.calls.push({ session: sessionId, input });
     return {
       executable: process.execPath,
