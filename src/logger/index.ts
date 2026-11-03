@@ -83,18 +83,21 @@ export function openLogger(): void {
   const config = getConfig();
   const session = new Date().toISOString().replaceAll(':', '-');
   const { dir, use } = config.logger;
-  ensureLogDir(dir);
-  const output =
-    use === undefined
-      ? defaultSink(dir, session)
-      : adaptLogger(use({ dir, session }));
   const context: LogContext = { traceId: randomUUID(), userName: userName() };
   const env: Record<string, string> = {};
   for (const { vars } of config.envs) Object.assign(env, vars);
 
-  sink = output;
+  // The destination is made on the first record, not here: a program that
+  // logs nothing (e.g. `bun clear`) leaves no empty log behind.
   write = (entry) => {
-    output.write(maskRecord(toLogRecord(entry, context), env));
+    if (sink === undefined) {
+      ensureLogDir(dir);
+      sink =
+        use === undefined
+          ? defaultSink(dir, session)
+          : adaptLogger(use({ dir, session }));
+    }
+    sink.write(maskRecord(toLogRecord(entry, context), env));
   };
 }
 

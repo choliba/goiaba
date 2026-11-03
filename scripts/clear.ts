@@ -48,8 +48,11 @@ await runCommand(
         }
       }
 
-      for (const name of entries) removePath(join(dir, name));
-      output.write(`${String(entries.length)} item(ns) apagado(s).`);
+      // Listed again: this run's own log may have been made since (the
+      // answer above is logged), and it goes too.
+      const now = listDirectory(dir);
+      for (const name of now) removePath(join(dir, name));
+      output.write(`${String(now.length)} item(ns) apagado(s).`);
     },
   }),
 );
