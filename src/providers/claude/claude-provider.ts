@@ -397,10 +397,13 @@ function readEvents(
 
     const events: ParsedEvent[] = [];
 
+    // A failed result names a session without opening it: the CLI answers
+    // `--resume` of a session it no longer has with only that line.
     if (
       !sessionEmitted &&
       typeof event['session_id'] === 'string' &&
-      event['session_id'].length > 0
+      event['session_id'].length > 0 &&
+      !(event['type'] === 'result' && event['is_error'] === true)
     ) {
       events.push({ value: { type: 'session', id: event['session_id'] } });
     }

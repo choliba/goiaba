@@ -444,6 +444,28 @@ describe('ClaudeProvider', () => {
     ]);
   });
 
+  test('um resultado de erro não abre sessão: --resume de uma conversa que a CLI não tem mais', async () => {
+    const provider = new ClaudeProvider({ model: 'modelo' });
+    const missing = 'No conversation found with session ID: sessao-velha';
+    const output = source([
+      { channel: 'stderr', chunk: `${missing}\n` },
+      {
+        channel: 'stdout',
+        chunk: `${JSON.stringify({
+          type: 'result',
+          subtype: 'error_during_execution',
+          is_error: true,
+          num_turns: 0,
+          session_id: 'sessao-velha',
+          errors: [missing],
+        })}\n`,
+      },
+    ]);
+
+    const events = await collect(provider.parseOutput(output));
+    expect(events).not.toContainEqual({ type: 'session', id: 'sessao-velha' });
+  });
+
   test('entrega a chamada e o erro de uma ferramenta como eventos', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 
