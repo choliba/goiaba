@@ -143,6 +143,8 @@ function messageOf(entry: LogEntry): string {
       return 'Sessão iniciada';
     case 'output':
       return 'Saída do agente';
+    case 'stderr':
+      return 'Mensagem da CLI (stderr)';
     case 'ask':
       return 'Pergunta do agente';
     case 'answer':

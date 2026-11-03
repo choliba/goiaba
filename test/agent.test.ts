@@ -809,6 +809,54 @@ class SessionProvider implements Provider<string, string> {
   public constructor(private readonly session: string) {}
 
   public createCommand(input: string, sessionId?: string): ProgramCommand {
+test('o que a CLI escreve no stderr aparece na tela, mas não é resposta do modelo', async () => {
+  const written: string[] = [];
+  const outputs: unknown[] = [];
+
+  await new Agent({
+    conversation: false,
+    name: 'teste',
+    prompt: 'início',
+    provider: new StderrProvider(),
+    workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
+    interaction: { ask: unusedAsk, write: (value) => written.push(value) },
+    subscribe: [
+      (event) => {
+        if (event.type() === 'output') outputs.push(event.data()['value']);
+      },
+    ],
+  }).run();
+
+  expect(written).toContain('aviso da CLI');
+  expect(outputs).toEqual(['resposta']);
+});
+
+/** Writes a warning of its own on stderr, then the model's answer. */
+class StderrProvider implements Provider<string, string> {
+  public readonly id = 'stderr';
+
+  public createCommand(): ProgramCommand {
+    return {
+      executable: process.execPath,
+      arguments: [
+        '-e',
+        'process.stderr.write("aviso da CLI\\n"); setTimeout(() => process.stdout.write("resposta"), 50)',
+      ],
+    };
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    yield { type: 'session', id: 'stderr-session' };
+    for await (const { channel, chunk } of output) {
+      yield channel === 'stderr'
+        ? { type: 'stderr', text: chunk }
+        : { type: 'output', value: chunk };
+    }
+  }
+}
+
     this.calls.push({ session: sessionId, input });
     return {
       executable: process.execPath,

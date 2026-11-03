@@ -236,7 +236,7 @@ export class CodexProvider
     for await (const { channel, chunk } of output) {
       if (channel === 'stderr') {
         const kept = withoutGateDenials(chunk);
-        if (kept !== undefined) yield { type: 'output', value: kept };
+        if (kept !== undefined) yield { type: 'stderr', text: kept };
         continue;
       }
 

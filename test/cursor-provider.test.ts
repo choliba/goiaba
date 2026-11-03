@@ -61,7 +61,7 @@ describe('CursorProvider', () => {
     expect(await collect(provider.parseOutput(output))).toEqual([
       { type: 'session', id: 'chat-1' },
       { type: 'output', value: 'resposta' },
-      { type: 'output', value: 'diagnóstico' },
+      { type: 'stderr', text: 'diagnóstico' },
     ]);
   });
 

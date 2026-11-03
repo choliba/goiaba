@@ -347,7 +347,7 @@ describe('ClaudeProvider', () => {
     expect(await collect(provider.parseOutput(output))).toEqual([
       { type: 'session', id: 'sessao-1' },
       { type: 'output', value: 'resposta' },
-      { type: 'output', value: 'diagnóstico' },
+      { type: 'stderr', text: 'diagnóstico' },
     ]);
   });
 

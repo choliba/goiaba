@@ -163,7 +163,7 @@ describe('CodexProvider', () => {
 
     expect(await collect(provider.parseOutput(output))).toEqual([
       { type: 'output', value: 'resposta' },
-      { type: 'output', value: 'diagnóstico' },
+      { type: 'stderr', text: 'diagnóstico' },
     ]);
   });
 
@@ -177,7 +177,7 @@ describe('CodexProvider', () => {
     ]);
 
     expect(await collect(provider.parseOutput(output))).toEqual([
-      { type: 'output', value: 'falha de verdade\n' },
+      { type: 'stderr', text: 'falha de verdade\n' },
     ]);
   });
 

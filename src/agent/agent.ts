@@ -627,6 +627,14 @@ export class Agent {
               continue;
             }
 
+            if (event.type === 'stderr') {
+              // The CLI's own words: on screen and in the log, never passed
+              // on as the model's answer.
+              publish({ type: 'stderr', value: event.text });
+              this.say(event.text.trimEnd());
+              continue;
+            }
+
             if (event.type === 'reasoning') {
               // What the model thought, on screen as soon as it arrives:
               // already there when it came piece by piece.

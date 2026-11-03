@@ -76,7 +76,7 @@ export class CursorProvider implements Provider<string, string> {
 
     for await (const { channel, chunk } of output) {
       if (channel === 'stderr') {
-        yield { type: 'output', value: chunk };
+        yield { type: 'stderr', text: chunk };
         continue;
       }
 

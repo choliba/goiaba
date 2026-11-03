@@ -31,6 +31,14 @@ export type ProviderEvent<TOutput> =
       readonly type: 'reasoning';
       readonly text: string;
     }
+  | {
+      /**
+       * What the CLI itself wrote on stderr (a warning, an error of its
+       * own): shown and logged, never taken as what the model said.
+       */
+      readonly type: 'stderr';
+      readonly text: string;
+    }
   | ToolEvent;
 
 /** What a model's traffic says as it passes. */

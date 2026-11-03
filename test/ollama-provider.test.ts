@@ -239,7 +239,7 @@ describe('OllamaProvider', () => {
     }
 
     expect(events).toEqual([
-      { type: 'output', value: 'erro de verdade\n' },
+      { type: 'stderr', text: 'erro de verdade\n' },
       { type: 'output', value: 'oi' },
     ]);
   });
