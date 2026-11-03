@@ -26,7 +26,9 @@ import { todasAsPermissoes } from './permissions';
  *
  * Ctrl+A opens the approvals; Ctrl+C ends it.
  */
-const MODEL = 'qwen3.5:4b';
+const MODEL = 'qwen3.5:4b-64k';
+// const MODEL = 'tech-stack-analyzer:latest';
+// const MODEL = 'qwen3.5:4b';
 
 const terminal = new TerminalInteraction(AGENT_TERMINAL);
 
