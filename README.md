@@ -2,6 +2,7 @@
 
 ![GitHub Created At](https://img.shields.io/github/created-at/choliba/goiaba?color=bright-green&style=flat-square)
 ![GitHub contributors](https://img.shields.io/github/contributors/choliba/goiaba?color=bright-green&style=flat-square)
+[![license](https://img.shields.io/github/license/choliba/goiaba.svg?color=bright-green&style=flat-square)](LICENSE)
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
 Roda agentes de código (Claude Code, Codex, Cursor e modelos locais pelo Ollama) a partir de scripts TypeScript,
@@ -114,4 +115,4 @@ Ao editar este arquivo, siga a especificação do [standard-readme](https://gith
 
 ## Licença
 
-Ainda sem licença definida.
+[MIT](LICENSE).
