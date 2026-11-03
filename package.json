@@ -4,8 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "arquiteto": "bun agents/arquiteto.ts",
-    "chat": "bun agents/chat-agente.ts",
     "ollama:codex": "bun agents/ollama.codex.ts",
     "ollama": "bun agents/ollama.ts",
     "tui": "bun agents/tui.ts",
