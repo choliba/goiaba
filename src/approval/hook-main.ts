@@ -11,7 +11,8 @@ import { connect } from 'node:net';
 
 import { exitProgram, programArguments } from '../execute/process';
 import { read } from '../input/index';
-import { TerminalInteraction } from '../interaction/index';
+import { StdioAdapter } from '../adapters/stdio/index';
+import { Conversation } from '../interaction/index';
 
 const TIMEOUT_MS = 55 * 60 * 1000;
 
@@ -20,7 +21,7 @@ interface Decision {
   readonly reason: string;
 }
 
-const io = new TerminalInteraction();
+const io = new Conversation(new StdioAdapter());
 
 function reply({ decision, reason }: Decision): void {
   io.write(
@@ -36,7 +37,7 @@ function reply({ decision, reason }: Decision): void {
 
 function fail(reason: string): never {
   reply({ decision: 'deny', reason });
-  io.writeError(reason);
+  io.error(reason);
   return exitProgram(2);
 }
 

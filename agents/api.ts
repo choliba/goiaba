@@ -1,10 +1,11 @@
 import {
+  Conversation,
+  StdioAdapter,
   Agent,
   ensureDirectory,
   join,
   OllamaProvider,
   readText,
-  TerminalInteraction,
   Workspace,
   type AgentOptions,
   type ApprovalScope,
@@ -344,7 +345,7 @@ const servidor = Bun.serve({
   },
 });
 
-new TerminalInteraction().write(
+new Conversation(new StdioAdapter()).write(
   `API dos agentes ${[...agentes.values()].map((agente) => agente.id).join(', ')} em ${servidor.url.href}`,
 );
 

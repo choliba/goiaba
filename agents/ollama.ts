@@ -1,12 +1,11 @@
 import {
-  AGENT_SHORTCUTS,
+  agentConversation,
   Agent,
   ensureDirectory,
   humanApprover,
   join,
   OllamaProvider,
   runScript,
-  TerminalInteraction,
   UsageError,
   Workspace,
   type OllamaCli,
@@ -30,7 +29,7 @@ const MODEL = 'qwen3.5:4b-64k';
 // const MODEL = 'tech-stack-analyzer:latest';
 // const MODEL = 'qwen3.5:4b';
 
-const terminal = new TerminalInteraction(AGENT_SHORTCUTS);
+const terminal = agentConversation();
 
 /** The provider of each agent: the same model, only the CLI changes. */
 function providerOf(cli: OllamaCli): OllamaProvider {

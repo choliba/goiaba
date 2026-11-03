@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 
-import { TerminalInteraction } from '../src/interaction/index';
+import {
+  Conversation,
+  type InteractionAdapter,
+} from '../src/interaction/index';
 import {
   DEFAULT_LINE_LENGTH,
   completeOutput,
@@ -24,6 +27,18 @@ function recorder(): { output: Output; shown: string[] } {
     },
   });
   return { output, shown };
+}
+
+/** An adapter that only shows: nothing ever arrives. */
+function showing(output: Output): InteractionAdapter {
+  return {
+    output,
+    events: async function* () {
+      // Nothing arrives.
+    },
+    request: () => undefined,
+    close: () => undefined,
+  };
 }
 
 /** Until everything queued has been shown. */
@@ -54,17 +69,17 @@ describe('completeOutput', () => {
   });
 });
 
-describe('TerminalInteraction: a ordem do que mostra', () => {
+describe('Conversation: a ordem do que mostra', () => {
   test('um stream vai até outra coisa ser mostrada, que espera por ele', async () => {
     const { output, shown } = recorder();
-    const terminal = new TerminalInteraction({ output });
+    const terminal = new Conversation(showing(output));
 
     terminal.stream('Olá, ');
     terminal.stream('mundo');
     terminal.write('depois');
     terminal.stream('outra ');
     terminal.stream('resposta');
-    terminal.writeError('ops');
+    terminal.error('ops');
     await settle();
 
     expect(shown).toEqual([
@@ -77,7 +92,7 @@ describe('TerminalInteraction: a ordem do que mostra', () => {
 
   test('sem nada sendo mostrado, escreve na mesma chamada', () => {
     const { output, shown } = recorder();
-    new TerminalInteraction({ output }).write('na hora');
+    new Conversation(showing(output)).write('na hora');
 
     expect(shown).toEqual(['na hora']);
   });

@@ -1,13 +1,12 @@
 import { homedir } from 'node:os';
 
 import {
-  AGENT_SHORTCUTS,
+  agentConversation,
   Agent,
   ClaudeProvider,
   ensureDirectory,
   humanApprover,
   runScript,
-  TerminalInteraction,
   Workspace,
   type Interaction,
   join,
@@ -33,7 +32,7 @@ import { todasAsPermissoes } from './permissions';
  *   3. logs and database   `logDir` and `database` in goiaba.config.ts
  */
 // The terminal: the only reader of stdin and writer of stdout.
-const terminal = new TerminalInteraction(AGENT_SHORTCUTS);
+const terminal = agentConversation();
 
 await runScript(async ({ signal }) => {
   const root = process.env['workspace'] ?? '/';

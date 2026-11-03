@@ -52,7 +52,12 @@ import {
   type PolicyCategory,
 } from '../policy/index';
 import { UsageError } from '../errors';
-import { TerminalInteraction, type Interaction } from '../interaction/index';
+import { StdioAdapter } from '../adapters/stdio/index';
+import {
+  Conversation,
+  type Interaction,
+  type InteractionAdapter,
+} from '../interaction/index';
 import { listenForInterrupt } from '../execute/interrupt';
 import { scriptSignal } from '../usage';
 import type { Workspace, WorkspaceNetworkOptions } from '../workspace/index';
@@ -119,7 +124,7 @@ export class Agent {
     workspace,
     executor,
     output,
-    interaction = new TerminalInteraction(AGENT_SHORTCUTS),
+    interaction = agentConversation(),
     permissions,
     signal = scriptSignal(),
     approve,
@@ -1045,15 +1050,23 @@ const APPROVAL_COMMANDS: ReadonlySet<string> = new Set([
   'bun run approvals',
 ]);
 
+/** The agent's shortcuts on a terminal: Ctrl+A opens the approvals. */
+export const AGENT_SHORTCUTS: Readonly<Record<string, string>> = {
+  '\u0001': 'approvals',
+};
+
 /**
- * The agent's shortcuts: Ctrl+A opens the approvals, and an approvals
- * command typed during a turn goes ahead of the messages waiting. Pass them
- * to the interaction an agent uses: `new TerminalInteraction(AGENT_SHORTCUTS)`.
+ * The conversation an agent uses, over `adapter` (stdio with
+ * `AGENT_SHORTCUTS` by default): the approvals command (`:approvals`, which
+ * Ctrl+A sends) typed during a turn goes ahead of the messages waiting.
  */
-export const AGENT_SHORTCUTS = {
-  shortcuts: { '\u0001': ':approvals' },
-  urgent: (line: string): boolean => isApprovalsCommand(line),
-} as const;
+export function agentConversation(
+  adapter: InteractionAdapter = new StdioAdapter({
+    shortcuts: AGENT_SHORTCUTS,
+  }),
+): Conversation {
+  return new Conversation(adapter, { urgent: isApprovalsCommand });
+}
 export const APPROVALS_FINISHED = '\u0000goiaba:approvals-finished';
 
 function isApprovalsCommand(input: string): boolean {

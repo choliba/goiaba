@@ -1,5 +1,4 @@
 import {
-  AGENT_SHORTCUTS,
   Agent,
   ensureDirectory,
   humanApprover,
@@ -43,7 +42,8 @@ await runScript(async ({ signal }) => {
     `agente-tui-${cli}`,
   );
   ensureDirectory(root);
-  const tui = new TuiInteraction(AGENT_SHORTCUTS);
+  // Ctrl+A opens the approvals.
+  const tui = new TuiInteraction({ shortcuts: { '\u0001': ':approvals' } });
 
   await new Agent({
     resume: false,

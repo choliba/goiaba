@@ -4,7 +4,8 @@ import { listenForInterrupt } from './execute/interrupt';
 import { exitProgram, onUncaughtError } from './execute/process';
 import { closeLogger, log, openLogger } from './logger/index';
 import { writeErr } from './output/stdio';
-import { TerminalInteraction, type Interaction } from './interaction/index';
+import { StdioAdapter } from './adapters/stdio/index';
+import { Conversation, type Interaction } from './interaction/index';
 
 export { UsageError };
 
@@ -29,7 +30,10 @@ export function scriptSignal(): AbortSignal | undefined {
 
 export async function runScript(
   start: (context: ScriptContext) => Promise<void>,
-  { output = new TerminalInteraction(), config = {} }: RunScriptOptions = {},
+  {
+    output = new Conversation(new StdioAdapter()),
+    config = {},
+  }: RunScriptOptions = {},
 ): Promise<void> {
   const interrupt = listenForInterrupt();
   current = interrupt.signal;
