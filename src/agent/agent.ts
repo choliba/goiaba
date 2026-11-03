@@ -1259,8 +1259,11 @@ function enforcePermissions({
       : {
           hookCommand: broker.hookCommand(),
           root: workspace.root,
-          // `share` uses the host home; `login` and `none` use this workspace's.
-          home: workspace.hostState === 'share' ? userHome() : workspace.home(),
+          home: workspace.home(),
+          // `share` also uses the CLI's state on the host.
+          ...(workspace.hostState === 'share'
+            ? { sharedHome: userHome() }
+            : {}),
         };
   const cliFiles = applyProviderPermissions(provider, permissions, gate);
 

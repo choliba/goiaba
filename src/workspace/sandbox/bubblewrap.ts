@@ -191,7 +191,6 @@ export class BubblewrapSandbox implements Sandbox {
       ),
       ...bubblewrapMaskArgs([
         ...(this.filesystem?.masks ?? []),
-        ...protectedMasks(this.protectedPaths),
         // Logins the provider does not use, and the other homes: not in
         // the jail.
         ...(this.host?.hidden ?? []).map((path) => ({
@@ -202,6 +201,9 @@ export class BubblewrapSandbox implements Sandbox {
       // The workspace's home, after the masks (it may be inside a hidden
       // path), and the CLI's login, read-only, inside it.
       ...homeArgs(this.host),
+      // Last: a later mount would cover them (the gate's hook lives in the
+      // workspace's home).
+      ...bubblewrapMaskArgs(protectedMasks(this.protectedPaths)),
     ];
 
     logSandbox(

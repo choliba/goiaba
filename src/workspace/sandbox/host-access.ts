@@ -50,7 +50,8 @@ export interface SandboxHost {
   readonly hidden: readonly string[];
   /**
    * The workspace's home, mounted writable after `hidden` (it may be inside
-   * a hidden path), with `credentials` mounted read-only into it.
+   * a hidden path), with `credentials` mounted read-only into it. With
+   * `share` it is mounted too, but HOME stays the host's.
    */
   readonly home: string | undefined;
   readonly credentials: readonly HostBind[];
@@ -125,11 +126,14 @@ export function sandboxHost(
         pathExists(file) &&
         state.some((path) => file === path || file.startsWith(`${path}/`)),
     );
+    // The workspace's home too, with HOME left on the host's: what Goiaba
+    // keeps for the CLI (the gate's hook) never goes into the host's state.
+    ensureDirectory(options.home, 0o700);
     return {
       state,
       programs: access.programs ?? [],
       hidden: [...hidden, ...homesInside(options)],
-      home: undefined,
+      home: options.home,
       credentials: [],
       env,
     };

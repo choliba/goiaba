@@ -56,7 +56,7 @@ O cache do Goiaba (`~/.cache/goiaba`) também fica fora do sandbox, em qualquer 
 4. O agente passa as permissões, os caminhos protegidos e a rede por operações de `Workspace`.
 5. `prepare` define `cwd` como a raiz e delega ao sandbox. `close` encerra os recursos.
 
-Claude recebe `CLAUDE_CONFIG_DIR` apontando para `.claude` no home isolado; Codex recebe `CODEX_HOME` apontando para `.codex`. Quando `share` é escolhido com gate de execução do Codex, o gate também usa o `CODEX_HOME` compartilhado do host.
+Claude recebe `CLAUDE_CONFIG_DIR` apontando para `.claude` no home isolado; Codex recebe `CODEX_HOME` apontando para `.codex`. Com `share` e o gate de execução, o Codex roda com um `CODEX_HOME` próprio, `.codex-share` no home do workspace: o hook do gate e as regras da política ficam ali, somente leitura, e o resto (sessões, login, configuração) são links para o `~/.codex` do host. Nada do Goiaba é gravado no `~/.codex`. O home do workspace é montado também em `share`, mas o `HOME` continua o do host.
 
 [↑ topo](#topo)
 

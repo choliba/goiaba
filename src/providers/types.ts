@@ -83,8 +83,16 @@ export interface ExecutionGate {
   readonly hookCommand: readonly string[];
   /** Workspace root, for CLI state kept per workspace. */
   readonly root: string;
-  /** The workspace's home the CLI runs with, when isolated from the host's. */
+  /**
+   * The workspace's home: where the CLI's gate files live, and the home the
+   * CLI runs with when isolated from the host's.
+   */
   readonly home?: string;
+  /**
+   * With `hostState: 'share'`, the host home whose CLI state the CLI uses.
+   * The gate's files still go in `home`, never into the host's state.
+   */
+  readonly sharedHome?: string;
 }
 
 /** Which provider, model and CLI an agent runs on; every record of it says so. */

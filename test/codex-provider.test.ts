@@ -1,4 +1,12 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -45,9 +53,15 @@ describe('CodexProvider', () => {
     );
   });
 
-  test('share com gate mantém o CODEX_HOME compartilhado do host', () => {
+  test('share com gate usa um CODEX_HOME próprio, ligado ao estado do host', () => {
     const provider = new CodexProvider({ model: 'modelo' });
-    const hostHome = mkdtempSync(join(tmpdir(), 'goiaba-codex-share-'));
+    const base = mkdtempSync(join(tmpdir(), 'goiaba-codex-share-'));
+    const hostHome = join(base, 'host');
+    const home = join(base, 'workspace-home');
+    mkdirSync(join(hostHome, '.codex', 'sessions'), { recursive: true });
+    mkdirSync(join(hostHome, '.codex', 'rules'), { recursive: true });
+    writeFileSync(join(hostHome, '.codex', 'auth.json'), 'login');
+    writeFileSync(join(hostHome, '.codex', 'hooks.json'), 'hook-do-usuario');
 
     try {
       provider.applyPermissions(
@@ -55,16 +69,31 @@ describe('CodexProvider', () => {
         {
           hookCommand: ['/bun', '/gate/hook', '/gate.sock'],
           root: '/workspace',
-          home: hostHome,
+          home,
+          sharedHome: hostHome,
         },
       );
+      const own = join(home, '.codex-share');
 
       expect(provider.createCommand('pergunta')).toMatchObject({
         executable: 'env',
-        arguments: expect.arrayContaining([`CODEX_HOME=${hostHome}/.codex`]),
+        arguments: expect.arrayContaining([`CODEX_HOME=${own}`]),
       });
+      // O estado do host por links; o hook e as regras são nossos.
+      expect(readlinkSync(join(own, 'auth.json'))).toBe(
+        join(hostHome, '.codex', 'auth.json'),
+      );
+      expect(readlinkSync(join(own, 'sessions'))).toBe(
+        join(hostHome, '.codex', 'sessions'),
+      );
+      expect(lstatSync(join(own, 'hooks.json')).isSymbolicLink()).toBe(false);
+      expect(lstatSync(join(own, 'rules')).isSymbolicLink()).toBe(false);
+      // Nada do Goiaba no ~/.codex do host.
+      expect(readFileSync(join(hostHome, '.codex', 'hooks.json'), 'utf8')).toBe(
+        'hook-do-usuario',
+      );
     } finally {
-      rmSync(hostHome, { recursive: true, force: true });
+      rmSync(base, { recursive: true, force: true });
     }
   });
 

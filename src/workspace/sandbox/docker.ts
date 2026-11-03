@@ -99,17 +99,18 @@ export class DockerSandbox implements Sandbox {
       .toSorted();
     const envArgs = envNames.flatMap((name) => ['-e', name]);
     const innerRoot = `${HOST_ROOT}${this.root}`;
+    const writable = [
+      ...(host?.state ?? hostStateDirs(this.env)),
+      ...this.writable,
+      ...(this.filesystem?.writable ?? []),
+      // The bridge finds the proxy's socket there and creates the
+      // published ports' sockets.
+      ...(network === undefined ? [] : [network.sandboxDir()]),
+    ];
     const described = describeMounts(
       this.root,
       innerRoot,
-      [
-        ...(host?.state ?? hostStateDirs(this.env)),
-        ...this.writable,
-        ...(this.filesystem?.writable ?? []),
-        // The bridge finds the proxy's socket there and creates the
-        // published ports' sockets.
-        ...(network === undefined ? [] : [network.sandboxDir()]),
-      ],
+      writable,
       {
         workspaceAccess: this.filesystem?.workspaceAccess ?? 'readwrite',
         writable: this.filesystem?.writable ?? [],
@@ -131,7 +132,14 @@ export class DockerSandbox implements Sandbox {
     const mounts = [
       ...described,
       ...(host?.programs ?? [])
-        .filter((path) => pathExists(path))
+        // Inside the CLI's state (`share`): already there, writable.
+        .filter(
+          (path) =>
+            pathExists(path) &&
+            !writable.some(
+              (mount) => path === mount || path.startsWith(`${mount}/`),
+            ),
+        )
         .map((path) => ({
           type: 'bind',
           source: path,

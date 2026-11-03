@@ -467,6 +467,65 @@ describe('o estado das CLIs no host (hostState)', () => {
     expect(existsSync(codex.env['CODEX_HOME'])).toBe(true);
   });
 
+  for (const type of ['bubblewrap', 'docker'] as const) {
+    for (const hostState of ['login', 'share'] as const) {
+      test.skipIf(type === 'bubblewrap' ? !bubblewrap : !docker)(
+        `${type} ${hostState}: o hook do gate no home do workspace continua somente leitura`,
+        async () => {
+          const workspace =
+            type === 'docker'
+              ? new Workspace({
+                  type,
+                  root,
+                  image: 'FROM oven/bun:latest',
+                  hostState,
+                })
+              : new Workspace({ type, root, hostState });
+          const provider = new CodexProvider({ model: 'x' });
+          const host = hostOf(
+            workspace,
+            provider.hostAccess(),
+            () => false,
+            provider.id,
+          );
+          workspace.useHost(host);
+          const hook = join(host.home ?? '', '.codex', 'hooks.json');
+          mkdirSync(join(hook, '..'), { recursive: true });
+          writeFileSync(hook, 'hook-do-gate');
+          workspace.protect([hook]);
+
+          try {
+            const prepared = await workspace.prepare({
+              executable: 'sh',
+              arguments: [
+                '-c',
+                `echo mudou > ${hook} 2>/dev/null || echo somente-leitura`,
+              ],
+            });
+            const child = Bun.spawn(
+              [prepared.executable, ...(prepared.arguments ?? [])],
+              {
+                cwd: root,
+                ...(prepared.env === undefined
+                  ? {}
+                  : { env: { ...prepared.env } }),
+                stdout: 'pipe',
+                stderr: 'pipe',
+              },
+            );
+            expect(await new Response(child.stdout).text()).toContain(
+              'somente-leitura',
+            );
+            await child.exited;
+          } finally {
+            await workspace.close();
+          }
+        },
+        60_000,
+      );
+    }
+  }
+
   test('um hostState desconhecido é recusado', () => {
     expect(
       () =>

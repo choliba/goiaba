@@ -4,6 +4,8 @@ import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
 import {
   createSymlink,
   ensureDirectory,
+  isSymlink,
+  listDirectory,
   pathExists,
   writeText,
   join,
@@ -37,6 +39,14 @@ import type {
  * Codex logs every command our gate denies. The denial is already recorded
  * (database, log, approvals screen): the line goes to the debug log only.
  */
+/**
+ * With `hostState: 'share'`, the CODEX_HOME of our own inside the workspace's
+ * home: next to (never in) the `.codex` an isolated run keeps its sessions in.
+ */
+const SHARED_CODEX_HOME = '.codex-share';
+/** What our CODEX_HOME holds itself: the gate's hook and the policy's rules. */
+const OWN_ENTRIES: ReadonlySet<string> = new Set(['hooks.json', 'rules']);
+
 const GATE_DENIAL = /codex_core::tools::router: .*blocked by PreToolUse hook/;
 
 export interface CodexProviderOptions extends ProviderOptions {
@@ -133,16 +143,25 @@ export class CodexProvider
 
     if (gate === undefined) return [];
 
-    // `gate.home` is the home selected by Workspace: isolated for login/none,
-    // or the host home for explicit sharing. Only legacy/direct callers omit it.
+    // `gate.home` is the workspace's home; only direct callers omit it. The
+    // hook never goes into the host's ~/.codex, even when sharing it: there it
+    // would outlive the run, and the user's rules and hooks could loosen the
+    // policy. Sharing gets a CODEX_HOME of our own that links the rest.
     const home =
       gate.home === undefined
         ? codexHomeFor(gate.root)
-        : join(gate.home, '.codex');
+        : join(
+            gate.home,
+            gate.sharedHome === undefined ? '.codex' : SHARED_CODEX_HOME,
+          );
     const rules = join(home, 'rules');
     ensureDirectory(rules);
     const hooks = writeHooks(home, gate.hookCommand);
-    if (this.login && gate.home === undefined) linkCredentials(home);
+    if (gate.sharedHome !== undefined) {
+      linkSharedState(join(gate.sharedHome, '.codex'), home);
+    } else if (this.login && gate.home === undefined) {
+      linkCredentials(home);
+    }
     this.codexHome = home;
 
     // Read-only in the sandbox: the agent must not drop the hook or add rules.
@@ -435,6 +454,31 @@ function writeHooks(home: string, hookCommand: readonly string[]): string {
     0o600,
   );
   return hooks;
+}
+
+/**
+ * The host's Codex state (sessions, login, config…) in our CODEX_HOME, as
+ * links: what Codex writes there lands on the host. Only the hook and the
+ * rules are ours. Entries the host gains later are linked on the next run.
+ */
+function linkSharedState(hostCodexHome: string, home: string): void {
+  if (!pathExists(hostCodexHome)) return;
+
+  for (const name of listDirectory(hostCodexHome)) {
+    if (OWN_ENTRIES.has(name)) continue;
+    const link = join(home, name);
+    if (pathExists(link) || isSymlinkAt(link)) continue;
+    createSymlink(join(hostCodexHome, name), link);
+  }
+}
+
+/** A link whose target is gone still takes its name. */
+function isSymlinkAt(path: string): boolean {
+  try {
+    return isSymlink(path);
+  } catch {
+    return false;
+  }
 }
 
 /** Logged-in Codex keeps its credentials when CODEX_HOME is ours. */

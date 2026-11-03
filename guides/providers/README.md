@@ -290,7 +290,7 @@ codex: {"CODEX_HOME":".codex"}
   credenciais de ambiente: OPENAI_API_KEY, CODEX_API_KEY
 ```
 
-No workspace, `hostState: 'login'` é o padrão: cria um home persistente por raiz e monta nele somente o arquivo de login, em leitura. `hostState: 'none'` não monta esse arquivo e exige uma das variáveis de credencial declaradas; providers locais como Ollama, sem credenciais declaradas, continuam válidos. `hostState: 'share'` monta o estado do host como gravável, incluindo o histórico compartilhado. Em `share`, o gate do Codex também usa esse `CODEX_HOME` do host.
+No workspace, `hostState: 'login'` é o padrão: cria um home persistente por raiz e monta nele somente o arquivo de login, em leitura. `hostState: 'none'` não monta esse arquivo e exige uma das variáveis de credencial declaradas; providers locais como Ollama, sem credenciais declaradas, continuam válidos. `hostState: 'share'` monta o estado do host como gravável, incluindo o histórico compartilhado. Em `share` com o gate, o Codex roda com um `CODEX_HOME` próprio (`.codex-share` no home do workspace), com o hook e as regras do Goiaba e links para o resto do `~/.codex` do host, que não recebe nada do Goiaba.
 
 [↑ topo](#topo)
 
