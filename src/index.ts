@@ -1,4 +1,4 @@
-export { AGENT_SHORTCUTS, AGENT_TERMINAL, Agent } from './agent/agent';
+export { AGENT_SHORTCUTS, Agent } from './agent/agent';
 export { AgentOutput } from './agent/output';
 export { humanApprover } from './approval/human';
 export type { CommandApprover, CommandApprovalRequest } from './approval/gate';

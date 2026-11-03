@@ -1054,8 +1054,6 @@ export const AGENT_SHORTCUTS = {
   shortcuts: { '\u0001': ':approvals' },
   urgent: (line: string): boolean => isApprovalsCommand(line),
 } as const;
-/** @deprecated The old name of {@link AGENT_SHORTCUTS}. */
-export const AGENT_TERMINAL = AGENT_SHORTCUTS;
 export const APPROVALS_FINISHED = '\u0000goiaba:approvals-finished';
 
 function isApprovalsCommand(input: string): boolean {

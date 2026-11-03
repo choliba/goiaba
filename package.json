@@ -7,7 +7,6 @@
     "arquiteto": "bun agents/arquiteto.ts",
     "chat": "bun agents/chat-agente.ts",
     "ollama:codex": "bun agents/ollama.codex.ts",
-    "cloud:compare": "bun agents/cloud.compare.ts",
     "ollama": "bun agents/ollama.ts",
     "tui": "bun agents/tui.ts",
     "typecheck": "tsc --noEmit",
