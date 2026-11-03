@@ -36,12 +36,18 @@ export default defineConfig({
     dir: join(dirStorage, 'db'), // relativo a este arquivo
     name: 'batata.db',
   },
+  workspaces: {
+    // A raiz padrão dos workspaces: a pasta onde o agente trabalha
+    // (getConfig().workspaces.dir). O `bun run clear --workspaces` a esvazia.
+    dir: join(dirStorage, 'workspaces'),
+    // O home da CLI de cada workspace, um por raiz: sessões e histórico
+    // (getConfig().workspaces.homes). O `bun run clear --homes` a esvazia.
+    homes: join(dirStorage, 'homes'),
+  },
   envs: [
     {
       CURSOR_API_KEY: process.env['CURSOR_API_KEY'],
       CLAUDE_CODE_OAUTH_TOKEN: process.env['CLAUDE_CODE_OAUTH_TOKEN'],
-      // Pasta onde os agentes trabalham.
-      workspace: join(dirStorage, 'workspaces'),
     },
   ],
 });

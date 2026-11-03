@@ -29,20 +29,21 @@ Um `Workspace` define a raiz que o agente pode alterar e prepara cada comando pa
 
 ## Interface
 
-| Exportação                           | O que faz                                                                                       |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `Workspace`                          | Representa a raiz e o sandbox escolhido (`bubblewrap` ou `docker`).                             |
-| `WorkspaceOptions`                   | Recebe `type`, `root`, caminhos graváveis, portas, imagem do Docker e `hostState`.              |
-| `Workspace.home()`                   | Retorna o home persistente daquela raiz em `homes.dir`; raízes iguais produzem o mesmo caminho. |
-| `Workspace.applyPermissions(policy)` | Compila as permissões de filesystem e configura a fronteira de rede opcional.                   |
-| `Workspace.useHost(host)`            | Passa ao sandbox o conjunto já calculado de montagens e variáveis.                              |
-| `Workspace.protect(paths)`           | Mantém arquivos de configuração e hooks somente para leitura.                                   |
-| `Workspace.prepare(command)`         | Prepara o comando com o diretório de trabalho da raiz.                                          |
-| `Workspace.close()`                  | Encerra sandbox e rede.                                                                         |
+| Exportação                           | O que faz                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `Workspace`                          | Representa a raiz e o sandbox escolhido (`bubblewrap` ou `docker`).                         |
+| `WorkspaceOptions`                   | Recebe `type`, `root`, caminhos graváveis, portas, imagem do Docker, `hostState` e `homes`. |
+| `Workspace.homes`                    | A pasta dos homes: a opção `homes` ou, sem ela, `workspaces.homes` da config.               |
+| `Workspace.home()`                   | Retorna o home persistente daquela raiz em `homes`; raízes iguais produzem o mesmo caminho. |
+| `Workspace.applyPermissions(policy)` | Compila as permissões de filesystem e configura a fronteira de rede opcional.               |
+| `Workspace.useHost(host)`            | Passa ao sandbox o conjunto já calculado de montagens e variáveis.                          |
+| `Workspace.protect(paths)`           | Mantém arquivos de configuração e hooks somente para leitura.                               |
+| `Workspace.prepare(command)`         | Prepara o comando com o diretório de trabalho da raiz, criando a raiz se ela não existir.   |
+| `Workspace.close()`                  | Encerra sandbox e rede.                                                                     |
 
 `hostState` aceita três valores. `login` é o padrão: a CLI ganha um home por workspace e somente seu arquivo de login entra, montado para leitura. `none` não compartilha arquivos de login e exige uma variável de credencial declarada pelo provider; um provider local sem credenciais continua válido. `share` entrega o estado do provider no host, gravável, incluindo o histórico de outras raízes.
 
-O diretório dos homes é configurado por `homes.dir` em `goiaba.config.ts`; o padrão é `.goiaba/homes`. O diretório que contém todos os homes fica oculto dentro do sandbox se estiver dentro da raiz do workspace.
+O diretório dos homes é a opção `homes` do `Workspace`; sem ela, vale `workspaces.homes` do `goiaba.config.ts`, cujo padrão é `.goiaba/homes`. O diretório que contém todos os homes fica oculto dentro do sandbox se estiver dentro da raiz do workspace.
 
 O cache do Goiaba (`~/.cache/goiaba`) também fica fora do sandbox, em qualquer `hostState`: lá ficam os gates dos outros agentes e homes antigos de CLIs. Do cache, o sandbox vê só o que é do próprio agente: o diretório do gate de execução, somente leitura, e o da saída de rede.
 
@@ -70,7 +71,6 @@ O exemplo cria workspaces sem iniciar uma CLI ou sandbox. Mostra que o padrão �
 
 ```ts
 /** Exemplo 1 do curso de workspace: homes persistentes e hostState. */
-import { getConfig } from '../../../src/config/index';
 import { writeOut } from '../../../src/output/stdio';
 import { Workspace } from '../../../src/workspace/index';
 
@@ -90,10 +90,9 @@ const shared = new Workspace({
   root,
   hostState: 'share',
 });
-const homesDir = getConfig().homes.dir;
 
 writeOut(`hostState padrão: ${login.hostState}\n`);
-writeOut(`home: ${login.home().replace(homesDir, '<homes>')}\n`);
+writeOut(`home: ${login.home().replace(login.homes, '<homes>')}\n`);
 writeOut(
   `mesma raiz, mesmo home: ${String(login.home() === sameRoot.home())}\n`,
 );

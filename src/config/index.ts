@@ -19,6 +19,7 @@ import {
   DEFAULT_DATABASE_NAME,
   DEFAULT_HOMES_DIR,
   DEFAULT_LOG_DIR,
+  DEFAULT_WORKSPACES_DIR,
 } from './constants';
 
 export interface GoiabaEnv {
@@ -54,20 +55,25 @@ export interface GoiabaLoggerConfig {
   readonly use?: LoggerFactory;
 }
 
-/** Where each workspace's home is kept (see `DEFAULT_HOMES_DIR`). */
-export interface GoiabaHomesConfig {
+/** The workspaces: where they are kept, and their CLIs' homes. */
+export interface GoiabaWorkspacesConfig {
   /**
-   * Directory, relative to the config file (or `~/…`); defaults to
-   * `.goiaba/homes`.
+   * The default root of the agents' workspaces, relative to the config file
+   * (or `~/…`); defaults to `.goiaba/workspaces`.
    */
   readonly dir?: string;
+  /**
+   * Where each workspace's home is kept (see `DEFAULT_HOMES_DIR`), relative
+   * to the config file (or `~/…`); defaults to `.goiaba/homes`.
+   */
+  readonly homes?: string;
 }
 
 export interface GoiabaConfig {
   readonly debug?: boolean;
   readonly logger?: GoiabaLoggerConfig;
   readonly database?: GoiabaDatabaseConfig;
-  readonly homes?: GoiabaHomesConfig;
+  readonly workspaces?: GoiabaWorkspacesConfig;
   readonly envs?: readonly GoiabaEnv[];
 }
 
@@ -83,9 +89,11 @@ export interface ResolvedGoiabaConfig {
   };
   /** Absolute path of the SQLite database file. */
   readonly databasePath: string;
-  readonly homes: {
-    /** Absolute directory of the workspaces' homes. */
+  readonly workspaces: {
+    /** Absolute default root of the agents' workspaces. */
     readonly dir: string;
+    /** Absolute directory of the workspaces' homes. */
+    readonly homes: string;
   };
   readonly debug: boolean;
   readonly configPath: string | undefined;
@@ -246,13 +254,13 @@ async function normalizeConfig(
 
   const database = normalizeDatabase(value['database'], configPath);
   const logger = normalizeLogger(value['logger'], configPath);
-  const homes = normalizeHomes(value['homes'], configPath);
+  const workspaces = normalizeWorkspaces(value['workspaces'], configPath);
 
   return {
     ...(value['debug'] === undefined ? {} : { debug: value['debug'] }),
     ...(database === undefined ? {} : { database }),
-    ...(homes === undefined ? {} : { homes }),
     ...(logger === undefined ? {} : { logger }),
+    ...(workspaces === undefined ? {} : { workspaces }),
     envs: normalizeEnvs(value['envs'], configPath),
   };
 }
@@ -261,8 +269,8 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   'debug',
   'database',
   'envs',
-  'homes',
   'logger',
+  'workspaces',
 ]);
 
 /** Common mistakes, with the option meant. */
@@ -273,6 +281,7 @@ const RENAMED: Readonly<Partial<Record<string, string>>> = {
   logDir: 'logger: { dir }',
   logsDir: 'logger: { dir }',
   env: 'envs',
+  homes: 'workspaces: { homes }',
 };
 
 /** An unknown key is a typo or a renamed option: say so instead of ignoring it. */
@@ -355,24 +364,46 @@ function normalizeDatabase(
   };
 }
 
-function normalizeHomes(
-  homes: unknown,
+function normalizeWorkspaces(
+  workspaces: unknown,
   configPath: string,
-): GoiabaHomesConfig | undefined {
-  if (homes === undefined) return undefined;
+): GoiabaWorkspacesConfig | undefined {
+  if (workspaces === undefined) return undefined;
 
-  if (!isRecord(homes)) {
-    throw new UsageError(`homes em ${configPath} deve ser um objeto.`);
+  if (!isRecord(workspaces)) {
+    throw new UsageError(`workspaces em ${configPath} deve ser um objeto.`);
   }
 
-  const { dir } = homes;
-  if (dir !== undefined && (typeof dir !== 'string' || dir.trim() === '')) {
+  const unknown = Object.keys(workspaces).find(
+    (key) => key !== 'dir' && key !== 'homes',
+  );
+  if (unknown !== undefined) {
     throw new UsageError(
-      `homes.dir em ${configPath} deve ser uma string não vazia.`,
+      `Opção desconhecida "workspaces.${unknown}" em ${configPath}. Opções: dir, homes.`,
     );
   }
 
-  return dir === undefined ? {} : { dir };
+  const dir = workspacesPath(workspaces['dir'], 'dir', configPath);
+  const homes = workspacesPath(workspaces['homes'], 'homes', configPath);
+
+  return {
+    ...(dir === undefined ? {} : { dir }),
+    ...(homes === undefined ? {} : { homes }),
+  };
+}
+
+function workspacesPath(
+  path: unknown,
+  name: string,
+  configPath: string,
+): string | undefined {
+  if (path === undefined) return undefined;
+  if (typeof path !== 'string' || path.trim() === '') {
+    throw new UsageError(
+      `workspaces.${name} em ${configPath} deve ser uma string não vazia.`,
+    );
+  }
+  return path;
 }
 
 function isFileName(name: unknown): name is string {
@@ -443,8 +474,9 @@ function resolveConfig(
       absolute(baseDir, file.database?.dir ?? DEFAULT_DATABASE_DIR),
       file.database?.name ?? DEFAULT_DATABASE_NAME,
     ),
-    homes: {
-      dir: absolute(baseDir, file.homes?.dir ?? DEFAULT_HOMES_DIR),
+    workspaces: {
+      dir: absolute(baseDir, file.workspaces?.dir ?? DEFAULT_WORKSPACES_DIR),
+      homes: absolute(baseDir, file.workspaces?.homes ?? DEFAULT_HOMES_DIR),
     },
     debug: envOverrides.debug ?? file.debug ?? false,
     configPath,

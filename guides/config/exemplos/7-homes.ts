@@ -20,12 +20,14 @@ const project = join(
 ensureDirectory(project);
 writeText(
   join(project, 'goiaba.config.ts'),
-  `export default { homes: { dir: 'storage/homes' } };\n`,
+  `export default { workspaces: { homes: 'storage/homes' } };\n`,
 );
 
 try {
   const config = await loadConfig({ cwd: project });
-  writeOut(`homes.dir: ${config.homes.dir.replaceAll(project, '<projeto>')}\n`);
+  writeOut(
+    `workspaces.homes: ${config.workspaces.homes.replaceAll(project, '<projeto>')}\n`,
+  );
 } finally {
   removePath(project);
 }

@@ -1360,7 +1360,7 @@ function shareHost(
       hostState: workspace.hostState,
       provider: provider.id,
       home: workspace.home(),
-      homesDir: getConfig().homes.dir,
+      homesDir: workspace.homes,
       root: workspace.root,
     }),
   );

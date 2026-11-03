@@ -154,12 +154,83 @@ test('loadConfig usa defaults quando não há arquivo', async () => {
     expect(config).toEqual({
       logger: { dir: resolve(cwd, '.goiaba/logs'), use: undefined },
       databasePath: resolve(cwd, '.goiaba/goiaba.db'),
-      homes: { dir: resolve(cwd, '.goiaba/homes') },
+      workspaces: {
+        dir: resolve(cwd, '.goiaba/workspaces'),
+        homes: resolve(cwd, '.goiaba/homes'),
+      },
       debug: false,
       configPath: undefined,
       env: undefined,
       envs: [],
     });
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig resolve workspaces.dir a partir do arquivo', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
+
+  try {
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { workspaces: { dir: 'storage/workspaces' } };\n`,
+    );
+    const config = await loadConfig({ cwd });
+    expect(config.workspaces.dir).toBe(resolve(cwd, 'storage/workspaces'));
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig resolve workspaces.homes e recusa o homes antigo', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
+
+  try {
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { workspaces: { homes: 'storage/homes' } };\n`,
+    );
+    const config = await loadConfig({ cwd });
+    expect(config.workspaces.homes).toBe(resolve(cwd, 'storage/homes'));
+
+    const old = join(cwd, 'antigo');
+    mkdirSync(old);
+    writeFileSync(
+      join(old, 'goiaba.config.ts'),
+      `export default { homes: { dir: 'storage/homes' } };\n`,
+    );
+    await expect(loadConfig({ cwd: old })).rejects.toThrow(
+      'workspaces: { homes }',
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig recusa uma opção desconhecida em workspaces', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
+
+  try {
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { workspaces: { home: 'storage/homes' } };\n`,
+    );
+    await expect(loadConfig({ cwd })).rejects.toThrow('workspaces.home');
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig recusa workspaces.dir vazio', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
+
+  try {
+    writeFileSync(
+      join(cwd, 'goiaba.config.ts'),
+      `export default { workspaces: { dir: ' ' } };\n`,
+    );
+    await expect(loadConfig({ cwd })).rejects.toThrow('workspaces.dir');
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }

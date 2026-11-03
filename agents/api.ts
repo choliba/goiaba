@@ -1,4 +1,5 @@
 import {
+  getConfig,
   Conversation,
   StdioAdapter,
   Agent,
@@ -25,7 +26,7 @@ import {
  */
 
 // Cada agente trabalha na sua pasta: um workspace aceita um agente por vez.
-const pastas = process.env['workspace'] ?? '';
+const pastas = getConfig().workspaces.dir;
 
 /**
  * O exemplo de "Agente básico" do docs/agents.md: o Desenvolvedor ensina com

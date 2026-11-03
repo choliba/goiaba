@@ -1,5 +1,4 @@
 /** Exemplo 1 do curso de workspace: homes persistentes e hostState. */
-import { getConfig } from '../../../src/config/index';
 import { writeOut } from '../../../src/output/stdio';
 import { Workspace } from '../../../src/workspace/index';
 
@@ -19,10 +18,9 @@ const shared = new Workspace({
   root,
   hostState: 'share',
 });
-const homesDir = getConfig().homes.dir;
 
 writeOut(`hostState padrão: ${login.hostState}\n`);
-writeOut(`home: ${login.home().replace(homesDir, '<homes>')}\n`);
+writeOut(`home: ${login.home().replace(login.homes, '<homes>')}\n`);
 writeOut(
   `mesma raiz, mesmo home: ${String(login.home() === sameRoot.home())}\n`,
 );

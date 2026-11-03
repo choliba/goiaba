@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 
 import {
+  getConfig,
   agentConversation,
   Agent,
   ClaudeProvider,
@@ -35,7 +36,7 @@ import { todasAsPermissoes } from './permissions';
 const terminal = agentConversation();
 
 await runScript(async ({ signal }) => {
-  const root = process.env['workspace'] ?? '/';
+  const root = getConfig().workspaces.dir;
   ensureDirectory(root);
 
   // In 2–4 and out 1. Each method can be replaced (e.g. a web chat); here

@@ -1,4 +1,5 @@
 import {
+  getConfig,
   Agent,
   type AgentOutput,
   ensureDirectory,
@@ -8,7 +9,7 @@ import {
 
 import { todasAsPermissoes } from './permissions';
 
-const root = process.env['workspace'] ?? '/';
+const root = getConfig().workspaces.dir;
 ensureDirectory(root);
 const agenteGoiaba = new Agent({
   name: 'dev',

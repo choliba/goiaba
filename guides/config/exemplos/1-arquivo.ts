@@ -27,7 +27,7 @@ writeText(
   debug: true,
   logger: { dir: 'storage/logs' },
   database: { dir: 'storage/db', name: 'agentes.db' },
-  homes: { dir: 'storage/homes' },
+  workspaces: { dir: 'storage/workspaces', homes: 'storage/homes' },
 };
 `,
 );

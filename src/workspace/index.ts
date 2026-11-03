@@ -40,6 +40,11 @@ interface CommonWorkspaceOptions {
    * project's history in it). See `HostState`.
    */
   readonly hostState?: HostState;
+  /**
+   * Where the homes of the workspaces are kept, one per root (see
+   * `home()`); `workspaces.homes` of the config by default.
+   */
+  readonly homes?: string;
 }
 
 export interface DockerWorkspaceOptions extends CommonWorkspaceOptions {
@@ -86,6 +91,8 @@ export class Workspace {
   public readonly sandbox: Sandbox;
   /** What of the host's CLI state reaches the sandbox. */
   public readonly hostState: HostState;
+  /** Where the homes of the workspaces are kept (see `home()`). */
+  public readonly homes: string;
   private network: NetworkBoundary | undefined;
 
   public constructor(options: WorkspaceOptions) {
@@ -108,6 +115,7 @@ export class Workspace {
       );
     }
     this.root = options.root;
+    this.homes = options.homes ?? getConfig().workspaces.homes;
     this.type = options.type;
     this.options = options;
     this.hostState = hostState;
@@ -116,14 +124,14 @@ export class Workspace {
 
   /**
    * The home the CLIs run with in this workspace, one per root, kept between
-   * runs (sessions survive for `resume`), in `homes.dir` of the config.
+   * runs (sessions survive for `resume`), in `homes`.
    */
   public home(): string {
     const id = createHash('sha256')
       .update(resolve(this.root))
       .digest('hex')
       .slice(0, 16);
-    return join(getConfig().homes.dir, id);
+    return join(this.homes, id);
   }
 
   /**

@@ -27,7 +27,7 @@ módulo próprio, com um curso em [`guides/`](guides/).
 O agente sempre roda isolado (bubblewrap ou Docker): não há modo sem sandbox. A política (`AgentPolicy`) vale igual
 para todos os providers, e nada dela é aplicado pela metade: o que um provider não sabe aplicar é recusado ao criar
 o agente. Comandos em aberto são perguntados a você, e o gate de execução falha fechado (sem resposta, nega).
-Por padrão, cada raiz usa seu próprio home persistente dentro de `homes.dir` (`.goiaba/homes`); só o arquivo de
+Por padrão, cada raiz usa seu próprio home persistente dentro de `workspaces.homes` (`.goiaba/homes`); só o arquivo de
 login do provider entra nesse home e fica somente para leitura. Configure `hostState: 'none'` para não compartilhar
 o arquivo de login (e fornecer uma credencial de ambiente), ou `hostState: 'share'` para compartilhar o estado do
 host, gravável e com histórico de outros projetos. Segredos não chegam ao log. Veja os cursos de
@@ -83,7 +83,7 @@ bun run tui codex       # o mesmo, em tela cheia, pela CLI do Codex
 bun run approvals       # revisa e aprova comandos negados
 ```
 
-A configuração do projeto fica em `goiaba.config.ts` (log, banco, homes isolados, variáveis de ambiente); veja o curso de
+A configuração do projeto fica em `goiaba.config.ts` (log, banco, workspaces e seus homes isolados, variáveis de ambiente); veja o curso de
 [config](guides/config/README.md).
 
 ## API
