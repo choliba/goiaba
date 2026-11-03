@@ -216,8 +216,11 @@ export class Conversation implements Interaction {
       case 'message':
         // An adapter that cannot ask for a key answers with a line: its
         // first character is the choice.
+        // That adapter shows no key, so the answer is shown here.
         if (this.choices.length > 0) {
-          this.choices[0]?.resolve(event.text.trim().toLowerCase().charAt(0));
+          const key = event.text.trim().toLowerCase().charAt(0);
+          this.choices[0]?.resolve(key);
+          this.write(key);
           return;
         }
         this.deliver(event.text, { first: this.urgent(event.text) });

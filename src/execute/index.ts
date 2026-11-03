@@ -10,9 +10,11 @@ import { pipeline } from 'node:stream/promises';
 import { randomUUID } from 'node:crypto';
 
 import { log, truncateError } from '../logger/index';
+import { KILL_GRACE_MS } from './constants';
 import { OutputStream } from './stream';
 import type { ProgramCommand, ProgramOutput } from './types';
 
+export * from './constants';
 export { OutputDispatcher, OutputStream, type OutputEvent } from './stream';
 
 /** Starts a process with piped stdio; injectable for tests. */
@@ -25,6 +27,8 @@ export type SpawnProcess = (
 export interface ExecutorOptions {
   readonly createExecutionId?: () => string;
   readonly spawnProcess?: SpawnProcess;
+  /** Milliseconds between SIGTERM and SIGKILL; `KILL_GRACE_MS` by default. */
+  readonly killGraceMs?: number;
 }
 
 export interface RunOptions {
@@ -47,14 +51,17 @@ export interface RunOptions {
 export class Executor {
   private readonly createExecutionId: () => string;
   private readonly spawnProcess: SpawnProcess;
+  private readonly killGraceMs: number;
 
   public constructor({
     createExecutionId = randomUUID,
     spawnProcess = (executable, args, options) =>
       spawn(executable, args, options),
+    killGraceMs = KILL_GRACE_MS,
   }: ExecutorOptions = {}) {
     this.createExecutionId = createExecutionId;
     this.spawnProcess = spawnProcess;
+    this.killGraceMs = killGraceMs;
   }
 
   public async *run(
@@ -74,7 +81,7 @@ export class Executor {
     const startedAt = performance.now();
     const { process, output, completion } = this.start(command);
     const stop = (): void => {
-      terminate(process);
+      terminate(process, this.killGraceMs);
       // A program that forks (nsenter -p) may leave its child behind:
       // only the caller knows how to reach it.
       onAbort?.();
@@ -126,7 +133,7 @@ export class Executor {
     } finally {
       signal?.removeEventListener('abort', stop);
       // Left before the end (a `break`): the program is not wanted anymore.
-      terminate(process);
+      terminate(process, this.killGraceMs);
     }
   }
 
@@ -236,9 +243,7 @@ function waitForCompletion(process: ChildProcess): Promise<ProcessStatus> {
   });
 }
 
-const KILL_GRACE_MS = 2000;
-
-function terminate(process: ChildProcess): void {
+function terminate(process: ChildProcess, graceMs: number): void {
   if (process.exitCode !== null || process.signalCode !== null) {
     return;
   }
@@ -248,7 +253,7 @@ function terminate(process: ChildProcess): void {
     if (process.exitCode === null && process.signalCode === null) {
       process.kill('SIGKILL');
     }
-  }, KILL_GRACE_MS);
+  }, graceMs);
   timer.unref();
 }
 

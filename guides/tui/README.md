@@ -1,8 +1,8 @@
 <a id="topo"></a>
 
-# Módulo tui: a conversa em tela cheia
+# TUI: a conversa em tela cheia
 
-O `src/tui` é **mais uma forma de conversar** com quem usa o programa, como a `TerminalInteraction` (linha a linha no terminal) e o arquivo do `goiaba-json`. Ele implementa a mesma `Interaction`: o agente não sabe que está numa tela cheia. Ele entrega a resposta, o raciocínio e o status, e o `tui` decide como desenhar.
+O TUI é **um adapter**: mais uma forma de conversar, como o stdio (linha a linha) e o arquivo JSONL (veja o curso de [adapters](../adapters/README.md)). A [conversa](../interaction/README.md) é a mesma `Conversation` de sempre: ela não sabe que está numa tela cheia. O `TuiAdapter` recebe as teclas, desenha a conversa e devolve só eventos.
 
 A tela tem três partes:
 
@@ -18,20 +18,18 @@ A tela tem três partes:
 └──────────────────────────────┘
 ```
 
-O `tui` não lê o teclado nem escreve na tela por conta própria: lê pelo `StdinReader` (`src/input`), o único leitor do teclado, e escreve pelo `writeOut` (`src/output/stdio.ts`), o único escritor da tela. Não depende de biblioteca nenhuma.
+O TUI não lê o stdin nem escreve na tela por conta própria: as teclas chegam pelo `src/input` (o único leitor do stdin) e passam pela mesma `Typing` do stdio; o desenho sai pelo `writeOut` (`src/output/stdio.ts`), o único escritor do stdout. Não depende de biblioteca nenhuma.
 
 ## Índice
 
 - [Os arquivos](#os-arquivos)
 - [Interface](#interface)
-  - [`TuiInteraction`](#tuiinteraction)
-  - [`TuiScreen` e `ttyScreen`](#tuiscreen-e-terminalscreen)
-  - [`TuiInput`](#tuiinput)
-  - [O cálculo da tela: `frame`, `wrap`, `displayWidth`, `transcript`](#o-cálculo-da-tela-frame-wrap-displaywidth-transcript)
-  - [O que mudou fora do módulo](#o-que-mudou-fora-do-módulo)
+  - [`TuiAdapter`](#tuiadapter)
+  - [`TuiScreen` e `ttyScreen`](#tuiscreen-e-ttyscreen)
+  - [O cálculo da tela](#o-cálculo-da-tela)
 - [Como funciona](#como-funciona)
-  - [A entrada: o eco do que se digita](#a-entrada-o-eco-do-que-se-digita)
-  - [A conversa: entradas, stream e raciocínio](#a-conversa-entradas-stream-e-raciocínio)
+  - [O que se digita](#o-que-se-digita)
+  - [O que se mostra](#o-que-se-mostra)
   - [O desenho](#o-desenho)
   - [A rolagem](#a-rolagem)
   - [Os comandos](#os-comandos)
@@ -39,104 +37,73 @@ O `tui` não lê o teclado nem escreve na tela por conta própria: lê pelo `Std
 - [Exemplos](#exemplos)
   - [1. O cálculo da tela](#1-o-cálculo-da-tela)
   - [2. Uma conversa numa tela de texto](#2-uma-conversa-numa-tela-de-texto)
-  - [3. Os comandos ficam no TUI](#3-os-comandos-ficam-no-tui)
+  - [3. Os comandos e a rolagem ficam no TUI](#3-os-comandos-e-a-rolagem-ficam-no-tui)
   - [4. Um agente no TUI](#4-um-agente-no-tui)
-- [Regras do módulo](#regras-do-módulo)
+- [Regras](#regras)
 - [Exercícios](#exercícios)
 
 ## Os arquivos
 
-| Arquivo     | Papel                                                                                                                                                          |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts`  | A `TuiInteraction` (a conversa), o `ttyScreen` (o terminal como tela) e os tipos `TuiScreen`, `TuiInput`, `TuiOptions`.                                        |
-| `layout.ts` | O cálculo da tela, sem efeito nenhum: o quadro (`frame`), a quebra de linha (`wrap`), a largura na tela (`displayWidth`) e a conversa em texto (`transcript`). |
+Em `src/adapters/tui/`:
+
+| Arquivo     | Papel                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------- |
+| `index.ts`  | o `TuiAdapter`, o `ttyScreen` (o terminal como tela) e os tipos `TuiScreen` e `TuiAdapterOptions` |
+| `layout.ts` | o cálculo da tela, sem efeito nenhum: `frame`, `wrap`, `displayWidth` e `transcript`              |
 
 [↑ topo](#topo)
 
 ## Interface
 
-### `TuiInteraction`
+### `TuiAdapter`
 
-```ts
-new TuiInteraction(options?: TuiOptions)
-```
+`new TuiAdapter(options?)`, um `InteractionAdapter`:
 
-| Opção                 | O que é                                                                                                                                              |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `screen`              | onde desenha (`TuiScreen`); o terminal por padrão (`ttyScreen()`)                                                                                    |
-| `input`               | o que lê, a partir de para onde vão o eco e as teclas que não são texto: `({ echo, sequence }) => TuiInput`; um `StdinReader` no terminal por padrão |
-| `shortcuts`, `urgent` | os mesmos do `StdinReader` (o `Ctrl+A` das aprovações vem no `AGENT_SHORTCUTS`)                                                                      |
-| `frameDelayMs`        | o intervalo entre redesenhos enquanto o texto chega (16 ms)                                                                                          |
+| Opção          | O que é                                                                            |
+| -------------- | ---------------------------------------------------------------------------------- |
+| `shortcuts`    | teclas que mandam um comando (`AGENT_SHORTCUTS`: Ctrl+A abre as aprovações)        |
+| `screen`       | onde desenha (`TuiScreen`); o terminal por padrão (`ttyScreen()`)                  |
+| `source`       | de onde lê as teclas (`StdioSource`); o stdin por padrão                           |
+| `frameDelayMs` | o intervalo entre redesenhos enquanto o texto chega; `DEFAULT_FRAME_DELAY_MS` (16) |
 
-É uma `Interaction`:
-
-| Método                                                 | No TUI                                                                                |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| `ask(question, signal?, instant?)` e `listen(signal?)` | a próxima linha digitada, depois de rodar os comandos com `/`; ela aparece como `› …` |
-| `choose(keys, signal?)`                                | uma tecla (as aprovações)                                                             |
-| `write(text)`                                          | uma mensagem inteira                                                                  |
-| `stream(text)`                                         | um pedaço de texto: junta-se à mensagem que está sendo escrita                        |
-| `reasoning(text)`                                      | um pedaço do raciocínio, com `💭`, separado da resposta                               |
-| `status(text)`                                         | a linha de status (`⏳ pensando…`); `undefined` apaga                                 |
-| `width()`                                              | as colunas da tela                                                                    |
-| `close()`                                              | sai da tela e deixa a conversa impressa no terminal                                   |
+Um agente no TUI: `agentConversation(new TuiAdapter({ shortcuts: AGENT_SHORTCUTS }))`.
 
 ### `TuiScreen` e `ttyScreen`
 
-```ts
-interface TuiScreen {
-  rows(): number;
-  columns(): number;
-  enter(): void; // toma uma tela própria
-  leave(text: string): void; // devolve a tela, deixando `text` (a conversa)
-  draw(text: string): void; // desenha um quadro inteiro
-  onResize?(listener: () => void): () => void;
-}
-```
+| Membro                | O que faz                                                  |
+| --------------------- | ---------------------------------------------------------- |
+| `rows()`, `columns()` | o tamanho da tela                                          |
+| `enter()`             | toma uma tela própria (a tela alternativa do terminal)     |
+| `leave(text)`         | devolve a tela, deixando `text` (a conversa) no terminal   |
+| `draw(text)`          | desenha um quadro inteiro (ou manda um ajuste ao terminal) |
+| `onResize?(listener)` | avisa quando a tela muda de tamanho; devolve como parar    |
 
-`ttyScreen()` é o terminal: a tela alternativa, o `writeOut` e o aviso de redimensionamento. Sem um terminal (um pipe, um redirecionamento), ele recusa na hora com um `UsageError`, antes de qualquer coisa rodar.
+`ttyScreen()` é o terminal como tela. Sem um terminal (num pipe, numa redireção), ele recusa na hora, com um `UsageError`: nada seria visto.
 
-### `TuiInput`
+### O cálculo da tela
 
-```ts
-type TuiInput = Pick<StdinReader, 'next' | 'choose' | 'close'>;
-```
-
-O que o TUI lê. No terminal, um `StdinReader`; num teste, qualquer objeto com esses três métodos. A função `input` recebe também os `TuiInputHandlers`: o `echo` (o eco do que se digita) e o `sequence` (as teclas que não são texto, como ↑ e PageUp), para a entrada repassar ao TUI.
-
-### O cálculo da tela: `frame`, `wrap`, `displayWidth`, `transcript`
-
-| Função                                                            | O que devolve                                                              |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `frame(entries, { rows, columns, status, input, showReasoning })` | o quadro: `lines` (as linhas, sem estilo) e `text` (o que vai ao terminal) |
-| `wrap(text, columns)`                                             | o texto em linhas de no máximo `columns`, quebrando por palavras           |
-| `displayWidth(text)`                                              | as colunas que o texto ocupa: emoji e caracteres largos ocupam duas        |
-| `transcript(entries)`                                             | a conversa em texto, para o terminal depois de sair da tela                |
-
-Uma `Entry` é `{ kind: 'user' | 'text' | 'reasoning' | 'note', text, open }`. `open` diz que ela ainda está sendo escrita.
-
-### O que mudou fora do módulo
-
-- **`src/output/stdio.ts`**: `ttyRows()`, `onTtyResize(listener)`, `enterAlternateScreen()` e `leaveAlternateScreen()`. Continua sendo o único escritor da tela.
-- **`src/input`**: o `KeyDecoder` aceita uma função que recebe as sequências que não são texto (setas, PageUp…), e o `StdinReader` ganha a opção `onSequence`. Antes elas eram descartadas; continuam sem virar tecla.
-- **`terminal.ts`**: ao entrar na tela cheia, liga o modo em que a rodinha do mouse manda ↑ e ↓ (`?1007h`). Assim ela rola sem o TUI capturar o mouse, e dá para selecionar texto.
-- **`Interaction`**: o método opcional `reasoning(text)`. O agente o usa quando a interação o tem; quem não o tem recebe o raciocínio como texto, depois de `💭`, como antes.
+| Função                    | O que faz                                                                        |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| `frame(entries, options)` | as linhas da tela: as últimas mensagens que cabem, o status e a linha de entrada |
+| `wrap(text, columns)`     | o texto quebrado em linhas, por palavras onde der                                |
+| `displayWidth(text)`      | quantas colunas o texto ocupa (emoji e caracteres largos ocupam duas)            |
+| `transcript(entries)`     | a conversa como texto simples, para o terminal depois de sair da tela            |
 
 [↑ topo](#topo)
 
 ## Como funciona
 
-### A entrada: o eco do que se digita
+### O que se digita
 
-O `StdinReader` já recebe uma função `write`, para onde vai o eco do que se digita: as letras, o apagar (`\b \b`) e o Enter. O TUI passa a **sua** função e guarda o que está sendo digitado. Nada vai direto para a tela: o TUI desenha a linha de entrada ele mesmo, embaixo, junto do resto. A edição (apagar, colar) continua com o `StdinReader`. Quando a linha é enviada, o TUI a recebe pelo `ask` ou pelo `listen` e a tira da linha de entrada.
+As teclas são lidas em raw e passam pela `Typing`, a mesma do stdio: a linha sendo digitada, o apagar, a colagem, a escolha de uma tecla, os atalhos, o Ctrl+C. A diferença é como a linha aparece: no stdio, como eco do terminal; no TUI, a `Typing` avisa a linha nova (`onLine`) e o TUI a desenha embaixo, junto do resto.
 
-### A conversa: entradas, stream e raciocínio
+### O que se mostra
 
-A conversa é uma lista de entradas. `write` acrescenta uma mensagem inteira; `stream` e `reasoning` juntam o pedaço à entrada que está sendo escrita, se for do mesmo tipo, ou começam uma nova. O raciocínio fica numa entrada própria, e por isso o `/thinking` consegue escondê-lo sem tocar na resposta.
+A conversa é uma lista de entradas. A `Output` do TUI acrescenta uma entrada a cada `write`, e cada `writeStream` vai juntando os pedaços a uma entrada enquanto eles chegam. O raciocínio é uma entrada própria, e por isso o `/thinking` consegue escondê-lo sem tocar na resposta. O que você manda aparece como `› …`, e a resposta de uma escolha também.
 
 ### O desenho
 
-A cada mudança, o TUI agenda um redesenho (no máximo um a cada 16 ms, porque um stream manda muitos pedaços) e desenha **o quadro inteiro**: as mensagens que cabem, quebradas pela largura, o status com `/help` à direita e a linha de entrada, com o cursor no fim. A largura conta emoji e caracteres largos como duas colunas. Quando o terminal muda de tamanho, ele redesenha.
+A cada mudança, o TUI agenda um redesenho (no máximo um a cada 16 ms, porque um stream manda muitos pedaços) e desenha **o quadro inteiro**: as mensagens que cabem, quebradas pela largura, o status com `/help` à direita e a linha de entrada, com o cursor no fim. Quando o terminal muda de tamanho, ele redesenha.
 
 ### A rolagem
 
@@ -146,319 +113,292 @@ A cada mudança, o TUI agenda um redesenho (no máximo um a cada 16 ms, porque u
 | PageUp / PageDown            | uma página                          |
 | End                          | volta ao fim                        |
 
-Enquanto a tela está rolada, o status mostra quantas linhas há abaixo. Ao mandar uma mensagem, a tela volta ao fim. As teclas chegam pela opção `onSequence` do `StdinReader`: o TUI não lê o teclado por conta própria.
+Enquanto a tela está rolada, o status mostra quantas linhas há abaixo. Ao mandar uma mensagem, a tela volta ao fim. As teclas chegam da `Typing` (`onSequence`): nunca viram texto, e nunca saem do TUI.
 
 ### Os comandos
 
-Uma linha começando com `/` é do TUI, não do agente:
+Uma linha começando com `/` é do TUI, não da conversa:
 
 | Comando     | O que faz                                       |
 | ----------- | ----------------------------------------------- |
 | `/help`     | lista os comandos                               |
 | `/thinking` | mostra ou esconde o raciocínio                  |
 | `/clear`    | limpa a tela (a conversa com o modelo continua) |
-| `/exit`     | encerra, como Ctrl+C                            |
+| `/exit`     | encerra, como Ctrl+C (um `interrupt`)           |
 
-Um comando desconhecido é recusado, com a ajuda, e não vai ao agente.
+Um comando desconhecido é recusado, com a ajuda, e não vai à conversa.
 
 ### Entrar e sair da tela
 
-O TUI entra na tela na primeira leitura e sai no `close()`. O agente chama `close()` no fim de cada execução, inclusive com Ctrl+C e com erro. Ao sair, a conversa fica impressa no terminal normal, e o que já estava no terminal antes volta.
+O TUI entra na tela na primeira coisa que mostra ou pede, e sai no `close()`, e também quando o programa termina no meio (`onProgramExit`). Ao sair, a conversa fica impressa no terminal normal, e o que já estava no terminal antes volta.
 
 [↑ topo](#topo)
 
 ## Exemplos
 
-Os exemplos 1 a 3 rodam sem terminal e sem modelo: usam uma **tela de texto** (um `TuiScreen` que guarda o último quadro) e uma entrada que entrega linhas prontas. A saída mostra cada linha do quadro depois de um `|`: é o que o terminal mostraria.
+Os exemplos 1 a 3 são arquivos de `guides/tui/exemplos/` que rodam como estão, sem terminal: a tela e o teclado são feitos ali mesmo. O 4 precisa de um terminal e do Ollama.
 
 ### 1. O cálculo da tela
 
-`agents/meus-testes/tui-exemplos/1-layout.ts`:
+`guides/tui/exemplos/1-layout.ts`:
 
 ```ts
-/** Exemplo 1 do curso de tui: o cálculo da tela, sem tela nenhuma. */
-import { displayWidth, frame, wrap } from '../../../src/tui/index';
+/**
+ * Exemplo 1 do curso do TUI: o cálculo da tela. `frame` não desenha nada:
+ * recebe as entradas da conversa e o tamanho da tela e devolve as linhas.
+ * Quebra por palavras, conta um emoji como duas colunas e mostra só as
+ * últimas mensagens que cabem.
+ */
+import { displayWidth, frame } from '../../../src/adapters/tui/index';
 import { writeOut } from '../../../src/output/stdio';
-
-writeOut(`${JSON.stringify(wrap('o mar azul sob o céu', 10))}\n`);
-writeOut(`largura de "💭 oi": ${String(displayWidth('💭 oi'))}\n\n`);
 
 const { lines } = frame(
   [
     { kind: 'text', text: 'Oi! Em que posso ajudar?', open: false },
     { kind: 'user', text: 'quanto é 2 + 2?', open: false },
-    { kind: 'reasoning', text: 'conta simples', open: false },
-    { kind: 'text', text: '4', open: false },
+    { kind: 'reasoning', text: 'uma conta simples', open: false },
+    {
+      kind: 'text',
+      text: 'Dois mais dois é quatro, e a conta é exata.',
+      open: false,
+    },
   ],
   {
-    rows: 8,
+    rows: 9,
     columns: 30,
     status: '⏳ pensando…',
     input: 'obri',
     showReasoning: true,
   },
 );
+
 for (const line of lines) writeOut(`|${line}\n`);
+writeOut(`\nlargura de "💭 oi": ${String(displayWidth('💭 oi'))} colunas\n`);
 ```
 
-Saída real:
+Saída real (cada linha da tela depois de um `|`):
 
 ```
-["o mar azul","sob o céu"]
-largura de "💭 oi": 5
-
 |
 |› quanto é 2 + 2?
 |
-|💭 conta simples
+|💭 uma conta simples
 |
-|4
+|Dois mais dois é quatro, e a
+|conta é exata.
 |⏳ pensando…             /help
 |› obri
-```
 
-Com 8 linhas, sobram 6 para as mensagens. A primeira ("Oi! Em que posso ajudar?") não coube e ficou de fora: a tela mostra as últimas.
+largura de "💭 oi": 5 colunas
+```
 
 ### 2. Uma conversa numa tela de texto
 
-`agents/meus-testes/tui-exemplos/2-conversa.ts`:
+`guides/tui/exemplos/2-conversa.ts`:
 
 ```ts
-/** Exemplo 2 do curso de tui: uma conversa numa tela de texto. */
-import { TuiInteraction, type TuiScreen } from '../../../src/tui/index';
+/**
+ * Exemplo 2 do curso do TUI: uma conversa numa tela de texto. O TuiAdapter
+ * desenha numa `TuiScreen` (aqui, uma que guarda o último quadro) e lê as
+ * teclas de uma `StdioSource` (aqui, uma lista). A Conversation é a mesma
+ * de sempre: o TUI é só mais um adapter.
+ */
+import type { StdioSource } from '../../../src/adapters/stdio/index';
+import { TuiAdapter, type TuiScreen } from '../../../src/adapters/tui/index';
+import { OutputStream } from '../../../src/execute/stream';
+import { Conversation } from '../../../src/interaction/index';
 import { writeOut } from '../../../src/output/stdio';
 
-/** Uma tela de 9 linhas por 36 colunas que guarda o último quadro. */
-let last = '';
-const screen: TuiScreen = {
-  rows: () => 9,
-  columns: () => 36,
-  enter: () => writeOut('[entrou na tela]\n'),
-  leave: (conversation) => writeOut(`[saiu da tela]\n${conversation}\n`),
-  draw: (text) => {
-    last = text;
-  },
-};
+/** Uma tela de 10×36 que guarda o último quadro, sem os estilos. */
+function textScreen(): TuiScreen & { readonly lines: () => string[] } {
+  let last = '';
+  return {
+    rows: () => 10,
+    columns: () => 36,
+    enter: () => undefined,
+    leave: () => undefined,
+    draw: (text) => {
+      if (text.startsWith('\u001b[H')) last = text;
+    },
+    lines: () =>
+      last
+        // oxlint-disable-next-line no-control-regex -- ESC starts every sequence.
+        .replace(/\u001b\[[0-9;?]*[A-Za-z]/g, '')
+        .split('\r\n')
+        .map((line) => line.trimEnd()),
+  };
+}
 
-/** O que "você digita": uma linha por leitura. */
-const typed = ['quanto é 2 + 2?'];
-const tui = new TuiInteraction({
-  screen,
-  frameDelayMs: 0,
-  input: () => ({
-    next: () => Promise.resolve(typed.shift() ?? ''),
-    choose: () => Promise.resolve(''),
-    close: () => undefined,
-  }),
-});
+const tick = (): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, 5));
+const keys = new OutputStream<string>();
+const keyboard: StdioSource = { tty: true, read: () => keys };
+const screen = textScreen();
+const conversation = new Conversation(
+  new TuiAdapter({ screen, source: keyboard, frameDelayMs: 0 }),
+);
 
-tui.write('Oi! Em que posso ajudar?');
-const question = await tui.ask('');
-tui.status('⏳ pensando…');
-tui.reasoning('uma conta ');
-tui.reasoning('simples');
-tui.stream('2 + 2 ');
-tui.stream('é 4.');
-tui.status(undefined);
-await new Promise((resolve) => setTimeout(resolve, 5));
+conversation.write('Oi! Em que posso ajudar?');
+const asked = conversation.ask('');
+keys.publish('quanto é 2 + 2?\r');
+await asked;
+conversation.status('⏳ pensando…');
+conversation.reasoning('uma conta ');
+conversation.reasoning('simples');
+conversation.stream('Dois mais dois ');
+conversation.stream('é quatro.');
+conversation.status(undefined);
+void conversation.ask('').catch(() => undefined);
+keys.publish('obri');
+await tick();
 
-writeOut(`a resposta do ask: ${JSON.stringify(question)}\n`);
-// oxlint-disable-next-line no-control-regex -- ESC starts every sequence.
-const plain = last.replace(/\u001b\[[0-9;?]*[A-Za-z]/g, '');
-for (const line of plain.split('\r\n')) writeOut(`|${line.trimEnd()}\n`);
-tui.close();
+for (const line of screen.lines()) writeOut(`|${line}\n`);
+conversation.close();
 ```
 
 Saída real:
 
 ```
-[entrou na tela]
-a resposta do ask: "quanto é 2 + 2?"
+|
 |Oi! Em que posso ajudar?
 |
 |› quanto é 2 + 2?
 |
 |💭 uma conta simples
 |
-|2 + 2 é 4.
+|Dois mais dois é quatro.
 |                               /help
-|›
-[saiu da tela]
-Oi! Em que posso ajudar?
-
-› quanto é 2 + 2?
-
-💭 uma conta simples
-
-2 + 2 é 4.
+|› obri
 ```
 
-- Os dois pedaços de raciocínio viraram uma linha, `💭 uma conta simples`, e os dois de texto viraram `2 + 2 é 4.`.
-- Ao sair (`close`), a conversa fica no terminal, sem os estilos.
+### 3. Os comandos e a rolagem ficam no TUI
 
-### 3. Os comandos ficam no TUI
-
-`agents/meus-testes/tui-exemplos/3-comandos.ts`:
+`guides/tui/exemplos/3-comandos.ts`:
 
 ```ts
-/** Exemplo 3 do curso de tui: os comandos com / ficam no TUI. */
-import { TuiInteraction, type TuiScreen } from '../../../src/tui/index';
+/**
+ * Exemplo 3 do curso do TUI: os comandos e a rolagem ficam no TUI. `/help`,
+ * `/thinking` e um comando desconhecido nunca chegam à conversa; a próxima
+ * linha que chega é a primeira que não começa com `/`. PageUp rola as
+ * mensagens para trás, e o status mostra quantas linhas ficaram abaixo.
+ */
+import type { StdioSource } from '../../../src/adapters/stdio/index';
+import { TuiAdapter, type TuiScreen } from '../../../src/adapters/tui/index';
+import { OutputStream } from '../../../src/execute/stream';
+import { Conversation } from '../../../src/interaction/index';
 import { writeOut } from '../../../src/output/stdio';
 
-let last = '';
-const screen: TuiScreen = {
-  rows: () => 16,
-  columns: () => 56,
-  enter: () => undefined,
-  leave: () => undefined,
-  draw: (text) => {
-    last = text;
-  },
+function textScreen(): TuiScreen & { readonly lines: () => string[] } {
+  let last = '';
+  return {
+    rows: () => 12,
+    columns: () => 50,
+    enter: () => undefined,
+    leave: () => undefined,
+    draw: (text) => {
+      if (text.startsWith('\u001b[H')) last = text;
+    },
+    lines: () =>
+      last
+        // oxlint-disable-next-line no-control-regex -- ESC starts every sequence.
+        .replace(/\u001b\[[0-9;?]*[A-Za-z]/g, '')
+        .split('\r\n')
+        .map((line) => line.trimEnd()),
+  };
+}
+
+const tick = (): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, 5));
+const show = (title: string): void => {
+  writeOut(`--- ${title}\n`);
+  for (const line of screen.lines()) writeOut(`|${line}\n`);
 };
+const keys = new OutputStream<string>();
+const keyboard: StdioSource = { tty: true, read: () => keys };
+const screen = textScreen();
+const conversation = new Conversation(
+  new TuiAdapter({ screen, source: keyboard, frameDelayMs: 0 }),
+);
 
-/** /help, /thinking e um comando que não existe, antes da mensagem. */
-const typed = ['/help', '/thinking', '/desfazer', 'continue'];
-const tui = new TuiInteraction({
-  screen,
-  frameDelayMs: 0,
-  input: () => ({
-    next: () => Promise.resolve(typed.shift() ?? ''),
-    choose: () => Promise.resolve(''),
-    close: () => undefined,
-  }),
-});
+conversation.reasoning('pensei bastante');
+const asked = conversation.ask('');
+keys.publish('/thinking\r/xyz\r/help\rolá\r');
+writeOut(`a conversa recebeu: ${JSON.stringify(await asked)}\n`);
+await tick();
+show('depois dos comandos');
 
-tui.reasoning('pensei bastante antes');
-const message = await tui.ask('');
-await new Promise((resolve) => setTimeout(resolve, 5));
-
-writeOut(`o agente recebeu só: ${JSON.stringify(message)}\n`);
-// oxlint-disable-next-line no-control-regex -- ESC starts every sequence.
-const plain = last.replace(/\u001b\[[0-9;?]*[A-Za-z]/g, '');
-for (const line of plain.split('\r\n')) writeOut(`|${line.trimEnd()}\n`);
+keys.publish('\u001b[5~'); // PageUp
+await tick();
+show('depois do PageUp');
+conversation.close();
 ```
 
 Saída real:
 
 ```
-o agente recebeu só: "continue"
-|💭 pensou (/thinking mostra)
+a conversa recebeu: "olá"
+--- depois dos comandos
 |
 |Comandos:
-|  /thinking  mostra ou esconde o raciocínio do modelo
+|  /thinking  mostra ou esconde o raciocínio do
+|modelo
 |  /clear     limpa a tela (a conversa continua)
 |  /exit      encerra (o mesmo que Ctrl+C)
 |  /help      esta ajuda
 |Ctrl+A abre as aprovações.
 |
+|› olá
+|                                             /help
+|›
+--- depois do PageUp
+|💭 pensou (/thinking mostra)
+|
 |Raciocínio escondido.
 |
-|Comando desconhecido: /desfazer. Veja /help.
+|Comando desconhecido: /xyz. Veja /help.
 |
-|› continue
-|                                                   /help
+|Comandos:
+|  /thinking  mostra ou esconde o raciocínio do
+|modelo
+|  /clear     limpa a tela (a conversa continua)
+|↓ 5 linha(s) abaixo (End volta ao fim)       /help
 |›
 ```
 
-Das quatro linhas digitadas, o agente recebeu só a última: `/help`, `/thinking` e `/desfazer` ficaram no TUI.
-
 ### 4. Um agente no TUI
 
-`agents/tui.ts`:
+`agents/tui.ts` roda um agente no Ollama, em tela cheia, escolhendo a CLI pelo argumento:
+
+```
+bun agents/tui.ts claude
+bun agents/tui.ts codex
+```
+
+A parte que monta a conversa:
 
 ```ts
-import {
-  AGENT_SHORTCUTS,
-  Agent,
-  ensureDirectory,
-  humanApprover,
-  join,
-  OllamaProvider,
-  runScript,
-  TuiInteraction,
-  UsageError,
-  Workspace,
-  type OllamaCli,
-} from '../src/index';
-import { currentDirectory, programArguments } from '../src/execute/process';
-import { todasAsPermissoes } from './permissions';
-
-/**
- * The local Ollama agent on a full screen (the TUI): the messages on top,
- * the status line and what you type at the bottom. Only the CLI changes:
- *
- *   bun agents/tui.ts claude
- *   bun agents/tui.ts codex
- *
- * /help lists the TUI's commands; Ctrl+A opens the approvals; Ctrl+C ends it.
- */
-const MODEL = 'qwen3.5:4b';
-
-/** Which CLI: the first argument. */
-function chosenCli(): OllamaCli {
-  const cli = programArguments().at(0);
-  if (cli === 'claude' || cli === 'codex') return cli;
-  throw new UsageError(
-    `CLI desconhecida: ${cli ?? '(nenhuma)'}. Use: bun agents/tui.ts claude|codex`,
-  );
-}
-
-await runScript(async ({ signal }) => {
-  const cli = chosenCli();
-  const root = join(
-    currentDirectory(),
-    'storage',
-    'workspaces',
-    `agente-tui-${cli}`,
-  );
-  ensureDirectory(root);
-  const tui = new TuiInteraction(AGENT_SHORTCUTS);
-
-  await new Agent({
-    resume: false,
-    name: `agente-tui-${cli}`,
-    prompt: 'Diga oi em uma linha e pergunte em que pode ajudar.',
-    provider: new OllamaProvider({ cli, model: MODEL }),
-    workspace: new Workspace({ type: 'bubblewrap', root }),
-    permissions: todasAsPermissoes,
-    interaction: tui,
-    approve: humanApprover(tui, signal),
-    signal,
-    conversation: true,
-  }).run();
-});
+const tui = agentConversation(new TuiAdapter({ shortcuts: AGENT_SHORTCUTS }));
 ```
 
-Para rodar, ele precisa de um terminal e do Ollama com o `qwen3.5:4b`: `bun agents/tui.ts codex` (ou `claude`). Sem terminal, recusa na hora:
-
-```
-$ echo | bun agents/tui.ts codex
-O TUI precisa de um terminal: rode o programa direto, sem pipe nem redirecionamento.
-```
+Precisa de um terminal (sem ele, o `ttyScreen` recusa) e do Ollama rodando com o modelo do arquivo.
 
 [↑ topo](#topo)
 
-## Regras do módulo
-
-**Só o módulo pode:**
-
-- Desenhar a conversa em tela cheia.
+## Regras
 
 **Ninguém deve:**
 
-- **Ler o teclado por fora do `StdinReader`.** O TUI recebe o eco pela opção `write` dele; um segundo leitor do teclado já travou um agente.
-- **Escrever na tela por fora do `terminal.ts`.** O `ttyScreen` usa o `writeOut` e as funções de tela de lá.
+- **Ler o teclado por fora do `src/input`.** As teclas chegam por uma `StdioSource`; um segundo leitor do teclado já travou um agente.
+- **Escrever na tela por fora do `stdio.ts`.** O `ttyScreen` usa o `writeOut` e as funções de tela de lá.
 - **Usar uma biblioteca de tela cheia** (Ink, blessed…): elas leem e escrevem no terminal por conta própria, passando por cima dos dois donos.
-- **Fazer o agente saber que está num TUI.** Ele usa a `Interaction`; o TUI decide como mostrar.
+- **Fazer a conversa saber que está num TUI.** Rolagem, comandos com `/` e o desenho ficam no adapter; para fora, só eventos.
 
 [↑ topo](#topo)
 
 ## Exercícios
 
 1. **Simples.** No Exemplo 2, troque a tela para 5 linhas. Quais mensagens continuam aparecendo, e por quê?
-
-2. **Intermediário.** Escreva um `TuiScreen` que, em vez de guardar só o último quadro, conte quantos quadros foram desenhados. Mande 100 pedaços com `stream` e descubra quantos redesenhos aconteceram. O que muda com `frameDelayMs: 0`?
-
-3. **Difícil.** Acrescente um comando `/save <arquivo>` que grave a conversa (o `transcript`) num arquivo. Por que o arquivo deve ser gravado pelo `src/filesystem`, e não pelo `tui`? E por que a mensagem "Conversa salva em …" deve ser uma entrada `note`, e não um `write`?
+2. **Médio.** Escreva uma `TuiScreen` que conte quantos quadros foram desenhados. Mande 100 pedaços com `stream` e descubra quantos redesenhos aconteceram. O que muda com `frameDelayMs: 0`?
+3. **Avançado.** Acrescente um comando `/save <arquivo>` que grave a conversa (o `transcript`) num arquivo. Por que o arquivo deve ser gravado pelo `src/filesystem`, e não pelo TUI? E por que a mensagem "Conversa salva em …" deve ser uma entrada `note`, e não um `write`?
 
 [↑ topo](#topo)

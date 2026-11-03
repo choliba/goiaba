@@ -24,6 +24,7 @@ import {
   Typing,
   type StdioSource,
 } from '../stdio/index';
+import { DEFAULT_FRAME_DELAY_MS } from '../constants';
 import { frame, transcript, type Entry } from './layout';
 
 export { displayWidth, frame, transcript, wrap, type Entry } from './layout';
@@ -63,8 +64,6 @@ export interface TuiAdapterOptions {
   /** Milliseconds between redraws while text streams in. */
   readonly frameDelayMs?: number;
 }
-
-const DEFAULT_FRAME_DELAY_MS = 16;
 
 const HELP = [
   'Comandos:',

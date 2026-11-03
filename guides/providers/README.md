@@ -143,14 +143,14 @@ política de rede.
 
 ## Exemplos
 
-Os exemplos são arquivos completos em `agents/meus-testes/providers-exemplos/`. Os quatro rodam sem iniciar uma CLI
+Os exemplos são arquivos completos em `guides/providers/exemplos/`. Os quatro rodam sem iniciar uma CLI
 de modelo nem acessar a rede: eles inspecionam o comando e alimentam o parser com saída de exemplo.
 
 ### 1. Descrever um provider
 
 O método `describe` informa qual modelo e provider serão usados. Ele não inicia o modelo.
 
-`agents/meus-testes/providers-exemplos/1-descrever.ts`:
+`guides/providers/exemplos/1-descrever.ts`:
 
 ```ts
 /** Exemplo 1 do curso de providers: descrever um provider sem rodar a CLI. */
@@ -172,7 +172,7 @@ claude / claude-haiku
 `createCommand` permite conferir executável e argumentos sem executá-los. O workspace pode ser fornecido quando a
 CLI precisa saber qual pasta tratar como projeto.
 
-`agents/meus-testes/providers-exemplos/2-comando.ts`:
+`guides/providers/exemplos/2-comando.ts`:
 
 ```ts
 /** Exemplo 2 do curso de providers: ver o comando que uma CLI receberia. */
@@ -196,7 +196,7 @@ entrada: Resuma o projeto.
 O parser não depende de uma sessão real: recebe o mesmo tipo de fluxo que o executor fornece. Aqui uma saída curta
 de Cursor contém o ID de sessão e a resposta do assistente.
 
-`agents/meus-testes/providers-exemplos/3-eventos.ts`:
+`guides/providers/exemplos/3-eventos.ts`:
 
 ```ts
 /** Exemplo 3 do curso de providers: converter JSON da CLI em eventos. */
@@ -231,7 +231,7 @@ resposta: Pronto.
 Uma tradução nativa inclui tanto as permissões resultantes quanto as regras que não couberam no formato do provider.
 Neste caso, leitura da pasta e comando simples têm correspondência direta nas permissões do Claude.
 
-`agents/meus-testes/providers-exemplos/4-politica.ts`:
+`guides/providers/exemplos/4-politica.ts`:
 
 ```ts
 /** Exemplo 4 do curso de providers: traduzir política para as regras do Claude. */

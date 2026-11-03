@@ -161,11 +161,11 @@ O Executor não sabe de sandbox nem de provider; quem precisa deles compõe:
 
 ## Exemplos
 
-Cada exemplo é um arquivo de `agents/meus-testes/execute-exemplos/` que roda como está, na raiz do repositório. Só o Exemplo 5 precisa do bubblewrap.
+Cada exemplo é um arquivo de `guides/execute/exemplos/` que roda como está, na raiz do repositório. Só o Exemplo 5 precisa do bubblewrap.
 
 ### 1. Rodar um programa
 
-`agents/meus-testes/execute-exemplos/1-rodar.ts`:
+`guides/execute/exemplos/1-rodar.ts`:
 
 ```ts
 /**
@@ -206,7 +206,7 @@ O `printf` imprimiu as duas linhas de uma vez: chegou **um** pedaço com as duas
 
 ### 2. Quando o programa falha
 
-`agents/meus-testes/execute-exemplos/2-erros.ts`:
+`guides/execute/exemplos/2-erros.ts`:
 
 ```ts
 /**
@@ -261,7 +261,7 @@ programa-que-nao-existe
 
 ### 3. Cancelar
 
-`agents/meus-testes/execute-exemplos/3-cancelar.ts`:
+`guides/execute/exemplos/3-cancelar.ts`:
 
 ```ts
 /**
@@ -308,7 +308,7 @@ O `sleep 30` parou em meio segundo; `onAbort` rodou; o erro é o motivo passado 
 
 ### 4. Dar sentido à saída
 
-O Executor entrega pedaços; o sentido é de quem lê. Este é o papel de um `parseOutput` de provider. `agents/meus-testes/execute-exemplos/4-ler-saida.ts`:
+O Executor entrega pedaços; o sentido é de quem lê. Este é o papel de um `parseOutput` de provider. `guides/execute/exemplos/4-ler-saida.ts`:
 
 ```ts
 /**
@@ -371,7 +371,7 @@ O programa escreveu `pri`, `meira\nsegu` e `nda`: três pedaços que não respei
 
 ### 5. Dentro de uma sandbox
 
-O mesmo Executor, com um comando preparado pelo workspace. `agents/meus-testes/execute-exemplos/5-sandbox.ts`:
+O mesmo Executor, com um comando preparado pelo workspace. `guides/execute/exemplos/5-sandbox.ts`:
 
 ```ts
 /**
@@ -424,7 +424,7 @@ O Executor rodou um `nsenter`, sem saber que era uma jaula. Por isso, numa sandb
 
 ### 6. Acompanhar várias execuções
 
-`agents/meus-testes/execute-exemplos/6-acompanhar.ts`:
+`guides/execute/exemplos/6-acompanhar.ts`:
 
 ```ts
 /**
@@ -489,7 +489,7 @@ Cada pedaço chega a quem pediu a execução **e** ao observador, que sabe de qu
 
 ### 7. O processo atual e o Ctrl+C
 
-Sem Executor: as outras partes do módulo. `agents/meus-testes/execute-exemplos/7-processo.ts`, rodado com dois argumentos (`bun agents/meus-testes/execute-exemplos/7-processo.ts a b`):
+Sem Executor: as outras partes do módulo. `guides/execute/exemplos/7-processo.ts`, rodado com dois argumentos (`bun guides/execute/exemplos/7-processo.ts a b`):
 
 ```ts
 /**

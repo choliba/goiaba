@@ -18,6 +18,7 @@ import {
 import { localPorts } from './rules';
 import { NetworkGate, type NetworkGateOptions } from './gate';
 import type { TrafficObserver } from './types';
+import { PROXY_PORT, READY_POLL_MS, READY_TIMEOUT_MS } from './constants';
 import { NetworkProxy } from './proxy';
 import { PublishedPorts, socketFor } from './publish';
 
@@ -27,20 +28,23 @@ export { NETWORK_SOURCE, NetworkGate, type NetworkGateOptions } from './gate';
 export { NetworkProxy } from './proxy';
 export { validatePorts } from './publish';
 
-/** Where the CLIs inside the jail find the proxy (the jail's own loopback). */
-export const PROXY_PORT = 3128;
+export * from './constants';
 
 export interface NetworkBoundaryOptions extends NetworkGateOptions {
   /** Read what these destinations send back (e.g. a local model's usage). */
   readonly observe?: readonly TrafficObserver[];
+  /** See `PROXY_PORT`. */
+  readonly proxyPort?: number;
+  /** See `READY_TIMEOUT_MS`. */
+  readonly readyTimeoutMs?: number;
+  /** See `MAX_OBSERVED_BYTES`. */
+  readonly maxObservedBytes?: number;
 }
 
 const SOCKET_FILE = 'proxy.sock';
 /** The published ports' sockets: the only place the sandbox writes here. */
 const PORTS_DIR = 'ports';
 const READY_FILE = 'ready';
-const READY_TIMEOUT_MS = 5000;
-const READY_POLL_MS = 20;
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
 
 /**
@@ -62,10 +66,18 @@ export class NetworkBoundary {
   private ports: readonly number[] = [];
   private published: PublishedPorts | undefined;
   private bridge: Helper | undefined;
+  private readonly proxyPort: number;
+  private readonly readyTimeoutMs: number;
 
   public constructor(options: NetworkBoundaryOptions) {
     this.gate = new NetworkGate(options);
-    this.proxy = new NetworkProxy(this.gate, options.observe);
+    this.proxy = new NetworkProxy(
+      this.gate,
+      options.observe,
+      options.maxObservedBytes,
+    );
+    this.proxyPort = options.proxyPort ?? PROXY_PORT;
+    this.readyTimeoutMs = options.readyTimeoutMs ?? READY_TIMEOUT_MS;
     this.forwards = [
       ...new Set([
         ...(options.alwaysAllow ?? []).filter(isLocal),
@@ -110,7 +122,7 @@ export class NetworkBoundary {
    * tunnels to the host.
    */
   public environment(): readonly string[] {
-    const proxy = `http://127.0.0.1:${String(PROXY_PORT)}`;
+    const proxy = `http://127.0.0.1:${String(this.proxyPort)}`;
     const local = LOCAL_HOSTS.join(',');
     return [
       `HTTP_PROXY=${proxy}`,
@@ -149,7 +161,7 @@ export class NetworkBoundary {
       exited = true;
     });
 
-    if (!(await appears(ready, () => !exited))) {
+    if (!(await appears(ready, () => !exited, this.readyTimeoutMs))) {
       throw new UsageError(
         'Não foi possível abrir a saída de rede da sandbox.',
       );
@@ -176,7 +188,7 @@ export class NetworkBoundary {
     return [
       new URL('./bridge-main.ts', import.meta.url).pathname,
       join(this.dir, SOCKET_FILE),
-      String(PROXY_PORT),
+      String(this.proxyPort),
       ...this.forwards.flatMap((forward) => ['--forward', forward]),
       ...this.ports.flatMap((port) => [
         '--publish',
@@ -207,8 +219,12 @@ function isLocal(endpoint: string): boolean {
   return LOCAL_HOSTS.includes(host) || host.startsWith('127.');
 }
 
-async function appears(path: string, waiting: () => boolean): Promise<boolean> {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
+async function appears(
+  path: string,
+  waiting: () => boolean,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline && waiting()) {
     if (pathExists(path)) return true;
     await new Promise((resolve) => setTimeout(resolve, READY_POLL_MS));

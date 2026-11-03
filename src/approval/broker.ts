@@ -20,6 +20,7 @@ import {
   type CommandDecision,
   type CommandGateOptions,
 } from './gate';
+import { UNOWNED_GRACE_MS } from './constants';
 
 export {
   type CommandApprovalRequest,
@@ -27,11 +28,13 @@ export {
   type CommandDecision,
 } from './gate';
 
-export type ApprovalBrokerOptions = CommandGateOptions;
+export interface ApprovalBrokerOptions extends CommandGateOptions {
+  /** See `UNOWNED_GRACE_MS`. */
+  readonly unownedGraceMs?: number;
+}
 
 const HOOK_FILE = 'hook';
 const OWNER_FILE = 'owner.pid';
-const UNOWNED_GRACE_MS = 60_000;
 const SOCKET_FILE = 'approval.sock';
 
 /**
@@ -48,7 +51,7 @@ export class ApprovalBroker {
 
   public constructor(options: ApprovalBrokerOptions) {
     this.gate = new CommandGate(options);
-    removeAbandonedGates();
+    removeAbandonedGates(options.unownedGraceMs);
     this.dir = join(gatesDir(), randomUUID().slice(0, 8));
     this.createDir();
   }
@@ -101,22 +104,22 @@ function gatesDir(): string {
 }
 
 /** Gate directories whose owner process is gone (it died without closing). */
-function removeAbandonedGates(): void {
+function removeAbandonedGates(unownedGraceMs = UNOWNED_GRACE_MS): void {
   const dir = gatesDir();
   if (!pathExists(dir)) return;
 
   for (const name of listDirectory(dir)) {
     const gate = join(dir, name);
-    if (isAbandoned(gate)) removePath(gate);
+    if (isAbandoned(gate, unownedGraceMs)) removePath(gate);
   }
 }
 
-function isAbandoned(gate: string): boolean {
+function isAbandoned(gate: string, unownedGraceMs: number): boolean {
   const owner = join(gate, OWNER_FILE);
   // No owner yet: a gate being created right now, or one from before the
   // owner file (old enough that nobody can be using it).
   if (!pathExists(owner)) {
-    return Date.now() - modifiedAt(gate) > UNOWNED_GRACE_MS;
+    return Date.now() - modifiedAt(gate) > unownedGraceMs;
   }
 
   const pid = Number(readText(owner).trim());

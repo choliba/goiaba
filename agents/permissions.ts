@@ -53,7 +53,7 @@ export const todasAsPermissoes: AgentPolicy = {
           // URL não é host: use 'duckduckgo.com' e '*.duckduckgo.com'.
           // 'https://duckduckgo.com/',
         ],
-        ignores: { hosts: ['gist.github.com'] },
+        // ignores: { hosts: ['gist.github.com'] },
       },
     ],
     execution: [

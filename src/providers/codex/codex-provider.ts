@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
 import { homedir } from 'node:os';
 
 import {
@@ -32,7 +33,6 @@ import type {
 } from '../types';
 
 /** Long enough for a person to answer an approval prompt. */
-const HOOK_TIMEOUT_SECONDS = 3600;
 
 /**
  * Codex logs every command our gate denies. The denial is already recorded

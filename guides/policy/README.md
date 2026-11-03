@@ -273,7 +273,7 @@ Os caminhos usam `/workspace` como apelido da raiz (o caminho real também é ac
 
 ### 1. Uma ação: `check`
 
-`agents/meus-testes/policy-exemplos/1-check.ts`:
+`guides/policy/exemplos/1-check.ts`:
 
 ```ts
 /** Exemplo 1 do curso de policy: a decisão de uma ação (`check`). */
@@ -301,7 +301,7 @@ for (const command of [
 }
 ```
 
-`bun agents/meus-testes/policy-exemplos/1-check.ts` (saída real):
+`bun guides/policy/exemplos/1-check.ts` (saída real):
 
 ```
 git status → allow (allow)
@@ -319,7 +319,7 @@ rm -rf build → deny (default)
 
 ### 2. Uma linha de shell: `checkCommand`
 
-`agents/meus-testes/policy-exemplos/2-check-command.ts`:
+`guides/policy/exemplos/2-check-command.ts`:
 
 ```ts
 /** Exemplo 2 do curso de policy: uma linha de shell inteira (`checkCommand`). */
@@ -357,14 +357,15 @@ ls > out.txt → require_approval (allow): O comando tem redirecionamento, subst
 
 `check` **só decide**: para `require_approval`, devolve a decisão e para. Não abre nada, não pergunta a ninguém. Perguntar é de quem usa a política, e o motor tem o ponto para isso: `authorize(action, approve)`, que decide e, só se precisar, chama **a sua** função.
 
-`agents/meus-testes/policy-exemplos/2b-authorize.ts`:
+`guides/policy/exemplos/2b-authorize.ts`:
 
 ```ts
 /**
  * Exemplo 2b do curso de policy: decidir e, só em `require_approval`,
  * perguntar (`authorize`). Responda com uma tecla: s ou n.
  */
-import { TerminalInteraction } from '../../../src/interaction/index';
+import { StdioAdapter } from '../../../src/adapters/stdio/index';
+import { Conversation } from '../../../src/interaction/index';
 import {
   PolicyEngine,
   type AgentAction,
@@ -378,7 +379,7 @@ const policy = new PolicyEngine({
   deny: { execution: [{ commands: ['git push --force *'] }] },
 });
 
-const terminal = new TerminalInteraction();
+const terminal = new Conversation(new StdioAdapter());
 
 /** Quem pergunta: o terminal, com uma tecla. */
 async function askInTerminal({
@@ -442,7 +443,7 @@ Quem pergunta é você: o terminal, um site, uma regra automática. Num agente, 
 
 ### 3. Aprovações salvas valem como allow
 
-O gate de comandos passa as aprovações salvas (`[s]` sessão, `[w]` workspace) como `approved`. Este exemplo compara cada linha sem e com elas. `agents/meus-testes/policy-exemplos/3-aprovacoes.ts`:
+O gate de comandos passa as aprovações salvas (`[s]` sessão, `[w]` workspace) como `approved`. Este exemplo compara cada linha sem e com elas. `guides/policy/exemplos/3-aprovacoes.ts`:
 
 ```ts
 /**
@@ -511,7 +512,7 @@ O padrão que uma aprovação ampla salva vem de `suggestPattern`: um comando si
 
 ### 4. A política de arquivos vira montagens da sandbox
 
-`agents/meus-testes/policy-exemplos/4-arquivos.ts` (rode na raiz do repositório: os caminhos mascarados precisam existir):
+`guides/policy/exemplos/4-arquivos.ts` (rode na raiz do repositório: os caminhos mascarados precisam existir):
 
 ```ts
 /**
@@ -598,7 +599,7 @@ guidesOnly: {
 
 ### 5. O que fica para o provider
 
-`agents/meus-testes/policy-exemplos/5-provider.ts`:
+`guides/policy/exemplos/5-provider.ts`:
 
 ```ts
 /**
@@ -640,7 +641,7 @@ Saída real:
 
 ### 6. A mesma política num agente
 
-A política da seção [AgentPolicy em uma página](#agentpolicy-em-uma-página) não muda para ser usada por um agente: ela vai em `permissions`. `agents/meus-testes/policy-exemplos/6-agente.ts` (precisa do Ollama com o modelo e de um `.env` na raiz):
+A política da seção [AgentPolicy em uma página](#agentpolicy-em-uma-página) não muda para ser usada por um agente: ela vai em `permissions`. `guides/policy/exemplos/6-agente.ts` (precisa do Ollama com o modelo e de um `.env` na raiz):
 
 ```ts
 /**
@@ -707,7 +708,7 @@ Durante a execução, as perguntas são as mesmas da tabela daquela seção, fei
 
 ### 7. Tools
 
-O Goiaba não tem um registro de ferramentas: uma ferramenta é **uma função sua**, e a política só responde se ela pode rodar. Quem liga o nome à função e pergunta à política antes de rodar é o seu código. O arquivo completo, que roda como está, é `agents/meus-testes/tools.ts`.
+O Goiaba não tem um registro de ferramentas: uma ferramenta é **uma função sua**, e a política só responde se ela pode rodar. Quem liga o nome à função e pergunta à política antes de rodar é o seu código. O arquivo completo, que roda como está, é `guides/policy/exemplos/tools.ts`.
 
 Cada chamada passa por **duas perguntas**: `tools` (esta ferramenta pode ser chamada?) e a categoria do que ela toca (`communication` para o destinatário de um email, `filesystem` para o arquivo lido).
 
@@ -830,7 +831,7 @@ async function callTool(name: string, args: Args = {}): Promise<string> {
 
 #### Rodando
 
-`bun agents/meus-testes/tools.ts`, respondendo `s` às duas perguntas (saída real):
+`bun guides/policy/exemplos/tools.ts`, respondendo `s` às duas perguntas (saída real):
 
 ```
 email/read {}
@@ -873,7 +874,7 @@ Duas coisas para notar:
 - **Aprovar a ferramenta não libera tudo o que ela faz.** Você disse `s` para `email/send` nas duas vezes; quem barrou o email para fora foi a regra de `communication`.
 - **A política vem antes do registro.** `slack/send` não existe no `Map`, mas a resposta é "não permitida", não "desconhecida": a pergunta à política é a primeira coisa que `callTool` faz.
 
-> Num agente, as regras de `tools` fazem a política ser recusada (a categoria ainda não é aplicada às ferramentas da CLI). Este padrão é para ferramentas **suas**, chamadas pelo seu código, como as do `agents/meus-testes/ollama.chat.ts`.
+> Num agente, as regras de `tools` fazem a política ser recusada (a categoria ainda não é aplicada às ferramentas da CLI). Este padrão é para ferramentas **suas**, chamadas pelo seu código.
 
 [↑ topo](#topo)
 

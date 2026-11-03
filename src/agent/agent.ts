@@ -53,6 +53,7 @@ import {
 } from '../policy/index';
 import { UsageError } from '../errors';
 import { StdioAdapter } from '../adapters/stdio/index';
+import { APPROVAL_POLL_MS, THINKING_TICK_MS } from './constants';
 import {
   Conversation,
   type Interaction,
@@ -116,6 +117,8 @@ export class Agent {
   private controller: AbortController | undefined;
   /** Pausing: the run ends but the sandbox and the gate stay open. */
   private keepOpen = false;
+  private readonly approvalPollMs: number;
+  private readonly thinkingTickMs: number;
 
   public constructor({
     name,
@@ -131,6 +134,8 @@ export class Agent {
     store,
     conversation = true,
     resume = true,
+    approvalPollMs = APPROVAL_POLL_MS,
+    thinkingTickMs = THINKING_TICK_MS,
     subscribe = [],
   }: AgentOptions) {
     if (name.trim().length === 0) {
@@ -152,6 +157,8 @@ export class Agent {
     this.signal = signal;
     this.conversation = conversation;
     this.resumes = resume;
+    this.approvalPollMs = approvalPollMs;
+    this.thinkingTickMs = thinkingTickMs;
     this.permissions = permissions;
     this.subscribers = subscribe;
     // Forces one session (e.g. relaunched by `approvals`); otherwise the store
@@ -557,7 +564,7 @@ export class Agent {
             if (phase === 'tick') agentEvents.emit(record);
             else publish(record, 'debug');
           },
-          { paused: () => this.approving > 0 },
+          { every: this.thinkingTickMs, paused: () => this.approving > 0 },
         );
         this.spoke = () => thinking.spoke();
 
@@ -925,7 +932,7 @@ export class Agent {
       const notices =
         this.store?.pendingNotices(this.workspace.root, session) ?? [];
       if (notices.length > 0) return;
-      await delay(APPROVAL_POLL_MS, signal);
+      await delay(this.approvalPollMs, signal);
     }
 
     // Lost the race (an answer came first): never resolve.
@@ -1078,8 +1085,6 @@ function isLocalApprovalResult(input: string): boolean {
 }
 
 const CONTINUE = 'Continue a tarefa de onde parou.';
-
-const APPROVAL_POLL_MS = 1000;
 
 function waitingMessage(count: number): string {
   return `⏸ Aguardando aprovação de ${String(count)} comando(s) negado(s): aperte Ctrl+A (ou rode \`bun run approvals\` em outro terminal). O agente continua sozinho quando aprovar (Ctrl+C para sair).`;
@@ -1413,7 +1418,6 @@ const BACKGROUND_MESSAGE = '⏳ rodando em background…';
 /** Before the model's reasoning on screen, apart from its answer. */
 const REASONING_MARK = '💭';
 /** How often a `thinking` tick is reported while the model works. */
-const THINKING_TICK_MS = 2000;
 
 /**
  * The model's work in a turn, for the subscribers: `start` when the turn

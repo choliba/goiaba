@@ -6,9 +6,12 @@ import { getConfig, isConfigLoaded } from '../config/index';
 import { UsageError } from '../errors';
 import { currentContext } from '../context/index';
 import { adaptLogger, type LogSink } from './adapt';
+import { MAX_ERROR_LENGTH } from './constants';
 import { createJsonlSink } from './jsonl';
 import { maskRecord } from './mask';
 import { toLogRecord, type LogContext, type LogEntry } from './record';
+
+export * from './constants';
 
 export type { LogSink } from './adapt';
 export type { LogEntry, LogLevel, LogRecord } from './record';
@@ -110,13 +113,14 @@ export function isDebug(): boolean {
   return isConfigLoaded() && getConfig().debug;
 }
 
-const MAX_ERROR_LENGTH = 4000;
-
 /** Error output can be huge (stack traces, npm logs); keep the head. */
-export function truncateError(text: string): string {
-  return text.length <= MAX_ERROR_LENGTH
+export function truncateError(
+  text: string,
+  maxLength = MAX_ERROR_LENGTH,
+): string {
+  return text.length <= maxLength
     ? text
-    : `${text.slice(0, MAX_ERROR_LENGTH)}… (${String(text.length)} caracteres)`;
+    : `${text.slice(0, maxLength)}… (${String(text.length)} caracteres)`;
 }
 
 function ensureLogDir(dir: string): void {

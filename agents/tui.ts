@@ -24,7 +24,7 @@ import { todasAsPermissoes } from './permissions';
  *
  * /help lists the TUI's commands; Ctrl+A opens the approvals; Ctrl+C ends it.
  */
-const MODEL = 'qwen3.5:4b';
+const MODEL = 'llama3.2:latest';
 
 /** Which CLI: the first argument. */
 function chosenCli(): OllamaCli {

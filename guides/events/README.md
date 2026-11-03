@@ -37,7 +37,7 @@ fazerPedido() ── loja.emit() ──▶ [ 'loja' ] ──┬─▶ cobranca
 
 ## Exemplos
 
-Os exemplos abaixo rodam: estão em `agents/meus-testes/events.ts` (`bun agents/meus-testes/events.ts`).
+Os exemplos abaixo rodam: estão em `guides/events/exemplos/events.ts` (`bun guides/events/exemplos/events.ts`).
 
 ### Exemplo genérico 1: pedido e cobrança
 

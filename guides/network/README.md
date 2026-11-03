@@ -235,7 +235,7 @@ E o contrário, chegar **do host** a um serviço da sandbox (um dev server que o
 
 ## Exemplos
 
-Do mais simples ao mais completo. Os exemplos 1 e 2 rodam como estão: estão em `agents/meus-testes/network.ts`.
+Do mais simples ao mais completo. Os exemplos 1 e 2 rodam como estão: estão em `guides/network/exemplos/network.ts`.
 
 ### 1. Uma sandbox com a rede passando pelo gate (bubblewrap e docker)
 
@@ -285,8 +285,8 @@ await workspace.close(); // derruba proxy, bridge e sandbox
 Rodando:
 
 ```
-bun agents/meus-testes/network.ts bubblewrap
-bun agents/meus-testes/network.ts docker
+bun guides/network/exemplos/network.ts bubblewrap
+bun guides/network/exemplos/network.ts docker
 ```
 
 A saída é **igual nas duas** (saída real, docker):

@@ -11,10 +11,9 @@ import { connect } from 'node:net';
 
 import { exitProgram, programArguments } from '../execute/process';
 import { read } from '../input/index';
+import { HOOK_WAIT_MS } from './constants';
 import { StdioAdapter } from '../adapters/stdio/index';
 import { Conversation } from '../interaction/index';
-
-const TIMEOUT_MS = 55 * 60 * 1000;
 
 interface Decision {
   readonly decision: 'allow' | 'deny';
@@ -71,7 +70,7 @@ function ask(socketPath: string, command: string): Promise<Decision> {
     const timer = setTimeout(() => {
       socket.destroy();
       reject(new Error('O gate de execução não respondeu a tempo.'));
-    }, TIMEOUT_MS);
+    }, HOOK_WAIT_MS);
 
     socket.setEncoding('utf8');
     socket.on('connect', () => {

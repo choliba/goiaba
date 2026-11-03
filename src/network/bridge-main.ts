@@ -28,8 +28,8 @@ import {
   runAttached,
 } from '../execute/process';
 import { removePath, writeText } from '../filesystem/index';
+import { PARENT_CHECK_MS } from './constants';
 
-const PARENT_CHECK_MS = 1000;
 const HEADER_END = '\r\n\r\n';
 
 interface BridgeArguments {

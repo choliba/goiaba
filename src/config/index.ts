@@ -14,6 +14,11 @@ import {
   environment,
   setEnvironmentDefault,
 } from '../execute/process';
+import {
+  DEFAULT_DATABASE_DIR,
+  DEFAULT_DATABASE_NAME,
+  DEFAULT_LOG_DIR,
+} from './constants';
 
 export interface GoiabaEnv {
   readonly [key: string]: string | boolean | number | undefined;
@@ -87,10 +92,6 @@ const CONFIG_FILES = [
   'goiaba.config.js',
   'goiaba.config.mjs',
 ] as const;
-
-const DEFAULT_LOG_DIR = '.goiaba/logs';
-const DEFAULT_DATABASE_DIR = '.goiaba';
-const DEFAULT_DATABASE_NAME = 'goiaba.db';
 
 const cache = new Map<string, Promise<ResolvedGoiabaConfig>>();
 let current: ResolvedGoiabaConfig | undefined;

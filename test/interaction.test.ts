@@ -138,13 +138,14 @@ describe('Conversation', () => {
   });
 
   test('quem não pede tecla responde a escolha com uma linha', async () => {
-    const { adapter, send } = fakeAdapter({ canAsk: false });
+    const { adapter, send, shown } = fakeAdapter({ canAsk: false });
     const conversation = new Conversation(adapter);
 
     const choice = conversation.choose(['s', 'n']);
     send({ type: 'message', text: '  Sim ' });
 
     expect(await choice).toBe('s');
+    expect(shown).toEqual(['s']);
   });
 
   test('cancelar a pergunta não fecha a entrada: a linha vai para a próxima', async () => {

@@ -1,6 +1,7 @@
 import { appendText, join } from '../filesystem/index';
 import { UsageError } from '../errors';
 import type { LogSink } from './adapt';
+import { LOG_FILE_MODE } from './constants';
 import type { LogRecord } from './record';
 
 export interface JsonlSinkOptions {
@@ -13,7 +14,6 @@ export interface JsonlSinkOptions {
 
 const ECS_VERSION = '8.11.0';
 /** The log has the conversation: only its owner reads it. */
-const FILE_MODE = 0o600;
 
 /**
  * The log without `logger.use` in goiaba.config.ts: ECS JSON lines in
@@ -54,7 +54,7 @@ function ecsLine(
 
 function append(file: string, line: string): void {
   try {
-    appendText(file, line, FILE_MODE);
+    appendText(file, line, LOG_FILE_MODE);
   } catch (writeError) {
     const reason =
       writeError instanceof Error ? writeError.message : String(writeError);

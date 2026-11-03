@@ -63,6 +63,10 @@ export interface AgentOptions {
    * `false` starts every run anew. `resume()` still continues.
    */
   readonly resume?: boolean;
+  /** See `APPROVAL_POLL_MS`. */
+  readonly approvalPollMs?: number;
+  /** See `THINKING_TICK_MS`. */
+  readonly thinkingTickMs?: number;
   /** Functions that receive everything the agent reports, as it happens. */
   readonly subscribe?: readonly AgentSubscriber[];
 }

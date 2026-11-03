@@ -132,18 +132,18 @@ Num agente rodando, `Ctrl+A` (o atalho do `AGENT_SHORTCUTS`) abre a mesma `Appro
 
 ## Exemplos
 
-Cada exemplo é um arquivo de `agents/meus-testes/cli-exemplos/` que roda como está: ele roda o comando de verdade, como um programa, pelo `Executor`. Os exemplos 2 e 3 criam um projeto temporário, com o banco próprio, e o apagam no fim.
+Cada exemplo é um arquivo de `guides/cli/exemplos/` que roda como está: ele roda o comando de verdade, como um programa, pelo `Executor`. Os exemplos 2 e 3 criam um projeto temporário, com o banco próprio, e o apagam no fim.
 
 ### 1. A ajuda do comando
 
-`agents/meus-testes/cli-exemplos/1-ajuda.ts`:
+`guides/cli/exemplos/1-ajuda.ts`:
 
 ```ts
 /**
  * Exemplo 1 do curso de cli: o comando `approvals` e a ajuda dele. O
  * exemplo roda o comando como um programa, pelo Executor, e mostra a saída.
  *
- *   bun agents/meus-testes/cli-exemplos/1-ajuda.ts
+ *   bun guides/cli/exemplos/1-ajuda.ts
  */
 import { Executor } from '../../../src/execute/index';
 import { runtimeExecutable } from '../../../src/execute/process';
@@ -156,7 +156,7 @@ for await (const { chunk } of new Executor().run({
   executable: runtimeExecutable(),
   arguments: [approvals, '--help'],
 })) {
-  stdioOutput.write(chunk.trimEnd());
+  await stdioOutput.write(chunk.trimEnd());
 }
 ```
 
@@ -176,7 +176,7 @@ A ajuda é gerada pelo `src/command` a partir da declaração do comando.
 
 ### 2. Sem nada para aprovar
 
-`agents/meus-testes/cli-exemplos/2-sem-pedidos.ts`:
+`guides/cli/exemplos/2-sem-pedidos.ts`:
 
 ```ts
 /**
@@ -184,7 +184,7 @@ A ajuda é gerada pelo `src/command` a partir da declaração do comando.
  * projeto onde roda (o `database` do goiaba.config.ts); um projeto novo não
  * tem pedidos. Cria um projeto temporário, roda o comando nele e apaga.
  *
- *   bun agents/meus-testes/cli-exemplos/2-sem-pedidos.ts
+ *   bun guides/cli/exemplos/2-sem-pedidos.ts
  */
 import { randomUUID } from 'node:crypto';
 
@@ -219,7 +219,7 @@ try {
     arguments: [approvals],
     cwd: project,
   })) {
-    stdioOutput.write(chunk.trimEnd());
+    await stdioOutput.write(chunk.trimEnd());
   }
 } finally {
   removePath(project);
@@ -236,7 +236,7 @@ O comando rodou dentro do projeto temporário e leu o banco dele (`db/goiaba.db`
 
 ### 3. Aprovar um pedido
 
-`agents/meus-testes/cli-exemplos/3-aprovar.ts`:
+`guides/cli/exemplos/3-aprovar.ts`:
 
 ```ts
 /**
@@ -245,7 +245,7 @@ O comando rodou dentro do projeto temporário e leu o banco dele (`db/goiaba.db`
  * comando respondendo pelo stdin (`1`, `r`, `w`: marca o primeiro, avança,
  * aprova para o workspace) e mostra o que ficou no banco.
  *
- *   bun agents/meus-testes/cli-exemplos/3-aprovar.ts
+ *   bun guides/cli/exemplos/3-aprovar.ts
  */
 import { randomUUID } from 'node:crypto';
 
@@ -299,18 +299,20 @@ try {
     cwd: project,
     input: '1\nr\nw\n',
   })) {
-    stdioOutput.write(
+    await stdioOutput.write(
       chunk.trimEnd().replaceAll(/\d{2}-\d{2} \d{2}:\d{2}:\d{2}/g, '<horário>'),
     );
   }
 
   const after = Store.open(databasePath);
-  stdioOutput.write('\n--- no banco, depois:');
+  await stdioOutput.write('\n--- no banco, depois:');
   for (const approval of after.activeApprovals(workspace)) {
-    stdioOutput.write(`aprovação: ${approval.kind} "${approval.pattern}"`);
+    await stdioOutput.write(
+      `aprovação: ${approval.kind} "${approval.pattern}"`,
+    );
   }
   for (const pending of after.deniedDecisions(workspace)) {
-    stdioOutput.write(`ainda pendente: ${pending.command}`);
+    await stdioOutput.write(`ainda pendente: ${pending.command}`);
   }
   after.close();
 } finally {

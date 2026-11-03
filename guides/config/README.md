@@ -149,11 +149,11 @@ O resultado fica em cache por diretório e arquivo: carregar de novo devolve o m
 
 ## Exemplos
 
-Cada exemplo é um arquivo de `agents/meus-testes/config-exemplos/` que roda como está. Os que precisam de um `goiaba.config.ts` criam um projeto temporário, carregam e apagam.
+Cada exemplo é um arquivo de `guides/config/exemplos/` que roda como está. Os que precisam de um `goiaba.config.ts` criam um projeto temporário, carregam e apagam.
 
 ### 1. Um arquivo e o que ele vira
 
-`agents/meus-testes/config-exemplos/1-arquivo.ts`:
+`guides/config/exemplos/1-arquivo.ts`:
 
 ```ts
 /**
@@ -218,7 +218,7 @@ Saída real:
 
 ### 2. Sem arquivo: os padrões
 
-`agents/meus-testes/config-exemplos/2-padroes.ts`:
+`guides/config/exemplos/2-padroes.ts`:
 
 ```ts
 /**
@@ -271,7 +271,7 @@ Tudo dentro de `.goiaba/`, no diretório onde a busca começou. `configPath` é 
 
 ### 3. envs e uma config que é uma função
 
-`agents/meus-testes/config-exemplos/3-envs.ts`:
+`guides/config/exemplos/3-envs.ts`:
 
 ```ts
 /**
@@ -353,7 +353,7 @@ E o `API_URL` do segundo env não apareceu: só o primeiro vale.
 
 ### 4. Uma config errada não é ignorada
 
-`agents/meus-testes/config-exemplos/4-erros.ts`:
+`guides/config/exemplos/4-erros.ts`:
 
 ```ts
 /**
@@ -421,16 +421,16 @@ Uma opção com nome errado não fica sem efeito em silêncio: ela impede o carr
 
 ### 5. GOIABA_DEBUG e GOIABA_LOG_DIR
 
-`agents/meus-testes/config-exemplos/5-variaveis.ts`:
+`guides/config/exemplos/5-variaveis.ts`:
 
 ```ts
 /**
  * Exemplo 5 do curso de config: GOIABA_DEBUG e GOIABA_LOG_DIR valem mais que
  * o arquivo, sem editá-lo. Rode de três jeitos:
  *
- *   bun agents/meus-testes/config-exemplos/5-variaveis.ts
- *   GOIABA_DEBUG=0 bun agents/meus-testes/config-exemplos/5-variaveis.ts
- *   GOIABA_LOG_DIR=/tmp/meus-logs bun agents/meus-testes/config-exemplos/5-variaveis.ts
+ *   bun guides/config/exemplos/5-variaveis.ts
+ *   GOIABA_DEBUG=0 bun guides/config/exemplos/5-variaveis.ts
+ *   GOIABA_LOG_DIR=/tmp/meus-logs bun guides/config/exemplos/5-variaveis.ts
  */
 import { randomUUID } from 'node:crypto';
 
@@ -469,11 +469,11 @@ try {
 Saída real, dos três jeitos:
 
 ```
-$ bun agents/meus-testes/config-exemplos/5-variaveis.ts
+$ bun guides/config/exemplos/5-variaveis.ts
 debug: true, logger.dir: <projeto>/logs
-$ GOIABA_DEBUG=0 bun agents/meus-testes/config-exemplos/5-variaveis.ts
+$ GOIABA_DEBUG=0 bun guides/config/exemplos/5-variaveis.ts
 debug: false, logger.dir: <projeto>/logs
-$ GOIABA_LOG_DIR=/tmp/meus-logs bun agents/meus-testes/config-exemplos/5-variaveis.ts
+$ GOIABA_LOG_DIR=/tmp/meus-logs bun guides/config/exemplos/5-variaveis.ts
 debug: true, logger.dir: /tmp/meus-logs
 ```
 
@@ -481,7 +481,7 @@ O arquivo diz `debug: true` e `logs`; as variáveis mudam o resultado sem editar
 
 ### 6. Importar o Goiaba já carrega a config
 
-Com o `goiaba.config.ts` deste repositório (o logger é o pino, o banco fica em `storage/db`). `agents/meus-testes/config-exemplos/6-importar.ts`, rodado na raiz:
+Com o `goiaba.config.ts` deste repositório (o logger é o pino, o banco fica em `storage/db`). `guides/config/exemplos/6-importar.ts`, rodado na raiz:
 
 ```ts
 /**

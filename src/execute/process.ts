@@ -3,14 +3,14 @@ import { once } from 'node:events';
 import { constants } from 'node:os';
 import { promisify } from 'node:util';
 
+import { HELPER_MAX_OUTPUT_BYTES } from './constants';
+
 /**
  * The current process and the programs Goiaba starts besides the agent's CLI
  * (which goes through `Executor`). Nothing else touches `process` directly.
  */
 
 const execFileAsync = promisify(execFile);
-/** The most a short helper program may print before it is an error. */
-const HELPER_MAX_OUTPUT = 2 * 1024 * 1024;
 
 /** Arguments given to the current program, without the runtime and script. */
 export function programArguments(): readonly string[] {
@@ -141,12 +141,15 @@ export function currentUser(): ProcessUser {
 export async function runProgram(
   executable: string,
   args: readonly string[],
-  { timeoutMs }: { readonly timeoutMs: number },
+  {
+    timeoutMs,
+    maxOutputBytes = HELPER_MAX_OUTPUT_BYTES,
+  }: { readonly timeoutMs: number; readonly maxOutputBytes?: number },
 ): Promise<string> {
   const { stdout } = await execFileAsync(executable, [...args], {
     encoding: 'utf8',
     timeout: timeoutMs,
-    maxBuffer: HELPER_MAX_OUTPUT,
+    maxBuffer: maxOutputBytes,
   });
   return stdout;
 }

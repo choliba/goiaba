@@ -1,4 +1,9 @@
 import { UsageError } from '../errors';
+import {
+  COMPACT_AT,
+  DEFAULT_CONTEXT_WINDOW,
+  DEFAULT_OLLAMA_URL,
+} from './constants';
 import type { ProgramCommand, ProgramOutput } from '../execute/types';
 import { log } from '../logger/index';
 import type { AgentPolicy } from '../policy/index';
@@ -29,18 +34,14 @@ export interface OllamaProviderOptions extends ProviderOptions {
    * with this they compact before going past it.
    */
   readonly contextWindow?: number;
+  /** Only with `cli: 'codex'`: see `COMPACT_AT`. */
+  readonly compactAt?: number;
   /**
    * Only with `cli: 'claude'`: the tools the model sees (`ClaudeProvider`'s
    * `tools`). Claude Code's full set is ~15k tokens on every request.
    */
   readonly tools?: readonly string[];
 }
-
-const DEFAULT_BASE_URL = 'http://127.0.0.1:11434';
-/** Ollama's default context here (`ollama ps` shows 32768). */
-const DEFAULT_CONTEXT_WINDOW = 32_768;
-/** Codex compacts at this share of the window, leaving room to answer. */
-const COMPACT_AT = 0.8;
 
 /**
  * stderr lines the CLIs print only because they talk to Ollama: an unknown
@@ -66,6 +67,7 @@ export class OllamaProvider implements Provider<string, string> {
   private readonly cli: OllamaCli;
   private readonly model: string;
   private readonly contextWindow: number;
+  private readonly compactAt: number;
   private readonly endpoint: string;
 
   /**
@@ -78,7 +80,7 @@ export class OllamaProvider implements Provider<string, string> {
   ) => LiveTurn;
 
   public constructor(options: OllamaProviderOptions) {
-    const baseUrl = readBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
+    const baseUrl = readBaseUrl(options.baseUrl ?? DEFAULT_OLLAMA_URL);
     this.id = `ollama-${options.cli}`;
     this.endpoint = endpointOf(baseUrl);
     this.cli = options.cli;
@@ -86,6 +88,7 @@ export class OllamaProvider implements Provider<string, string> {
     this.contextWindow = readContextWindow(
       options.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
     );
+    this.compactAt = options.compactAt ?? COMPACT_AT;
 
     const providerOptions: ProviderOptions = {
       model: options.model,
@@ -191,7 +194,7 @@ export class OllamaProvider implements Provider<string, string> {
       'env',
       this.env,
       this.inner instanceof CodexProvider
-        ? withOssFlags(command, this.contextWindow)
+        ? withOssFlags(command, this.contextWindow, this.compactAt)
         : command,
     );
   }
@@ -287,6 +290,7 @@ function readContextWindow(tokens: number): number {
 function withOssFlags(
   command: ProgramCommand,
   contextWindow: number,
+  compactAt: number,
 ): ProgramCommand {
   const args = command.arguments ?? [];
   const exec = args.indexOf('exec');
@@ -311,7 +315,7 @@ function withOssFlags(
       '-c',
       `model_context_window=${String(contextWindow)}`,
       '-c',
-      `model_auto_compact_token_limit=${String(Math.floor(contextWindow * COMPACT_AT))}`,
+      `model_auto_compact_token_limit=${String(Math.floor(contextWindow * compactAt))}`,
       ...args.slice(exec + 1),
     ],
   };

@@ -1,4 +1,5 @@
 import { homedir } from 'node:os';
+import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
 
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
 import { join } from '../../filesystem/index';
@@ -26,7 +27,6 @@ import type {
 const FILE_TOOLS = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'NotebookEdit'];
 
 /** Long enough for a person to answer an approval prompt. */
-const HOOK_TIMEOUT_SECONDS = 3600;
 
 interface ClaudeSettings {
   readonly permissions: {

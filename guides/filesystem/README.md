@@ -124,11 +124,11 @@ As funções de `proc.ts` seguem a primeira família: um processo que não exist
 
 ## Exemplos
 
-Cada exemplo é um arquivo de `agents/meus-testes/filesystem-exemplos/` que roda como está. Os que mexem no disco usam uma pasta temporária no cache do Goiaba e a apagam no fim.
+Cada exemplo é um arquivo de `guides/filesystem/exemplos/` que roda como está. Os que mexem no disco usam uma pasta temporária no cache do Goiaba e a apagam no fim.
 
 ### 1. Escrever, ler, listar e apagar
 
-`agents/meus-testes/filesystem-exemplos/1-ler-escrever.ts`:
+`guides/filesystem/exemplos/1-ler-escrever.ts`:
 
 ```ts
 /**
@@ -185,7 +185,7 @@ O segundo `removePath` não reclamou: a pasta já não existia.
 
 ### 2. Perguntar sobre um caminho
 
-`agents/meus-testes/filesystem-exemplos/2-perguntas.ts`:
+`guides/filesystem/exemplos/2-perguntas.ts`:
 
 ```ts
 /**
@@ -263,7 +263,7 @@ pathExists && isDirectory: false
 
 ### 3. Caminhos como texto
 
-`agents/meus-testes/filesystem-exemplos/3-caminhos.ts`:
+`guides/filesystem/exemplos/3-caminhos.ts`:
 
 ```ts
 /**
@@ -328,7 +328,7 @@ Duas linhas pedem atenção: `join('/projeto', '../fora')` dá `/fora`, e `resol
 
 ### 4. Links simbólicos
 
-`agents/meus-testes/filesystem-exemplos/4-symlinks.ts`:
+`guides/filesystem/exemplos/4-symlinks.ts`:
 
 ```ts
 /**
@@ -396,7 +396,7 @@ Pelo caminho, `atalho.txt` está dentro do workspace; pelo arquivo de verdade (`
 
 ### 5. Permissões
 
-`agents/meus-testes/filesystem-exemplos/5-permissoes.ts` (para mostrar o `mode`, usa o programa `stat`, pelo `execute`):
+`guides/filesystem/exemplos/5-permissoes.ts` (para mostrar o `mode`, usa o programa `stat`, pelo `execute`):
 
 ```ts
 /**
@@ -452,7 +452,7 @@ publico.txt       664
 
 ### 6. O cache do Goiaba
 
-`agents/meus-testes/filesystem-exemplos/6-cache.ts`:
+`guides/filesystem/exemplos/6-cache.ts`:
 
 ```ts
 /**
@@ -489,7 +489,7 @@ Como o ambiente é parâmetro, dá para perguntar "onde seria o cache com este a
 
 ### 7. Outros processos pelo /proc
 
-`agents/meus-testes/filesystem-exemplos/7-proc.ts`:
+`guides/filesystem/exemplos/7-proc.ts`:
 
 ```ts
 /**

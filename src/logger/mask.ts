@@ -1,3 +1,4 @@
+import { MIN_SECRET_LENGTH } from './constants';
 import type { LogRecord } from './record';
 
 /**
@@ -8,19 +9,18 @@ import type { LogRecord } from './record';
 const SENSITIVE =
   /api[_-]?key|access[_-]?key|private[_-]?key|secret|token|password|passwd|authorization|cookie|credential/i;
 const ASSIGNMENT = /\b([A-Za-z0-9_]+)=(\S+)/g;
-/** Shorter values (`1`, `true`) would mask unrelated text. */
-const MIN_SECRET_LENGTH = 8;
 
 export const REDACTED = '[REDACTED]';
 
 export function maskRecord(
   record: LogRecord,
   env: Readonly<Record<string, string>>,
+  minSecretLength = MIN_SECRET_LENGTH,
 ): LogRecord {
   const secrets = Object.entries(env)
     .filter(
       ([name, value]) =>
-        SENSITIVE.test(name) && value.length >= MIN_SECRET_LENGTH,
+        SENSITIVE.test(name) && value.length >= minSecretLength,
     )
     .map(([, value]) => value);
 

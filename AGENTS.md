@@ -51,12 +51,18 @@ próprio `goiaba.config.ts` seguem a mesma regra.
 - Código e comentários em inglês; o que o usuário lê (mensagens de erro, ajuda, cursos) em português.
 - Um erro de uso (configuração errada, política que não pode ser aplicada) é um `UsageError`, com uma mensagem que
   diga o que fazer. Uma opção desconhecida é recusada, nunca ignorada em silêncio.
+- Valores padrão (limites, intervalos, tamanhos, caminhos) moram no `constants.ts` do módulo, cada um com um
+  comentário que diz o que é, em que unidade e por que tem aquele valor. Quem cria o objeto pode trocar o valor
+  por uma opção (`maxRecordBytes`, `killGraceMs`…); sem a opção, vale o padrão. Valores de protocolo ou de
+  segurança (códigos HTTP, permissão de um arquivo de log) também moram lá, mas sem opção.
 - Antes de entregar: `bun run check` (typecheck, lint, formatação e testes) passando.
 
 ## Cursos (`guides/`)
 
 Siga a skill [`.agents/skills/guias-exemplos-completos`](.agents/skills/guias-exemplos-completos/SKILL.md): todo
 exemplo é completo e roda como está, com a saída real; o curso tem índice, link para o topo e seção de Interface.
+Os exemplos moram ao lado do curso, em `guides/<modulo>/exemplos/`, e passam pelo `bun run check` como o resto do
+código.
 
 ## Git e GitHub
 
@@ -74,5 +80,6 @@ O `.oxlintrc.json` tem a regra `no-restricted-imports`:
 | `node:child_process`                       | `src/execute`    |
 | `node:readline`                            | `src/input`      |
 
-Os testes (`test/`) estão fora da regra: montam arquivos e processos de teste à mão. As outras regras deste
+A regra vale para `src/`, `agents/`, `scripts/` e os exemplos dos cursos (`guides/`). Os testes (`test/`) estão fora
+da regra: montam arquivos e processos de teste à mão. As outras regras deste
 documento (`console`, `process`, o desacoplamento) ainda não são verificadas automaticamente.

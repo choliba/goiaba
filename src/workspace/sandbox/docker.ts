@@ -20,6 +20,7 @@ import type { SandboxHost } from './host-access';
 import { bubblewrapReadonlyBinds } from './bubblewrap';
 import { wrapCommand } from './wrap-command';
 import type { FilesystemAccess } from '../../policy/index';
+import { DEFAULT_DOCKER_IMAGE } from '../constants';
 
 export interface DockerSandboxOptions {
   /**
@@ -32,7 +33,7 @@ export interface DockerSandboxOptions {
   readonly writable?: readonly string[];
 }
 
-export const DEFAULT_DOCKER_IMAGE = 'FROM oven/bun:latest';
+export { DEFAULT_DOCKER_IMAGE } from '../constants';
 
 const HOST_ROOT = '/host';
 const FROM_IMAGE = /^FROM\s+(\S+)$/i;

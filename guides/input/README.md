@@ -2,405 +2,247 @@
 
 # Módulo input: para que ele existe
 
-Um programa que conversa com alguém precisa **ler o que a pessoa digita**. Parece simples, mas o Goiaba precisa de mais do que "ler uma linha":
+Todo processo nasce com um **stdin**: o canal por onde chega o que alguém digita, o que veio por um pipe (`echo oi | bun …`) ou o que a CLI manda para um hook. O módulo `input` é **o único leitor do stdin**, e só faz isso: entrega o que chegou, como texto, **inteiro** ou **em pedaços**.
 
-- enquanto o agente trabalha, a pessoa pode digitar a próxima mensagem, e ela não pode se perder;
-- uma aprovação pede **uma tecla** (`s`/`n`), não uma linha, e essa tecla não pode ir parar no meio da mensagem que estava sendo digitada;
-- um texto colado tem quebras de linha que **não** são Enter;
-- setas e outras teclas especiais não podem virar texto (`[A`).
-
-O módulo `input` é **o único leitor do terminal**. Ele entrega mensagens completas (linhas, escolhas), nunca bytes soltos. E ele **só lê**: o que fazer além disso (mostrar o que se digita, o que o Ctrl+C faz, quais teclas são atalhos) é decidido por quem o cria.
+O que o texto quer dizer (uma tecla, uma linha, uma mensagem, um comando) não é assunto dele. Isso é dos [adapters](../adapters/README.md), que leem o stdin por aqui e transformam o que chega em eventos para a [conversa](../interaction/README.md).
 
 ```
-teclado / pipe ──▶ StdinReader ──▶ next(): uma linha
-                        │            choose(['s','n']): uma tecla
-                        │
-             opções de quem cria: write (eco), onInterrupt (Ctrl+C),
-                                  shortcuts (tecla → linha), urgent (fura a fila)
+stdin (teclado, pipe, arquivo) ──▶ input ──▶ read():       o texto inteiro, quando o stdin acaba
+                                         └─▶ readStream(): os pedaços, conforme chegam
 ```
 
 ## Índice
 
 - [Os arquivos](#os-arquivos)
 - [Interface](#interface)
-  - [`StdinReader`](#stdinreader)
-  - [As opções: o que não é ler](#as-opções-o-que-não-é-ler)
-  - [`KeyDecoder` e `readAllInput`](#keydecoder-e-readallinput)
 - [Como funciona](#como-funciona)
-  - [Terminal ou pipe](#terminal-ou-pipe)
-  - [A fila e o que fura a fila](#a-fila-e-o-que-fura-a-fila)
-  - [Teclas especiais](#teclas-especiais)
-  - [Quem usa](#quem-usa)
+  - [Inteiro ou em pedaços](#inteiro-ou-em-pedaços)
+  - [Abre só quando alguém lê](#abre-só-quando-alguém-lê)
+  - [O fim, o erro e a desistência](#o-fim-o-erro-e-a-desistência)
+  - [Um leitor só](#um-leitor-só)
+  - [O modo raw](#o-modo-raw)
 - [Exemplos](#exemplos)
   - [1. Tudo o que veio pelo stdin](#1-tudo-o-que-veio-pelo-stdin)
-  - [2. Linha a linha, sem terminal](#2-linha-a-linha-sem-terminal)
-  - [3. Cancelar a espera](#3-cancelar-a-espera)
-  - [4. O que o terminal manda vira teclas](#4-o-que-o-terminal-manda-vira-teclas)
-  - [5. Num terminal de verdade](#5-num-terminal-de-verdade)
+  - [2. Em pedaços](#2-em-pedaços)
+  - [3. Parar de ler](#3-parar-de-ler)
+  - [4. Um leitor só](#4-um-leitor-só)
 - [Regras do módulo](#regras-do-módulo)
 - [Exercícios](#exercícios)
 
 ## Os arquivos
 
-| Arquivo    | Papel                                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts` | `StdinReader` (o leitor), `StdinReaderOptions`, `KeyDecoder` (texto do terminal → teclas) e `readAllInput` (todo o stdin de uma vez). |
+| Arquivo    | Papel                                                  |
+| ---------- | ------------------------------------------------------ |
+| `index.ts` | `read`, `readStream` e `stdinIsTty`: a fonte do stdin. |
 
-O módulo depende só do `filesystem` (para ler o stdin inteiro, pelo `readDescriptor`) e do logger (o que se digita vai para o log em `debug`).
+O módulo não depende de nenhum outro para ler. Usa o `execute/process.ts` (o dono do `process`) só para registrar, com `onProgramExit`, que o modo raw seja desfeito quando o programa terminar.
 
 [↑ topo](#topo)
 
 ## Interface
 
-### `StdinReader`
+| Função                    | O que faz                                                                   |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `read(): Promise<string>` | tudo o que o stdin tem, quando ele acaba (EOF)                              |
+| `readStream(options?)`    | um `AsyncIterable<string>`: os pedaços, conforme chegam, até o stdin acabar |
+| `stdinIsTty(): boolean`   | se o stdin é um terminal (alguém digitando) e não um pipe ou um arquivo     |
 
-| Membro                      | O que faz                                                                                                       |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `new StdinReader(options?)` | o leitor; veja as opções abaixo                                                                                 |
-| `next(signal?, instant?)`   | a próxima linha. Num terminal, uma tecla de `instant` digitada numa linha vazia é a resposta na hora, sem Enter |
-| `choose(keys, signal?)`     | uma das `keys`, com uma tecla só (`''` para Enter). Sem terminal, a primeira letra da próxima linha             |
-| `close()`                   | para de ler; quem esperava recebe um `AbortError`                                                               |
+As opções do `readStream`:
 
-`next` e `choose` aceitam um `AbortSignal`: abortar cancela a espera com um `AbortError`.
-
-### As opções: o que não é ler
-
-`StdinReaderOptions`, todas opcionais:
-
-| Opção           | O que é                                                                                                 | Sem ela                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `write(texto)`  | o que o input escreve no terminal: o **eco** do que se digita e as sequências que marcam o texto colado | nada aparece enquanto se digita (o modo raw não mostra), e as quebras de um texto colado o enviam |
-| `onInterrupt()` | o que o Ctrl+C faz (no modo raw, o terminal não manda o `SIGINT`)                                       | só fecha a leitura                                                                                |
-| `shortcuts`     | `{ tecla: linha }`: a tecla envia aquela linha na hora, **na frente** da fila                           | nenhum atalho                                                                                     |
-| `urgent(linha)` | quais linhas digitadas vão **na frente** da fila                                                        | nenhuma                                                                                           |
-
-O `TerminalInteraction` (a conversa no terminal, do `interaction`) cria o seu `StdinReader` com `write` (o `writeOut`) e `onInterrupt` (o Ctrl+C vira um `SIGINT`), e aceita `shortcuts` e `urgent`.
-
-### `KeyDecoder` e `readAllInput`
-
-| Nome                           | O que é                                                                                                                |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `new KeyDecoder().feed(texto)` | transforma o que o terminal mandou em teclas `{ key, pasted }`; guarda estado entre chamadas, para sequências partidas |
-| `readAllInput()`               | todo o stdin, de uma vez, como texto: para um programa que recebe um pedido só (um hook)                               |
+| Opção    | O que faz                                                                                                   |
+| -------- | ----------------------------------------------------------------------------------------------------------- |
+| `raw`    | num terminal, cada tecla na hora, sem o eco nem a edição de linha do terminal; ignorada fora de um terminal |
+| `signal` | encerra o stream: a leitura para, o stdin é devolvido e quem lê recebe um `AbortError`                      |
 
 [↑ topo](#topo)
 
 ## Como funciona
 
-### Terminal ou pipe
+### Inteiro ou em pedaços
 
-O `StdinReader` olha se o stdin é um terminal (`isTTY`):
+Os dois modos leem a **mesma fonte**: `read()` é o `readStream()` juntado até o fim. Os dois são assíncronos: esperar o stdin nunca trava o processo (o Ctrl+C, os timers e o resto continuam).
 
-|                             | Terminal (TTY)                                         | Pipe, arquivo, teste                  |
-| --------------------------- | ------------------------------------------------------ | ------------------------------------- |
-| como lê                     | **modo raw**: tecla por tecla, montando a linha        | linha a linha, como o sistema entrega |
-| eco                         | escreve o que se digita (`write`), apaga com Backspace | não há eco                            |
-| `choose`                    | uma tecla, sem Enter                                   | a primeira letra da próxima linha     |
-| `instant`, atalhos, colagem | funcionam                                              | não se aplicam                        |
+- **Inteiro** serve a quem recebe um pedido completo: o hook de aprovação lê o JSON da CLI com `await read()`.
+- **Em pedaços** serve a quem precisa reagir enquanto o texto chega: um adapter que lê teclas, ou linhas de um pipe que não acaba.
 
-### A fila e o que fura a fila
+Um pedaço não é uma linha: o sistema decide o tamanho. Juntar os pedaços em linhas é do adapter (`records`, no [stdio](../adapters/README.md)).
 
-No terminal, a leitura **continua** mesmo sem ninguém pedindo uma linha: uma mensagem digitada enquanto o agente trabalha entra numa fila e é entregue no próximo `next`. Duas coisas vão **na frente** dessa fila:
+### Abre só quando alguém lê
 
-- a linha de um **atalho** (`shortcuts`), assim que a tecla é apertada;
-- uma linha digitada que `urgent` reconhece.
+Chamar `readStream()` não abre nada: o stdin só começa a ser lido no primeiro `next()` (o primeiro passo do `for await`). Um programa que cria um leitor e nunca lê não fica preso esperando entrada.
 
-Uma escolha (`choose`) pendente tem prioridade sobre a linha sendo digitada: a tecla vai para a escolha e não aparece na linha. Um texto colado nunca responde uma escolha.
+### O fim, o erro e a desistência
 
-### Teclas especiais
+O fim é o do próprio `AsyncIterable`, sem evento à parte:
 
-| Tecla                    | O que acontece                                                  |
-| ------------------------ | --------------------------------------------------------------- |
-| Enter                    | envia a linha (se não estiver colando)                          |
-| Backspace                | apaga o último caractere visível (um emoji inteiro, não metade) |
-| Ctrl+C                   | chama `onInterrupt` e fecha                                     |
-| Ctrl+D                   | fecha a leitura; numa escolha, cancela só ela                   |
-| setas, Home, F1…         | descartadas                                                     |
-| um atalho de `shortcuts` | envia a linha dele, na frente                                   |
+- **o stdin acabou** (EOF; num pipe, quando quem escreve fecha): o `for await` termina;
+- **erro**: a exceção aparece dentro do `for await`, como um `throw`;
+- **quem lê desiste** (`break`, `return`, ou o `signal`): a leitura para e o stdin é devolvido.
 
-### Quem usa
+### Um leitor só
 
-| Quem                                  | Como                                                                                                                                                        |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TerminalInteraction` (`interaction`) | o terminal de quem roda um script ou um agente: `ask`, `listen` e `choose` são `next` e `choose`                                                            |
-| o agente                              | cria o terminal com `AGENT_SHORTCUTS`: Ctrl+A vira `:approvals` (abre a tela de aprovações) e um comando de aprovações digitado vai na frente das mensagens |
-| o hook do gate                        | lê o pedido da CLI com `readAllInput`                                                                                                                       |
+Um byte do stdin não pode ir para dois leitores: um segundo `readStream()` **ao mesmo tempo** é recusado com um `UsageError`. Depois que o primeiro termina, ler de novo é permitido (e, se o stdin já acabou, termina na hora).
+
+### O modo raw
+
+Num terminal, o normal é o próprio terminal juntar as teclas em linhas, mostrar o que se digita e entregar só depois do Enter. Com `raw: true`, cada tecla chega na hora, sem eco: é o que um adapter precisa para editar a linha, aceitar uma escolha de uma tecla ou rolar a tela. O modo raw é desfeito quando o stream termina, e também quando o programa termina no meio (`onProgramExit`), para o terminal nunca ficar quebrado.
 
 [↑ topo](#topo)
 
 ## Exemplos
 
-Cada exemplo é um arquivo de `agents/meus-testes/input-exemplos/` que roda como está, na raiz do repositório.
+Cada exemplo é um arquivo de `guides/input/exemplos/` que roda como está, na raiz do repositório, com o stdin indicado.
 
 ### 1. Tudo o que veio pelo stdin
 
-`agents/meus-testes/input-exemplos/1-tudo.ts`:
+`guides/input/exemplos/1-tudo.ts`:
 
 ```ts
 /**
- * Exemplo 1 do curso de input: tudo o que chegou pelo stdin, de uma vez. É
- * como um hook recebe o pedido da CLI. Rode com algo canalizado:
- *
- *   printf '{"tool":"Bash","command":"ls"}' | bun agents/meus-testes/input-exemplos/1-tudo.ts
+ * Exemplo 1 do curso de input: tudo o que veio pelo stdin, de uma vez. É o
+ * caso de quem recebe um pedido inteiro, como o hook de aprovação recebe o
+ * JSON da CLI: `read()` espera o stdin acabar e devolve o texto.
  */
-import { readAllInput } from '../../../src/input/index';
+import { read } from '../../../src/input/index';
 import { writeOut } from '../../../src/output/stdio';
 
-const request: unknown = JSON.parse(readAllInput());
-writeOut(`recebido: ${JSON.stringify(request)}\n`);
+const request: unknown = JSON.parse(await read());
+const command =
+  typeof request === 'object' &&
+  request !== null &&
+  'tool_input' in request &&
+  typeof request.tool_input === 'object' &&
+  request.tool_input !== null &&
+  'command' in request.tool_input
+    ? request.tool_input.command
+    : undefined;
+
+writeOut(`a CLI quer rodar: ${String(command)}\n`);
 ```
 
-`printf '{"tool":"Bash","command":"ls"}' | bun agents/meus-testes/input-exemplos/1-tudo.ts` (saída real):
+Com um pedido no stdin (`printf '{"tool_input":{"command":"ls -la"}}' | bun guides/input/exemplos/1-tudo.ts`):
 
 ```
-recebido: {"tool":"Bash","command":"ls"}
+a CLI quer rodar: ls -la
 ```
 
-### 2. Linha a linha, sem terminal
+### 2. Em pedaços
 
-Sem terminal, o stdin de um programa é um pipe: quem o iniciou escreve as linhas, e o `StdinReader` lê uma por vez. Este exemplo faz as duas pontas sozinho, sem precisar de nada no shell: o arquivo inicia a si mesmo como leitor, pelo `Executor`, e manda três linhas pelo stdin dele. `agents/meus-testes/input-exemplos/2-linhas.ts`:
+`guides/input/exemplos/2-pedacos.ts`:
 
 ```ts
 /**
- * Exemplo 2 do curso de input: linha a linha, sem terminal. Este arquivo é
- * dois programas:
- *
- * - sem argumentos, ele inicia a si mesmo como `leitor`, pelo Executor, e
- *   manda as linhas pelo stdin do leitor;
- * - como `leitor`, o stdin dele é um pipe, não um teclado: `next` devolve a
- *   próxima linha e `choose` a primeira letra dela, em minúscula.
- *
- *   bun agents/meus-testes/input-exemplos/2-linhas.ts
+ * Exemplo 2 do curso de input: o stdin em pedaços, conforme chegam. Quem
+ * decide o tamanho de cada pedaço é o sistema, não o conteúdo: um pedaço
+ * pode ter várias linhas, ou o fim de uma e o começo de outra.
  */
-import { Executor } from '../../../src/execute/index';
-import {
-  programArguments,
-  runtimeExecutable,
-} from '../../../src/execute/process';
-import { StdinReader } from '../../../src/input/index';
+import { readStream } from '../../../src/input/index';
 import { writeOut } from '../../../src/output/stdio';
 
-if (programArguments()[0] === 'leitor') {
-  const input = new StdinReader();
-
-  writeOut(`next: ${JSON.stringify(await input.next())}\n`);
-  writeOut(`next: ${JSON.stringify(await input.next())}\n`);
-  writeOut(
-    `choose(['s', 'n']): ${JSON.stringify(await input.choose(['s', 'n']))}\n`,
-  );
-
-  try {
-    await input.next();
-  } catch (error) {
-    // O stdin acabou: não há mais linhas.
-    const message = error instanceof Error ? error.message : String(error);
-    writeOut(`next depois do fim: ${message}\n`);
-  }
-  input.close();
-} else {
-  // O mesmo arquivo, como leitor, com três linhas no stdin.
-  for await (const { chunk } of new Executor().run({
-    executable: runtimeExecutable(),
-    arguments: [new URL(import.meta.url).pathname, 'leitor'],
-    input: 'olá\ntudo bem\nSim\n',
-  })) {
-    writeOut(chunk);
-  }
+let count = 0;
+for await (const piece of readStream()) {
+  count += 1;
+  writeOut(`pedaço ${String(count)}: ${JSON.stringify(piece)}\n`);
 }
+writeOut(`o stdin acabou depois de ${String(count)} pedaço(s)\n`);
 ```
 
-`bun agents/meus-testes/input-exemplos/2-linhas.ts` (saída real):
+Com duas linhas num pipe (`printf 'um\ndois\n' | bun guides/input/exemplos/2-pedacos.ts`):
 
 ```
-next: "olá"
-next: "tudo bem"
-choose(['s', 'n']): "s"
-next depois do fim: stdin foi fechado.
+pedaço 1: "um\ndois\n"
+o stdin acabou depois de 1 pedaço(s)
 ```
 
-- O leitor não tem terminal: não há eco, nem modo raw, nem tecla única. Cada `next` é a próxima linha que chegou.
-- O `choose` leu a linha `Sim` e devolveu a primeira letra, em minúscula.
-- Quando o stdin acaba, um `next` a mais termina com erro, em vez de esperar para sempre.
+As duas linhas chegaram num pedaço só: quem precisa de linhas junta e separa (`records`, nos adapters).
 
-É assim que o Goiaba é usado quando alguém (um teste, outro programa) fala com ele por um pipe.
+### 3. Parar de ler
 
-### 3. Cancelar a espera
-
-`agents/meus-testes/input-exemplos/3-cancelar.ts`:
+`guides/input/exemplos/3-cancelar.ts`:
 
 ```ts
 /**
- * Exemplo 3 do curso de input: parar de esperar uma linha. Um AbortSignal
- * cancela o `next` (por exemplo, a resposta chegou por outro caminho).
+ * Exemplo 3 do curso de input: parar de ler. O `signal` encerra o stream:
+ * a leitura para, o stdin é devolvido e o `for await` recebe um AbortError.
+ * Aqui, ninguém escreve nada no stdin, e desistimos depois de 100 ms.
  */
-import { StdinReader } from '../../../src/input/index';
+import { readStream } from '../../../src/input/index';
 import { writeOut } from '../../../src/output/stdio';
 
-const input = new StdinReader();
 const controller = new AbortController();
 setTimeout(() => {
   controller.abort();
-}, 300);
+}, 100);
 
 try {
-  await input.next(controller.signal);
+  for await (const piece of readStream({ signal: controller.signal })) {
+    writeOut(`chegou: ${piece}\n`);
+  }
 } catch (error) {
-  const name = error instanceof Error ? error.name : '?';
-  const message = error instanceof Error ? error.message : String(error);
-  writeOut(`${name}: ${message}\n`);
-} finally {
-  input.close();
+  writeOut(`parou: ${error instanceof Error ? error.name : String(error)}\n`);
 }
 ```
 
-Saída real (com `sleep 1 |` na frente, para o stdin ficar aberto sem mandar nada):
+Com um stdin que fica aberto sem mandar nada (`sleep 1 | bun guides/input/exemplos/3-cancelar.ts`):
 
 ```
-AbortError: A entrada foi cancelada.
+parou: AbortError
 ```
 
-### 4. O que o terminal manda vira teclas
+### 4. Um leitor só
 
-`agents/meus-testes/input-exemplos/4-teclas.ts`:
+`guides/input/exemplos/4-um-leitor.ts`:
 
 ```ts
 /**
- * Exemplo 4 do curso de input: o que o terminal manda vira teclas. O
- * KeyDecoder não precisa de terminal: é só dar o texto. Ele marca o que foi
- * colado, descarta setas e outras sequências, e aguenta sequências partidas.
+ * Exemplo 4 do curso de input: o stdin tem um leitor só. Um segundo
+ * `readStream()` ao mesmo tempo é recusado com um UsageError, para que um
+ * byte nunca vá para dois leitores. Depois que o primeiro acaba, ler de
+ * novo termina na hora: não há mais nada.
  */
-import { KeyDecoder } from '../../../src/input/index';
+import { UsageError } from '../../../src/errors';
+import { read, readStream } from '../../../src/input/index';
 import { writeOut } from '../../../src/output/stdio';
 
-const ESC = '\u001b';
-const show = (label: string, chunks: readonly string[]): void => {
-  const decoder = new KeyDecoder();
-  const keys = chunks.flatMap((chunk) => decoder.feed(chunk));
-  writeOut(
-    `${label.padEnd(30)} → ${keys.map(({ key, pasted }) => `${JSON.stringify(key)}${pasted ? '(colado)' : ''}`).join(' ')}\n`,
-  );
-};
+const first = readStream()[Symbol.asyncIterator]();
+const reading = first.next();
 
-show('digitado: ab + Enter', ['ab\r']);
-show('seta para cima no meio', [`a${ESC}[Ab`]);
-show('Alt+x', [`${ESC}x`]);
-show('colado: a, quebra, b', [`${ESC}[200~a\nb${ESC}[201~`]);
-show('a marca de colagem partida', [`${ESC}[2`, `00~xy${ESC}[2`, '01~z']);
-show('Ctrl+A', ['\u0001']);
+try {
+  await readStream()[Symbol.asyncIterator]().next();
+} catch (error) {
+  if (error instanceof UsageError)
+    writeOut(`segundo leitor: ${error.message}\n`);
+}
+
+writeOut(`o primeiro leu: ${JSON.stringify((await reading).value)}\n`);
+await first.return(undefined);
+writeOut(`o resto: ${JSON.stringify(await read())}\n`);
+writeOut(`de novo: ${JSON.stringify(await read())}\n`);
 ```
 
-Saída real:
+`echo oi | bun guides/input/exemplos/4-um-leitor.ts`:
 
 ```
-digitado: ab + Enter           → "a" "b" "\r"
-seta para cima no meio         → "a" "b"
-Alt+x                          → "x"
-colado: a, quebra, b           → "a"(colado) "\n"(colado) "b"(colado)
-a marca de colagem partida     → "x"(colado) "y"(colado) "z"
-Ctrl+A                         → "\u0001"
+segundo leitor: O stdin já está sendo lido: ele tem um leitor só por vez.
+o primeiro leu: "oi\n"
+o resto: ""
+de novo: ""
 ```
-
-- a seta (`ESC [ A`) sumiu: não virou `[A` no texto;
-- o texto colado vem marcado, inclusive a quebra de linha, que por isso não envia;
-- a marca de colagem chegou partida em três pedaços e ainda assim foi reconhecida: o `z`, depois do fim da colagem, já é digitado.
-
-### 5. Num terminal de verdade
-
-As opções em ação. `agents/meus-testes/input-exemplos/5-terminal.ts`:
-
-```ts
-/**
- * Exemplo 5 do curso de input: num terminal de verdade (TTY). O que o input
- * faz além de ler vem das opções: onde escrever o eco, o Ctrl+C, os atalhos
- * e as linhas urgentes. Rode no terminal e digite:
- *
- *   bun agents/meus-testes/input-exemplos/5-terminal.ts
- *
- *   1. "q" numa linha vazia: responde na hora, sem Enter (`instant`);
- *   2. "oi" e Enter;
- *   3. Ctrl+O: um atalho, que vira a linha ":menu";
- *   4. "s" para a escolha.
- */
-import { StdinReader } from '../../../src/input/index';
-import { writeOut } from '../../../src/output/stdio';
-
-const input = new StdinReader({
-  // Sem `write`, o terminal em modo raw não mostraria o que se digita.
-  write: writeOut,
-  onInterrupt: () => {
-    writeOut('\n(Ctrl+C)\n');
-  },
-  shortcuts: { '\u000f': ':menu' }, // Ctrl+O
-  urgent: (line) => line.startsWith(':'),
-});
-
-const say = (text: string): void => {
-  writeOut(`\n[programa] ${text}\n`);
-};
-
-say('digite q (sem Enter):');
-say(`recebeu ${JSON.stringify(await input.next(undefined, ['q']))}`);
-say('digite oi e Enter:');
-say(`recebeu ${JSON.stringify(await input.next())}`);
-say('aperte Ctrl+O:');
-say(`recebeu ${JSON.stringify(await input.next())}`);
-say('s ou n?');
-say(`recebeu ${JSON.stringify(await input.choose(['s', 'n']))}`);
-input.close();
-```
-
-Saída real, digitando `q`, `oi` e Enter, Ctrl+O e `s`. (Para registrar aqui, o exemplo rodou num terminal falso, com o programa `script`, recebendo essas teclas.)
-
-```
-[programa] digite q (sem Enter):
-q
-
-[programa] recebeu "q"
-
-[programa] digite oi e Enter:
-oi
-
-[programa] recebeu "oi"
-
-[programa] aperte Ctrl+O:
-
-[programa] recebeu ":menu"
-
-[programa] s ou n?
-
-[programa] recebeu "s"
-```
-
-- `q` foi a resposta na hora, sem Enter, porque estava em `instant`;
-- `oi` apareceu enquanto era digitado graças ao `write`;
-- Ctrl+O não virou texto: o atalho enviou `:menu`;
-- `s` respondeu a escolha com uma tecla.
-
-É o mesmo mecanismo que o agente usa: `AGENT_SHORTCUTS` registra o Ctrl+A como atalho para `:approvals`.
 
 [↑ topo](#topo)
 
 ## Regras do módulo
 
-**Só o módulo pode:**
-
-- **Ler o terminal.** Um segundo leitor do stdin rouba teclas: já travou um agente, quando um processo filho passou a ler o mesmo terminal. Quem precisa de uma resposta pede ao `StdinReader` (ou ao `TerminalInteraction`, que usa um).
-
-**Ninguém deve:**
-
-- **Criar dois `StdinReader` lendo o mesmo terminal.** É um por programa; o `TerminalInteraction` cria o dele.
-- **Ensinar ao input o que uma linha significa.** O input não sabe o que é `:approvals`: quem sabe registra o atalho (`shortcuts`) e o que é urgente (`urgent`).
-- **Esquecer o `write` num terminal.** Sem ele, nada do que se digita aparece, e um texto colado é enviado a cada quebra de linha.
-- **Esquecer o `close`.** Enquanto o input está lendo, o terminal fica em modo raw e o programa não termina.
+- **Ninguém mais lê o stdin.** Nem `process.stdin`, nem `readline`, nem `readFileSync(0)`: tudo passa por `read` ou `readStream`. Um leitor a mais já travou um agente (as teclas iam para o leitor errado).
+- **Só a fonte.** Teclas, linhas, eco, atalhos e o que uma mensagem significa ficam nos adapters e na conversa.
+- **Os dois modos são assíncronos.** Quem só tem um jeito síncrono de ler embrulha isso dentro de si; para fora, tudo se espera com `await`.
 
 [↑ topo](#topo)
 
 ## Exercícios
 
-1. **Simples.** No Exemplo 2, o que o `choose(['s', 'n'])` devolve se a linha for `talvez`? E se for uma linha vazia? Por que, sem terminal, o `choose` não confere se a letra está entre as `keys`?
-
-2. **Intermediário.** Mude o Exemplo 5 para que linhas começando com `!` também furem a fila, e registre o Ctrl+R como atalho para `:repetir`. O que acontece se você digitar `oi` (sem Enter) e então apertar Ctrl+R?
-
-3. **Difícil.** O agente está trabalhando, e a pessoa digita `corrija o teste` e Enter, e depois `:approvals` e Enter. Seguindo `submit` e `urgent`, em que ordem as duas linhas chegam ao agente, e por quê? O que mudaria se o agente não passasse o `AGENT_SHORTCUTS` ao seu `TerminalInteraction`?
+1. **Simples.** No Exemplo 2, rode com `(echo um; sleep 1; echo dois) | bun guides/input/exemplos/2-pedacos.ts`. Quantos pedaços chegam agora, e por quê?
+2. **Médio.** Escreva um exemplo que conta as linhas do stdin usando `readStream` e o `records` de `src/adapters/stdio`. O que acontece com uma última linha sem `\n`?
+3. **Avançado.** No Exemplo 3, troque o `setTimeout` por um `break` depois do primeiro pedaço e rode com `yes | bun …`. O programa termina? O que o `break` faz com o stdin?
 
 [↑ topo](#topo)

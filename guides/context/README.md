@@ -109,14 +109,14 @@ não confundir os dois.
 
 ## Exemplos
 
-Os exemplos completos ficam em `agents/meus-testes/context-exemplos/`. Eles rodam com Bun e não precisam de provider
+Os exemplos completos ficam em `guides/context/exemplos/`. Eles rodam com Bun e não precisam de provider
 instalado nem de rede.
 
 ### 1. Fora e dentro do agente
 
 Fora de `runAs`, o contexto está vazio. Dentro, há o nome, o provider se informado e um ID de execução.
 
-`agents/meus-testes/context-exemplos/1-fora-e-dentro.ts`:
+`guides/context/exemplos/1-fora-e-dentro.ts`:
 
 ```ts
 /** Exemplo 1 do curso de context: consultar o contexto antes e durante um agente. */
@@ -145,7 +145,7 @@ depois: {}
 
 O contexto permanece disponível depois de uma espera assíncrona iniciada dentro de `runAs`.
 
-`agents/meus-testes/context-exemplos/2-assincrono.ts`:
+`guides/context/exemplos/2-assincrono.ts`:
 
 ```ts
 /** Exemplo 2 do curso de context: manter o contexto depois de um await. */
@@ -171,7 +171,7 @@ depois do await: relatorio
 O agente com o mesmo nome herda o `run`; um agente de outro nome ganha um `run` próprio. Ao retornar, o contexto
 do coordenador volta.
 
-`agents/meus-testes/context-exemplos/3-aninhado.ts`:
+`guides/context/exemplos/3-aninhado.ts`:
 
 ```ts
 /** Exemplo 3 do curso de context: herdar e trocar o contexto de agente. */
@@ -206,7 +206,7 @@ contexto restaurado: coordenador
 Um consumidor de eventos recebe o contexto que estava ativo no momento da emissão. O produtor não precisa conhecer
 o agente.
 
-`agents/meus-testes/context-exemplos/4-evento.ts`:
+`guides/context/exemplos/4-evento.ts`:
 
 ```ts
 /** Exemplo 4 do curso de context: enriquecer um evento com o contexto atual. */

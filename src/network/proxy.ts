@@ -10,17 +10,9 @@ import { connect } from 'node:net';
 import { PassThrough, type Duplex } from 'node:stream';
 
 import { log } from '../logger/index';
+import { BAD_GATEWAY, FORBIDDEN, MAX_OBSERVED_BYTES } from './constants';
 import type { NetworkGate } from './gate';
 import type { NetworkRequest, TrafficObserver } from './types';
-
-const BAD_GATEWAY = 502;
-const FORBIDDEN = 403;
-/**
- * Bytes an observer may leave unread on one side of a connection. Past it,
- * that side is no longer copied (the connection itself goes on untouched):
- * a slow or stuck observer never grows Goiaba's memory without end.
- */
-const MAX_OBSERVED_BYTES = 1024 * 1024;
 
 /**
  * HTTP proxy (plain requests and CONNECT tunnels) on a unix socket: the only
@@ -36,13 +28,22 @@ export class NetworkProxy {
   public constructor(
     private readonly gate: NetworkGate,
     observers: readonly TrafficObserver[] = [],
+    /** See `MAX_OBSERVED_BYTES`. */
+    private readonly maxObservedBytes = MAX_OBSERVED_BYTES,
   ) {
     this.observers = [...observers];
     this.server.on('request', (request, response) => {
       void forwardHttp(this.gate, request, response);
     });
     this.server.on('connect', (request, socket, head) => {
-      void forwardTunnel(this.gate, request, socket, head, this.observers);
+      void forwardTunnel(
+        this.gate,
+        request,
+        socket,
+        head,
+        this.observers,
+        this.maxObservedBytes,
+      );
     });
   }
 
@@ -109,6 +110,7 @@ async function forwardTunnel(
   client: Duplex,
   head: Buffer,
   observers: readonly TrafficObserver[],
+  maxObservedBytes: number,
 ): Promise<void> {
   client.on('error', () => undefined);
   const request = tunnelTarget(incoming.url);
@@ -128,7 +130,7 @@ async function forwardTunnel(
     if (head.length > 0) upstream.write(head);
     upstream.pipe(client);
     client.pipe(upstream);
-    observe(observers, request, client, upstream);
+    observe(observers, request, client, upstream, maxObservedBytes);
   });
   upstream.on('error', (error) => {
     logFailure(request, error);
@@ -178,14 +180,15 @@ function observe(
   request: NetworkRequest,
   client: Duplex,
   upstream: Duplex,
+  maxObservedBytes: number,
 ): void {
   const destination = `${request.hostname}:${String(request.port)}`;
   for (const observer of observers) {
     if (observer.destination !== destination) continue;
     try {
       observer.observe({
-        requests: copyOf(client),
-        responses: copyOf(upstream),
+        requests: copyOf(client, maxObservedBytes),
+        responses: copyOf(upstream, maxObservedBytes),
       });
     } catch (error) {
       log.debug({
@@ -199,9 +202,12 @@ function observe(
 
 /**
  * What `source` carries from now on, until it closes, or until the observer
- * falls `MAX_OBSERVED_BYTES` behind: then the copy ends there.
+ * falls `maxObservedBytes` behind: then the copy ends there.
  */
-function copyOf(source: Duplex): AsyncIterable<Uint8Array> {
+function copyOf(
+  source: Duplex,
+  maxObservedBytes: number,
+): AsyncIterable<Uint8Array> {
   const copy = new PassThrough();
   copy.on('error', () => undefined);
   const stop = (): void => {
@@ -209,7 +215,7 @@ function copyOf(source: Duplex): AsyncIterable<Uint8Array> {
     copy.end();
   };
   const onData = (chunk: Buffer): void => {
-    if (copy.writableLength + chunk.length > MAX_OBSERVED_BYTES) {
+    if (copy.writableLength + chunk.length > maxObservedBytes) {
       log.debug({
         type: 'network_observer_behind',
         bytes: copy.writableLength,

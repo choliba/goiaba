@@ -20,3 +20,10 @@ export const DEFAULT_MAX_RECORD_BYTES = 1024 * 1024;
  * reading more often only spends the disk.
  */
 export const DEFAULT_POLL_MS = 500;
+
+/**
+ * Milliseconds between redraws of the TUI while text streams in
+ * (`TuiAdapter`, option `frameDelayMs`): about 60 frames a second, smooth
+ * without redrawing for every piece.
+ */
+export const DEFAULT_FRAME_DELAY_MS = 16;
