@@ -51,12 +51,19 @@ beforeEach(() => {
       'projeto/.goiaba/homes/outro-workspace/.claude/sessao.jsonl',
       'sessao-de-outro-workspace',
     ],
+    // Goiaba's cache: another agent's gate and an old Codex home.
+    ['.cache/goiaba/gate/outro-agente/owner', 'gate-de-outro-agente'],
+    [
+      '.cache/goiaba/codex/antigo/sessions/rollout.jsonl',
+      'sessao-codex-antiga',
+    ],
   ] as const) {
     mkdirSync(join(home, path, '..'), { recursive: true });
     writeFileSync(join(home, path), text);
   }
   process.env['HOME'] = home;
-  delete process.env['XDG_CACHE_HOME'];
+  // Goiaba's cache inside this home too (homedir() does not follow HOME).
+  process.env['XDG_CACHE_HOME'] = join(home, '.cache');
   delete process.env['XDG_CONFIG_HOME'];
   delete process.env['XDG_DATA_HOME'];
   process.env['CLAUDE_CODE_OAUTH_TOKEN'] = 'env-token-do-claude';
@@ -87,6 +94,8 @@ function olhar(): string {
       `cat ${base}/.cursor/mcp-auth.json`,
     ]),
     `ls -a ${join(root, '.goiaba', 'homes')}`,
+    `cat ${home}/.cache/goiaba/gate/outro-agente/owner`,
+    `cat ${home}/.cache/goiaba/codex/antigo/sessions/rollout.jsonl`,
   ].join('; echo; ');
 }
 
@@ -222,6 +231,9 @@ describe('o estado das CLIs no host (hostState)', () => {
         expect(saida).not.toContain('login-do-codex');
         expect(saida).not.toContain('token-de-mcp');
         expect(saida).not.toContain('outro-workspace');
+        // Nada do cache do Goiaba: nem o gate de outro agente, nem homes antigos.
+        expect(saida).not.toContain('gate-de-outro-agente');
+        expect(saida).not.toContain('sessao-codex-antiga');
 
         const escrita = await workspace.prepare({
           executable: 'sh',
@@ -268,6 +280,9 @@ describe('o estado das CLIs no host (hostState)', () => {
         const saida = await dentro(workspace);
         expect(saida).not.toContain('arquivo-login-do-claude');
         expect(saida).not.toContain('token-de-mcp');
+        // Nada do cache do Goiaba: nem o gate de outro agente, nem homes antigos.
+        expect(saida).not.toContain('gate-de-outro-agente');
+        expect(saida).not.toContain('sessao-codex-antiga');
       } finally {
         await workspace.close();
       }
@@ -292,6 +307,9 @@ describe('o estado das CLIs no host (hostState)', () => {
         expect(saida).toContain('conversa-de-outro-projeto');
         // Os logins de outras CLIs continuam escondidos.
         expect(saida).not.toContain('login-do-codex');
+        // Nada do cache do Goiaba: nem o gate de outro agente, nem homes antigos.
+        expect(saida).not.toContain('gate-de-outro-agente');
+        expect(saida).not.toContain('sessao-codex-antiga');
       } finally {
         await workspace.close();
       }
@@ -327,6 +345,8 @@ describe('o estado das CLIs no host (hostState)', () => {
         try {
           const output = await dentro(workspace);
           expect(output).toContain(expected);
+          expect(output).not.toContain('gate-de-outro-agente');
+          expect(output).not.toContain('sessao-codex-antiga');
           if (hostState !== 'share') {
             expect(output).not.toContain('conversa-de-outro-projeto');
           }

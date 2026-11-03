@@ -206,6 +206,31 @@ describe('CodexProvider', () => {
     ]);
   });
 
+  test('mostra por que o turno falhou, uma vez só', async () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+    const message = 'You’ve hit your usage limit.';
+    const output = source([
+      {
+        channel: 'stdout',
+        chunk: '{"type":"thread.started","thread_id":"sessao"}\n',
+      },
+      { channel: 'stdout', chunk: '{"type":"turn.started"}\n' },
+      {
+        channel: 'stdout',
+        chunk: `${JSON.stringify({ type: 'error', message })}\n`,
+      },
+      {
+        channel: 'stdout',
+        chunk: `${JSON.stringify({ type: 'turn.failed', error: { message } })}\n`,
+      },
+    ]);
+
+    expect(await collect(provider.parseOutput(output))).toEqual([
+      { type: 'session', id: 'sessao' },
+      { type: 'output', value: message },
+    ]);
+  });
+
   test('mostra o progresso dos comandos no terminal', async () => {
     const provider = new CodexProvider({ model: 'modelo' });
     const output = source([

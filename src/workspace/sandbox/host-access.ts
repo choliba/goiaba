@@ -1,8 +1,7 @@
 import { UsageError } from '../../errors';
-import { environment, userHome } from '../../execute/process';
+import { userHome } from '../../execute/process';
 import {
   ensureDirectory,
-  goiabaCacheDir,
   join,
   pathExists,
   readText,
@@ -38,7 +37,12 @@ export interface HostBind {
  * variable, not in a file.
  */
 export interface SandboxHost {
-  /** Host paths mounted writable (besides the workspace root). */
+  /**
+   * Host paths mounted writable (besides the workspace root). Never
+   * Goiaba's cache: other agents' gates and old CLI homes live there; what
+   * a sandbox needs of it (its gate, its network bridge) the sandbox mounts
+   * on its own.
+   */
   readonly state: readonly string[];
   /** Host paths mounted read-only: the CLI's installation. */
   readonly programs: readonly string[];
@@ -97,9 +101,8 @@ function knownCredentials(home: string): readonly string[] {
 
 /**
  * The sandbox's share of the host for a provider: a home of its own (or,
- * with `share`, its state on the host), Goiaba's own cache (where the gate
- * and the network bridge live), its credentials and nothing else; plus the
- * variables the policy lets it read (`secrets`).
+ * with `share`, its state on the host), its credentials and nothing else;
+ * plus the variables the policy lets it read (`secrets`).
  */
 export function sandboxHost(
   access: HostAccess,
@@ -108,7 +111,6 @@ export function sandboxHost(
   options: HostOptions,
 ): SandboxHost {
   const hostHome = source['HOME'] ?? userHome();
-  const cache = goiabaCacheDir(environment());
   const env = allowedEnv(access, source, allowSecret);
 
   if (options.hostState === 'none') {
@@ -116,7 +118,7 @@ export function sandboxHost(
   }
 
   if (options.hostState === 'share') {
-    const state = [...access.sharedState, cache];
+    const state = access.sharedState;
     const hidden = knownCredentials(hostHome).filter(
       (file) =>
         !access.credentialFiles.includes(file) &&
@@ -144,7 +146,7 @@ export function sandboxHost(
   }
 
   return {
-    state: [cache],
+    state: [],
     programs: access.programs ?? [],
     hidden: homesInside(options),
     home,

@@ -42,7 +42,9 @@ export interface NetworkBoundaryOptions extends NetworkGateOptions {
 }
 
 const SOCKET_FILE = 'proxy.sock';
-/** The published ports' sockets: the only place the sandbox writes here. */
+/** The bridge, bundled: the sandbox runs it without seeing Goiaba's code. */
+const BRIDGE_FILE = 'bridge.js';
+/** The published ports' sockets, inside the boundary's directory. */
 const PORTS_DIR = 'ports';
 const READY_FILE = 'ready';
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
@@ -66,6 +68,7 @@ export class NetworkBoundary {
   private ports: readonly number[] = [];
   private published: PublishedPorts | undefined;
   private bridge: Helper | undefined;
+  private bundled = false;
   private readonly proxyPort: number;
   private readonly readyTimeoutMs: number;
 
@@ -108,10 +111,15 @@ export class NetworkBoundary {
   }
 
   /**
-   * Where the bridge creates the published ports' sockets: a sandbox that
-   * sees the host read-only must mount it writable.
+   * This boundary's own directory (the proxy's socket, the published ports'
+   * sockets): a sandbox that runs the bridge inside must mount it writable,
+   * and nothing else of Goiaba's cache.
    */
-  public portsDir(): string {
+  public sandboxDir(): string {
+    return this.dir;
+  }
+
+  private portsDir(): string {
     return join(this.dir, PORTS_DIR);
   }
 
@@ -179,6 +187,10 @@ export class NetworkBoundary {
 
   private async startProxy(): Promise<void> {
     ensureDirectory(this.portsDir(), 0o700);
+    if (!this.bundled) {
+      await bundleBridge(this.dir);
+      this.bundled = true;
+    }
     await this.proxy.start(join(this.dir, SOCKET_FILE));
     this.published ??= new PublishedPorts(this.ports, this.portsDir());
     await this.published.start();
@@ -186,7 +198,7 @@ export class NetworkBoundary {
 
   private bridgeArguments(): string[] {
     return [
-      new URL('./bridge-main.ts', import.meta.url).pathname,
+      join(this.dir, BRIDGE_FILE),
       join(this.dir, SOCKET_FILE),
       String(this.proxyPort),
       ...this.forwards.flatMap((forward) => ['--forward', forward]),
@@ -205,6 +217,22 @@ export class NetworkBoundary {
     this.published = undefined;
     await this.proxy.close();
     removePath(this.dir);
+    this.bundled = false;
+  }
+}
+
+async function bundleBridge(dir: string): Promise<void> {
+  const result = await Bun.build({
+    entrypoints: [new URL('./bridge-main.ts', import.meta.url).pathname],
+    outdir: dir,
+    naming: BRIDGE_FILE,
+    target: 'bun',
+  });
+
+  if (!result.success) {
+    throw new UsageError(
+      `Não foi possível preparar a saída de rede da sandbox: ${result.logs.map(String).join('; ')}`,
+    );
   }
 }
 

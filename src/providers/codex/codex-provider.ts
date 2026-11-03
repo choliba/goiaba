@@ -303,6 +303,16 @@ function readEvents(
       return fallback === undefined ? [] : [createEvent(fallback)];
     }
 
+    // Why the turn failed (usage limit, login…): the exit code alone does
+    // not say. Its `error` event carries the same message: shown once.
+    if (event['type'] === 'turn.failed') {
+      const error = event['error'];
+      const message = isRecord(error) ? error['message'] : undefined;
+      return typeof message === 'string' && message.length > 0
+        ? [{ type: 'output', value: message }]
+        : [];
+    }
+
     if (
       event['type'] === 'thread.started' &&
       typeof event['thread_id'] === 'string'

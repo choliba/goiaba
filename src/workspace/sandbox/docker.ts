@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 
-import {
-  ensureDirectory,
-  isDirectory,
-  pathExists,
-  goiabaCacheDir,
-} from '../../filesystem/index';
+import { isDirectory, pathExists } from '../../filesystem/index';
 import { currentUser, environment, runProgram } from '../../execute/process';
 import type { ProgramCommand } from '../../execute/types';
 import { UsageError } from '../../errors';
@@ -102,11 +97,6 @@ export class DockerSandbox implements Sandbox {
     const envNames = Object.keys(passed)
       .filter((name) => passed[name] !== undefined)
       .toSorted();
-    if (host !== undefined) {
-      for (const path of host.state) {
-        if (path === goiabaCacheDir(environment())) ensureDirectory(path);
-      }
-    }
     const envArgs = envNames.flatMap((name) => ['-e', name]);
     const innerRoot = `${HOST_ROOT}${this.root}`;
     const described = describeMounts(
@@ -116,8 +106,9 @@ export class DockerSandbox implements Sandbox {
         ...(host?.state ?? hostStateDirs(this.env)),
         ...this.writable,
         ...(this.filesystem?.writable ?? []),
-        // The bridge creates the published ports' sockets there.
-        ...(network === undefined ? [] : [network.portsDir()]),
+        // The bridge finds the proxy's socket there and creates the
+        // published ports' sockets.
+        ...(network === undefined ? [] : [network.sandboxDir()]),
       ],
       {
         workspaceAccess: this.filesystem?.workspaceAccess ?? 'readwrite',

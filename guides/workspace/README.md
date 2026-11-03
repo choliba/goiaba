@@ -44,6 +44,8 @@ Um `Workspace` define a raiz que o agente pode alterar e prepara cada comando pa
 
 O diretório dos homes é configurado por `homes.dir` em `goiaba.config.ts`; o padrão é `.goiaba/homes`. O diretório que contém todos os homes fica oculto dentro do sandbox se estiver dentro da raiz do workspace.
 
+O cache do Goiaba (`~/.cache/goiaba`) também fica fora do sandbox, em qualquer `hostState`: lá ficam os gates dos outros agentes e homes antigos de CLIs. Do cache, o sandbox vê só o que é do próprio agente: o diretório do gate de execução, somente leitura, e o da saída de rede.
+
 [↑ topo](#topo)
 
 ## Como funciona

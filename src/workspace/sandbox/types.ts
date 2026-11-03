@@ -46,8 +46,8 @@ export interface NetworkExit {
    */
   launcher(): Promise<readonly string[]>;
   /**
-   * Where it creates the published ports' sockets; a sandbox that sees the
-   * host read-only mounts it writable.
+   * Where the bridge finds the proxy's socket and creates the published
+   * ports' sockets; a sandbox that runs the bridge inside mounts it writable.
    */
-  portsDir(): string;
+  sandboxDir(): string;
 }

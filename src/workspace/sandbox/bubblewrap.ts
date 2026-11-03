@@ -1,13 +1,11 @@
 import { homedir } from 'node:os';
 
 import {
-  ensureDirectory,
   isDirectory,
   isSymlink,
   pathExists,
   readLink,
   join,
-  goiabaCacheDir,
 } from '../../filesystem/index';
 import {
   canEnterUserNamespace,
@@ -167,10 +165,6 @@ export class BubblewrapSandbox implements Sandbox {
       throw new UsageError(`A raiz do workspace não existe: ${this.root}`);
     }
 
-    for (const path of this.host?.state ?? []) {
-      // Goiaba's own cache (gate, bridge) is created here if missing.
-      if (path === goiabaCacheDir(environment())) ensureDirectory(path);
-    }
     const writable = writableBinds(
       this.root,
       [
