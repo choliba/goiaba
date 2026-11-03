@@ -5,7 +5,9 @@ import {
   join,
   OllamaProvider,
   runScript,
-  TuiInteraction,
+  AGENT_SHORTCUTS,
+  agentConversation,
+  TuiAdapter,
   UsageError,
   Workspace,
   type OllamaCli,
@@ -42,8 +44,7 @@ await runScript(async ({ signal }) => {
     `agente-tui-${cli}`,
   );
   ensureDirectory(root);
-  // Ctrl+A opens the approvals.
-  const tui = new TuiInteraction({ shortcuts: { '\u0001': ':approvals' } });
+  const tui = agentConversation(new TuiAdapter({ shortcuts: AGENT_SHORTCUTS }));
 
   await new Agent({
     resume: false,

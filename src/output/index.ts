@@ -1,7 +1,19 @@
-import { DEFAULT_LINE_LENGTH } from './constants';
-import { ttyColumns, writeErr, writeOut, writeStatus } from './stdio';
+import { DEFAULT_LINE_LENGTH, REASONING_MARK } from './constants';
+import {
+  isAtLineStart,
+  ttyColumns,
+  writeErr,
+  writeOut,
+  writeStatus,
+} from './stdio';
 
-export { DEFAULT_LINE_LENGTH } from './constants';
+export { DEFAULT_LINE_LENGTH, REASONING_MARK } from './constants';
+
+/**
+ * What a text is: what is said (`message`), or what the model thought
+ * before saying it (`reasoning`), which each destination shows apart.
+ */
+export type OutputKind = 'message' | 'reasoning';
 
 /**
  * Where what the program shows goes. Only output: stdio is one destination
@@ -11,13 +23,16 @@ export { DEFAULT_LINE_LENGTH } from './constants';
  */
 export interface Output {
   /** A message, as a line: a missing `\n` at the end is added. */
-  write(text: string): Promise<void>;
+  write(text: string, kind?: OutputKind): Promise<void>;
   /**
    * Pieces exactly as given, with no line of their own (a reply shown
    * while it is written), until `pieces` ends. Two streams never cross:
    * the next write waits for this one.
    */
-  writeStream(pieces: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  writeStream(
+    pieces: Iterable<string> | AsyncIterable<string>,
+    kind?: OutputKind,
+  ): Promise<void>;
   /** Diagnostics for whoever runs the program, apart from the output. */
   error(text: string): Promise<void>;
   /**
@@ -38,8 +53,11 @@ export interface Output {
  * as messages, no status, and `DEFAULT_LINE_LENGTH`.
  */
 export interface PartialOutput {
-  write(text: string): Promise<void> | void;
-  writeStream?(pieces: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  write(text: string, kind?: OutputKind): Promise<void> | void;
+  writeStream?(
+    pieces: Iterable<string> | AsyncIterable<string>,
+    kind?: OutputKind,
+  ): Promise<void>;
   error?(text: string): Promise<void> | void;
   status?(text: string | undefined): Promise<void> | void;
   lineLength?(): number;
@@ -47,17 +65,17 @@ export interface PartialOutput {
 
 /** An `Output` from a destination that has only some of the modes. */
 export function completeOutput(destination: PartialOutput): Output {
-  const write = async (text: string): Promise<void> => {
-    await destination.write(text);
+  const write = async (text: string, kind?: OutputKind): Promise<void> => {
+    await destination.write(text, kind);
   };
   return {
     write,
-    writeStream: async (pieces) => {
+    writeStream: async (pieces, kind) => {
       if (destination.writeStream !== undefined) {
-        await destination.writeStream(pieces);
+        await destination.writeStream(pieces, kind);
         return;
       }
-      await write(await joined(pieces));
+      await write(await joined(pieces), kind);
     },
     error: async (text) => {
       if (destination.error === undefined) await write(text);
@@ -70,13 +88,29 @@ export function completeOutput(destination: PartialOutput): Output {
   };
 }
 
-/** stdio: stdout for messages, stderr for errors. */
+/**
+ * stdio: stdout for messages, stderr for errors. Reasoning goes on lines of
+ * its own, after `REASONING_MARK`, so the answer starts on a new line.
+ */
 export const stdioOutput: Output = {
-  write: async (text) => {
-    writeOut(asLine(text));
+  write: async (text, kind = 'message') => {
+    writeOut(asLine(kind === 'reasoning' ? `${REASONING_MARK} ${text}` : text));
   },
-  writeStream: async (pieces) => {
-    for await (const piece of pieces) writeOut(piece);
+  writeStream: async (pieces, kind = 'message') => {
+    if (kind === 'message') {
+      for await (const piece of pieces) writeOut(piece);
+      return;
+    }
+    let last: string | undefined;
+    for await (const piece of pieces) {
+      if (last === undefined) {
+        if (!isAtLineStart()) writeOut('\n');
+        writeOut(`${REASONING_MARK} `);
+      }
+      writeOut(piece);
+      last = piece;
+    }
+    if (last !== undefined && !last.endsWith('\n')) writeOut('\n');
   },
   error: async (text) => {
     writeErr(asLine(text));

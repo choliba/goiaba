@@ -125,7 +125,7 @@ describe('Conversation', () => {
     expect(await conversation.listen()).toBe('depois');
   });
 
-  test('a escolha vem do evento choice e é mostrada', async () => {
+  test('a escolha vem do evento choice; quem mostra é o adapter', async () => {
     const { adapter, send, requests, shown } = fakeAdapter();
     const conversation = new Conversation(adapter);
 
@@ -134,7 +134,7 @@ describe('Conversation', () => {
 
     expect(await choice).toBe('s');
     expect(requests).toEqual([{ type: 'choice', keys: ['s', 'n'] }]);
-    expect(shown).toEqual(['s']);
+    expect(shown).toEqual([]);
   });
 
   test('quem não pede tecla responde a escolha com uma linha', async () => {

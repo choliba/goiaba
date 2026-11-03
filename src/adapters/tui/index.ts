@@ -1,6 +1,13 @@
-import { interruptProgram } from '../execute/process';
-import { StdinReader, type StdinReaderOptions } from '../adapters/stdio/reader';
-import type { Interaction } from '../interaction/index';
+import { UsageError } from '../../errors';
+import { onProgramExit } from '../../execute/process';
+import { OutputStream } from '../../execute/stream';
+import type {
+  InputEvent,
+  InteractionAdapter,
+  InteractionRequest,
+  PendingRequest,
+} from '../../interaction/index';
+import type { Output, OutputKind } from '../../output/index';
 import {
   enterAlternateScreen,
   leaveAlternateScreen,
@@ -8,8 +15,15 @@ import {
   ttyColumns,
   ttyRows,
   writeOut,
-} from '../output/stdio';
-import { UsageError } from '../errors';
+} from '../../output/stdio';
+import {
+  PASTE_OFF,
+  PASTE_ON,
+  readKeys,
+  stdinSource,
+  Typing,
+  type StdioSource,
+} from '../stdio/index';
 import { frame, transcript, type Entry } from './layout';
 
 export { displayWidth, frame, transcript, wrap, type Entry } from './layout';
@@ -22,21 +36,10 @@ export interface TuiScreen {
   enter(): void;
   /** Gives it back, leaving `text` (the conversation) on the terminal. */
   leave(text: string): void;
-  /** Draws a whole frame. */
+  /** Draws a whole frame (or sends the terminal a setting). */
   draw(text: string): void;
   /** Calls `listener` when the screen changes size; returns how to stop. */
   onResize?(listener: () => void): () => void;
-}
-
-/** What the TUI reads: lines and one-key choices, as `StdinReader` gives. */
-export type TuiInput = Pick<StdinReader, 'next' | 'choose' | 'close'>;
-
-/** What the TUI hears from its input besides the lines. */
-export interface TuiInputHandlers {
-  /** The echo of what is typed. */
-  readonly echo: (text: string) => void;
-  /** A key that is not text, as the terminal sends it. */
-  readonly sequence: (sequence: string) => void;
 }
 
 /** The keys that scroll the messages, and by how much. */
@@ -50,17 +53,13 @@ const SCROLL_KEYS: ReadonlyMap<string, 'line' | 'page' | 'end'> = new Map([
 ]);
 const SCROLL_UP = new Set(['\u001b[A', '\u001b[5~']);
 
-export interface TuiOptions extends Pick<
-  StdinReaderOptions,
-  'shortcuts' | 'urgent'
-> {
+export interface TuiAdapterOptions {
+  /** Keys that send a command by name (`{ '\u0001': 'approvals' }`: Ctrl+A). */
+  readonly shortcuts?: Readonly<Record<string, string>>;
   /** Where it draws; the terminal by default. */
   readonly screen?: TuiScreen;
-  /**
-   * What it reads, given where the echo of what is typed and the keys that
-   * are not text (↑, PageUp…) go; a `StdinReader` on the terminal by default.
-   */
-  readonly input?: (handlers: TuiInputHandlers) => TuiInput;
+  /** Where it reads the keys; stdin by default. */
+  readonly source?: StdioSource;
   /** Milliseconds between redraws while text streams in. */
   readonly frameDelayMs?: number;
 }
@@ -78,132 +77,140 @@ const HELP = [
 
 /**
  * The conversation on a full screen: the messages on top, a status line and
- * the line being typed at the bottom. Reads through `StdinReader` (the only
- * reader of the keyboard) and writes through the terminal's writer; what is
- * typed is echoed to the TUI, which draws it in its input line.
+ * the line being typed at the bottom. Reads the keys raw (`Typing`) and
+ * draws the line being typed itself; scrolling (↑/↓ and the mouse wheel,
+ * PageUp/PageDown, End) and its own commands (`/help`, `/thinking`,
+ * `/clear`, `/exit`) never leave it. What it shows is drawn through the
+ * screen; on `close` (or when the program ends) it leaves the screen and
+ * prints the conversation.
  */
-export class TuiInteraction implements Interaction {
+export class TuiAdapter implements InteractionAdapter {
+  public readonly output: Output;
   private readonly screen: TuiScreen;
-  private readonly input: TuiInput;
+  private readonly source: StdioSource;
   private readonly frameDelayMs: number;
+  private readonly reading = new AbortController();
+  private readonly incoming = new OutputStream<InputEvent>();
+  private readonly typing: Typing;
   private readonly entries: Entry[] = [];
-  /** What is being typed, as the input echoes it. */
+  /** The line being typed. */
   private typed = '';
   private statusText: string | undefined;
   private showReasoning = true;
   /** Lines scrolled up from the end; 0 follows the conversation. */
   private scroll = 0;
   private active = false;
+  private started = false;
   /** Entries already left on the terminal by an earlier `close`. */
   private printed = 0;
   private scheduled: ReturnType<typeof setTimeout> | undefined;
   private stopResize: (() => void) | undefined;
+  private stopExit: (() => void) | undefined;
 
   public constructor({
+    shortcuts,
     screen = ttyScreen(),
-    input,
+    source = stdinSource,
     frameDelayMs = DEFAULT_FRAME_DELAY_MS,
-    ...options
-  }: TuiOptions = {}) {
+  }: TuiAdapterOptions = {}) {
     this.screen = screen;
+    this.source = source;
     this.frameDelayMs = frameDelayMs;
-    const handlers: TuiInputHandlers = {
-      echo: (text) => this.echo(text),
-      sequence: (sequence) => this.scrollBy(sequence),
+    this.typing = new Typing({
+      shortcuts,
+      emit: (event) => {
+        this.receive(event);
+      },
+      end: () => {
+        this.incoming.close();
+      },
+      onLine: (text) => {
+        this.typed = text;
+        this.render();
+      },
+      onSequence: (sequence) => {
+        this.scrollBy(sequence);
+      },
+    });
+    this.output = {
+      write: async (text, kind = 'message') => {
+        this.add({ kind: entryKind(kind), text, open: false });
+      },
+      writeStream: async (pieces, kind = 'message') => {
+        let entry: Entry | undefined;
+        for await (const piece of pieces) {
+          if (entry === undefined) {
+            entry = { kind: entryKind(kind), text: piece, open: true };
+            this.add(entry);
+          } else {
+            entry.text += piece;
+            this.render();
+          }
+        }
+        if (entry !== undefined) entry.open = false;
+      },
+      error: async (text) => {
+        this.add({ kind: 'note', text, open: false });
+      },
+      status: async (text) => {
+        this.statusText = text;
+        this.render();
+      },
+      lineLength: () => this.screen.columns(),
     };
-    this.input =
-      input?.(handlers) ??
-      new StdinReader({
-        ...options,
-        write: handlers.echo,
-        onSequence: handlers.sequence,
-        // Raw mode does not send SIGINT: the terminal's Ctrl+C becomes one.
-        onInterrupt: interruptProgram,
-      });
   }
 
-  public async ask(
-    _question: string,
-    signal?: AbortSignal,
-    instant: readonly string[] = [],
-  ): Promise<string> {
-    return this.read(signal, instant);
-  }
-
-  public listen(signal?: AbortSignal): Promise<string> {
-    return this.read(signal, []);
-  }
-
-  public async choose(
-    keys: readonly string[],
-    signal?: AbortSignal,
-  ): Promise<string> {
+  public async *events(): AsyncGenerator<InputEvent> {
+    if (this.started) {
+      throw new UsageError('Os eventos de um adapter são lidos uma vez só.');
+    }
+    this.started = true;
     this.open();
-    const key = await this.input.choose(keys, signal);
-    this.add({ kind: 'user', text: key === '' ? '↵' : key, open: false });
-    return key;
+    // Pasted text arrives marked, so its line breaks do not submit it.
+    this.screen.draw(PASTE_ON);
+    void readKeys(this.source, this.reading.signal, this.typing, this.incoming);
+    yield* this.incoming;
   }
 
-  public write(text: string): void {
-    this.add({ kind: 'text', text, open: false });
-  }
-
-  public stream(text: string): void {
-    this.append('text', text);
-  }
-
-  public reasoning(text: string): void {
-    this.append('reasoning', text);
-  }
-
-  public status(text: string | undefined): void {
-    this.statusText = text;
-    this.render();
-  }
-
-  public lineLength(): number {
-    return this.screen.columns();
+  public request(request: InteractionRequest): PendingRequest {
+    this.open();
+    return this.typing.request(request);
   }
 
   /** Leaves the screen, the conversation so far left on the terminal. */
   public close(): void {
-    this.input.close();
-    if (!this.active) return;
-    this.active = false;
-    this.stopResize?.();
-    this.stopResize = undefined;
-    if (this.scheduled !== undefined) clearTimeout(this.scheduled);
-    this.scheduled = undefined;
-    this.screen.leave(transcript(this.entries.slice(this.printed)));
-    this.printed = this.entries.length;
+    this.reading.abort();
+    this.incoming.close();
+    this.leave();
   }
 
-  /** The next line, after running the TUI's own commands (`/help`…). */
-  private async read(
-    signal: AbortSignal | undefined,
-    instant: readonly string[],
-  ): Promise<string> {
-    this.open();
-    for (;;) {
-      const line = await this.input.next(signal, instant);
-      this.consumeTyped(line);
+  /** What was typed: the TUI's own commands stay here, the rest goes on. */
+  private receive(event: InputEvent): void {
+    if (event.type === 'message') {
       // What is sent is read at the end of the conversation.
       this.scroll = 0;
-      if (!this.command(line.trim())) {
-        this.add({ kind: 'user', text: line, open: false });
-        return line;
+      const line = event.text.trim();
+      if (line.startsWith('/')) {
+        this.command(line);
+        return;
       }
+      this.add({ kind: 'user', text: event.text, open: false });
+    } else if (event.type === 'choice') {
+      this.add({
+        kind: 'user',
+        text: event.key === '' ? '↵' : event.key,
+        open: false,
+      });
     }
+    this.incoming.publish(event);
   }
 
-  /** Runs a TUI command; `false` when the line is for the agent. */
-  private command(line: string): boolean {
-    if (!line.startsWith('/')) return false;
+  private command(line: string): void {
     const name = line.split(/\s+/, 1)[0];
     switch (name) {
       case '/help':
         this.add({ kind: 'note', text: HELP, open: false });
-        return true;
+        return;
       case '/thinking':
         this.showReasoning = !this.showReasoning;
         this.add({
@@ -213,22 +220,21 @@ export class TuiInteraction implements Interaction {
             : 'Raciocínio escondido.',
           open: false,
         });
-        return true;
+        return;
       case '/clear':
         this.entries.splice(0);
         this.printed = 0;
         this.render();
-        return true;
+        return;
       case '/exit':
-        interruptProgram();
-        return true;
+        this.incoming.publish({ type: 'interrupt' });
+        return;
       default:
         this.add({
           kind: 'note',
           text: `Comando desconhecido: ${name}. Veja /help.`,
           open: false,
         });
-        return true;
     }
   }
 
@@ -251,51 +257,36 @@ export class TuiInteraction implements Interaction {
     if (this.active) return;
     this.active = true;
     this.screen.enter();
-    this.stopResize = this.screen.onResize?.(() => this.render());
+    this.stopResize = this.screen.onResize?.(() => {
+      this.render();
+    });
+    // However the program ends, the terminal gets its screen back.
+    this.stopExit = onProgramExit(() => {
+      this.leave();
+    });
     this.render();
   }
 
+  private leave(): void {
+    if (!this.active) return;
+    this.active = false;
+    this.stopResize?.();
+    this.stopResize = undefined;
+    this.stopExit?.();
+    this.stopExit = undefined;
+    if (this.scheduled !== undefined) clearTimeout(this.scheduled);
+    this.scheduled = undefined;
+    if (this.started) this.screen.draw(PASTE_OFF);
+    this.screen.leave(transcript(this.entries.slice(this.printed)));
+    this.printed = this.entries.length;
+  }
+
   private add(entry: Entry): void {
+    this.open();
     const last = this.entries.at(-1);
     if (last !== undefined) last.open = false;
     this.entries.push(entry);
     this.render();
-  }
-
-  /** A piece joins the open entry of its kind, or starts a new one. */
-  private append(kind: 'text' | 'reasoning', text: string): void {
-    const last = this.entries.at(-1);
-    if (last?.open === true && last.kind === kind) last.text += text;
-    else this.add({ kind, text, open: true });
-    this.render();
-  }
-
-  /**
-   * The input's echo, kept as the line being typed: characters, a
-   * backspace (`\b \b`), line breaks. Escape sequences change no text.
-   */
-  private echo(text: string): void {
-    if (text === '\b \b') {
-      this.typed = Array.from(
-        new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(
-          this.typed,
-        ),
-        (part) => part.segment,
-      )
-        .slice(0, -1)
-        .join('');
-    } else {
-      // oxlint-disable-next-line no-control-regex -- ESC starts every sequence.
-      this.typed += text.replace(/\u001b\[[0-9;?]*[A-Za-z~]/g, '');
-    }
-    this.render();
-  }
-
-  /** The submitted line leaves the input line; what came after stays. */
-  private consumeTyped(line: string): void {
-    this.typed = this.typed.startsWith(`${line}\n`)
-      ? this.typed.slice(line.length + 1)
-      : '';
   }
 
   /** Redraws soon, once for many changes (a stream sends many). */
@@ -321,6 +312,10 @@ export class TuiInteraction implements Interaction {
     this.scroll = drawn.scroll;
     this.screen.draw(drawn.text);
   }
+}
+
+function entryKind(kind: OutputKind): Entry['kind'] {
+  return kind === 'reasoning' ? 'reasoning' : 'text';
 }
 
 /**

@@ -1,14 +1,15 @@
 import { describe, expect, test } from 'bun:test';
 
+import type { StdioSource } from '../src/adapters/stdio/index';
 import {
-  TuiInteraction,
+  TuiAdapter,
   displayWidth,
   frame,
   wrap,
-  type TuiInput,
-  type TuiInputHandlers,
   type TuiScreen,
-} from '../src/tui/index';
+} from '../src/adapters/tui/index';
+import { OutputStream } from '../src/execute/stream';
+import { Conversation } from '../src/interaction/index';
 
 describe('layout', () => {
   test('quebra por palavras e corta a palavra maior que a linha', () => {
@@ -55,10 +56,12 @@ describe('layout', () => {
   });
 });
 
-describe('TuiInteraction', () => {
+describe('TuiAdapter', () => {
   test('junta os pedaços do stream e separa raciocínio de resposta', async () => {
-    const { tui, screen } = setup();
-    await tui.ask('');
+    const { tui, screen, type } = setup();
+    const asked = tui.ask('');
+    type('primeira\r');
+    await asked;
 
     tui.reasoning('pen');
     tui.reasoning('sei');
@@ -72,13 +75,14 @@ describe('TuiInteraction', () => {
   });
 
   test('/thinking esconde o raciocínio; os comandos não vão ao agente', async () => {
-    const { tui, screen } = setup(['/thinking', 'segunda']);
-    await tui.ask('');
+    const { tui, screen, type } = setup();
     tui.reasoning('pensei muito');
+    const asked = tui.ask('');
+    type('/thinking\r');
+    type('segunda\r');
 
-    expect(await tui.ask('')).toBe('segunda');
+    expect(await asked).toBe('segunda');
     await tick();
-
     expect(screen.lines()).toEqual(
       expect.arrayContaining([
         'Raciocínio escondido.',
@@ -90,48 +94,88 @@ describe('TuiInteraction', () => {
   });
 
   test('um comando desconhecido é recusado, com a ajuda', async () => {
-    const { tui, screen } = setup(['/xyz', 'ok']);
-    await tui.ask('');
-    await tui.ask('');
+    const { tui, screen, type } = setup();
+    const asked = tui.ask('');
+    type('/xyz\r');
+    type('ok\r');
+    await asked;
     await tick();
 
     expect(screen.lines()).toContain('Comando desconhecido: /xyz. Veja /help.');
   });
 
   test('o que se digita aparece na linha de entrada, com o apagar', async () => {
-    const { tui, screen, echo } = setup();
-    await tui.ask('');
-
-    for (const key of ['o', 'l', 'x']) echo(key);
-    echo('\b \b');
-    echo('á');
+    const { tui, screen, type } = setup();
+    void tui.ask('').catch(() => undefined);
+    type('olx');
+    type('\u007f');
+    type('á');
     await tick();
 
     expect(screen.lines().at(-1)).toBe('› olá');
+    tui.close();
   });
 
   test('↑ e PageUp rolam para trás, End volta ao fim', async () => {
-    const { tui, screen, key } = setup();
-    await tui.ask('');
-    for (let line = 1; line <= 12; line += 1)
+    const { tui, screen, type } = setup();
+    void tui.ask('').catch(() => undefined);
+    for (let line = 1; line <= 12; line += 1) {
       tui.write(`linha ${String(line)}`);
+    }
     await tick();
     expect(screen.lines()).toContain('linha 12');
 
-    key('\u001b[5~');
+    type('\u001b[5~');
     await tick();
     expect(screen.lines()).not.toContain('linha 12');
     expect(screen.lines().at(-2)).toMatch(/^↓ \d+ linha\(s\) abaixo/);
 
-    key('\u001b[F');
+    type('\u001b[F');
     await tick();
     expect(screen.lines()).toContain('linha 12');
+    tui.close();
+  });
+
+  test('a escolha aparece como resposta de quem usa', async () => {
+    const { tui, screen, type } = setup();
+    const chosen = tui.choose(['s', 'n']);
+    type('S');
+
+    expect(await chosen).toBe('s');
+    await tick();
+    expect(screen.lines()).toContain('› s');
+    tui.close();
+  });
+
+  test('/exit interrompe a conversa', async () => {
+    const { tui, type } = setup();
+    let interrupted = false;
+    const conversation = new Conversation(
+      new TuiAdapter({
+        screen: new FakeScreen(),
+        source: tui.source,
+        frameDelayMs: 0,
+      }),
+      {
+        onInterrupt: () => {
+          interrupted = true;
+        },
+      },
+    );
+    const asked = conversation.ask('').catch(() => undefined);
+    type('/exit\r');
+    await asked;
+
+    expect(interrupted).toBe(true);
   });
 
   test('ao fechar, sai da tela e deixa a conversa no terminal', async () => {
-    const { tui, screen } = setup();
-    await tui.ask('');
+    const { tui, screen, type } = setup();
+    const asked = tui.ask('');
+    type('primeira\r');
+    await asked;
     tui.write('resposta');
+    await tick();
     tui.close();
 
     expect(screen.left).toEqual(['› primeira\n\nresposta']);
@@ -139,33 +183,27 @@ describe('TuiInteraction', () => {
   });
 });
 
-/** A TUI on a fake 8×40 screen, reading `lines` in order (then 'primeira'). */
-function setup(lines: string[] = []): {
-  tui: TuiInteraction;
+/** A TUI conversation on a fake 8×40 screen; `type` sends keys. */
+function setup(): {
+  tui: Conversation & { readonly source: StdioSource };
   screen: FakeScreen;
-  echo: (text: string) => void;
-  key: (sequence: string) => void;
+  type: (keys: string) => void;
 } {
   const screen = new FakeScreen();
-  const queue = ['primeira', ...lines];
-  let handlers: TuiInputHandlers = { echo: ignore, sequence: ignore };
-  const tui = new TuiInteraction({
-    screen,
-    frameDelayMs: 0,
-    input: (given): TuiInput => {
-      handlers = given;
-      return {
-        next: () => Promise.resolve(queue.shift() ?? ''),
-        choose: () => Promise.resolve(''),
-        close: () => undefined,
-      };
-    },
-  });
+  const keys = new OutputStream<string>();
+  const source: StdioSource = { tty: true, read: () => keys };
+  const tui = Object.assign(
+    new Conversation(new TuiAdapter({ screen, source, frameDelayMs: 0 }), {
+      onInterrupt: () => undefined,
+    }),
+    { source },
+  );
   return {
     tui,
     screen,
-    echo: (text) => handlers.echo(text),
-    key: (sequence) => handlers.sequence(sequence),
+    type: (text) => {
+      keys.publish(text);
+    },
   };
 }
 
@@ -199,10 +237,6 @@ class FakeScreen implements TuiScreen {
         .map((line) => line.trimEnd())
     );
   }
-}
-
-function ignore(): void {
-  // Until the TUI hands its echo over.
 }
 
 function tick(): Promise<void> {

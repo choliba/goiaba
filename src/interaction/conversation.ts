@@ -2,6 +2,7 @@ import { UsageError } from '../errors';
 import { interruptProgram } from '../execute/process';
 import { OutputStream } from '../execute/stream';
 import { log } from '../logger/index';
+import type { OutputKind } from '../output/index';
 import type { InteractionAdapter, PendingRequest } from './adapter';
 import { DEFAULT_MAX_UNANSWERED_REQUESTS } from './constants';
 import type { InputEvent, InteractionRequest } from './events';
@@ -43,8 +44,10 @@ export class Conversation implements Interaction {
   /** The input is over (ended, failed or closed): why. */
   private ended: unknown;
   private unanswered = 0;
-  /** The reply streaming now, if any. */
-  private streaming: OutputStream<string> | undefined;
+  /** The reply (or reasoning) streaming now, if any. */
+  private streaming:
+    | { readonly kind: OutputKind; readonly pieces: OutputStream<string> }
+    | undefined;
   /** What is being shown, for the next thing to wait for. */
   private showing: Promise<void> | undefined;
 
@@ -73,20 +76,14 @@ export class Conversation implements Interaction {
     return this.line(signal, []);
   }
 
-  public async choose(
+  /** One of `keys`; the adapter shows the answer its own way. */
+  public choose(
     keys: readonly string[],
     signal?: AbortSignal,
   ): Promise<string> {
-    const key = await this.wait(
-      this.choices,
-      { type: 'choice', keys },
-      signal,
-      {
-        cancelled: 'A escolha foi cancelada.',
-      },
-    );
-    this.write(key);
-    return key;
+    return this.wait(this.choices, { type: 'choice', keys }, signal, {
+      cancelled: 'A escolha foi cancelada.',
+    });
   }
 
   public write(value: string): void {
@@ -94,14 +91,11 @@ export class Conversation implements Interaction {
   }
 
   public stream(text: string): void {
-    if (this.streaming === undefined) {
-      const pieces = new OutputStream<string>();
-      this.streaming = pieces;
-      this.show(() => this.adapter.output.writeStream(pieces), {
-        keepStream: true,
-      });
-    }
-    this.streaming.publish(text);
+    this.streamPiece('message', text);
+  }
+
+  public reasoning(text: string): void {
+    this.streamPiece('reasoning', text);
   }
 
   public status(text: string | undefined): void {
@@ -279,8 +273,23 @@ export class Conversation implements Interaction {
     this.showing = current;
   }
 
+  /** A piece joins the stream of its kind, or starts one. */
+  private streamPiece(kind: OutputKind, text: string): void {
+    if (this.streaming?.kind === kind) {
+      this.streaming.pieces.publish(text);
+      return;
+    }
+    this.endStream();
+    const pieces = new OutputStream<string>();
+    this.streaming = { kind, pieces };
+    this.show(() => this.adapter.output.writeStream(pieces, kind), {
+      keepStream: true,
+    });
+    pieces.publish(text);
+  }
+
   private endStream(): void {
-    this.streaming?.close();
+    this.streaming?.pieces.close();
     this.streaming = undefined;
   }
 }

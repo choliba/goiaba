@@ -100,14 +100,14 @@ export type {
 } from './interaction/index';
 export { StdioAdapter } from './adapters/stdio/index';
 export type { StdioAdapterOptions, StdioSource } from './adapters/stdio/index';
-export { DEFAULT_MAX_RECORD_BYTES } from './adapters/constants';
-export { TuiInteraction, ttyScreen } from './tui/index';
-export type {
-  TuiInput,
-  TuiInputHandlers,
-  TuiOptions,
-  TuiScreen,
-} from './tui/index';
+export {
+  DEFAULT_MAX_RECORD_BYTES,
+  DEFAULT_POLL_MS,
+} from './adapters/constants';
+export { JsonlAdapter } from './adapters/jsonl/index';
+export type { JsonlAdapterOptions } from './adapters/jsonl/index';
+export { TuiAdapter, ttyScreen } from './adapters/tui/index';
+export type { TuiAdapterOptions, TuiScreen } from './adapters/tui/index';
 export {
   completeOutput,
   DEFAULT_LINE_LENGTH,

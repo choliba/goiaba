@@ -13,3 +13,10 @@
  * script sends, with room to spare.
  */
 export const DEFAULT_MAX_RECORD_BYTES = 1024 * 1024;
+
+/**
+ * How often a conversation file is read for new lines, in milliseconds
+ * (option `pollMs`). A person adding a line does not notice half a second;
+ * reading more often only spends the disk.
+ */
+export const DEFAULT_POLL_MS = 500;

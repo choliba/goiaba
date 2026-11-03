@@ -48,6 +48,11 @@ export function writeStatus(text: string | undefined): void {
   status = text;
 }
 
+/** Nothing typed or half-written on the current line of stdout. */
+export function isAtLineStart(): boolean {
+  return atLineStart;
+}
+
 /** Columns of the tty, or `undefined` when stdout is not one. */
 export function ttyColumns(): number | undefined {
   return process.stdout.isTTY ? process.stdout.columns : undefined;

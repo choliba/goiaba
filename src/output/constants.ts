@@ -1,5 +1,8 @@
 /** Defaults of the output. */
 
+/** Marks the model's reasoning where it is shown as text. */
+export const REASONING_MARK = '💭';
+
 /**
  * Columns of a line when the destination has no lines of its own (a pipe, a
  * file), for whoever lays out text in columns (the approvals table). In
