@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="pt-BR">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rodada 4, repetição, do agents/02.ts</title>
+  <meta name="claude:viewport-fit-sides" content="cover" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+  />
+  <style>
+    /* Layout: four swimlanes (você, analista, programador, revisor); scenes sit in the lane of who acts, handoffs cross lanes as arrows. */
+    :root {
+      --bg: #fbf7f7;
+      --surface: #ffffff;
+      --ink: #2a1f23;
+      --muted: #6f5f65;
+      --line: #e7dadd;
+      --guava: #c93d5f; /* analista, and the page accent */
+      --violet: #5552c9; /* programador */
+      --leaf: #3b7a37; /* revisor */
+      --you: #4b3e43; /* você */
+      --warn: #b9450f;
+      --warn-bg: #fdf0e8;
+      --code-bg: #f4ecee;
+      --ok-bg: #eaf4e8;
+      --display:
+        'IBM Plex Sans Condensed', 'Arial Narrow', system-ui, sans-serif;
+      --body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme='light']) {
+        --bg: #161113;
+        --surface: #201a1d;
+        --ink: #f1e8ea;
+        --muted: #b3a2a8;
+        --line: #3a2e33;
+        --guava: #f17a95;
+        --violet: #a3a1ff;
+        --leaf: #86c77d;
+        --you: #d8cbd0;
+        --warn: #ff9a5c;
+        --warn-bg: #3a2218;
+        --code-bg: #2c2327;
+        --ok-bg: #1d2a1b;
+        color-scheme: dark;
+      }
+    }
+    :root[data-theme='dark'] {
+      --bg: #161113;
+      --surface: #201a1d;
+      --ink: #f1e8ea;
+      --muted: #b3a2a8;
+      --line: #3a2e33;
+      --guava: #f17a95;
+      --violet: #a3a1ff;
+      --leaf: #86c77d;
+      --you: #d8cbd0;
+      --warn: #ff9a5c;
+      --warn-bg: #3a2218;
+      --code-bg: #2c2327;
+      --ok-bg: #1d2a1b;
+      color-scheme: dark;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.55 var(--body);
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding-block: 32px 64px;
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px));
+      display: grid;
+      gap: 36px;
+    }
+
+    header {
+      display: grid;
+      gap: 10px;
+      max-width: 68ch;
+    }
+    .eyebrow {
+      font: 500 12px/1 var(--mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--guava);
+    }
+    h1 {
+      font: 700 clamp(28px, 4vw, 40px)/1.08 var(--display);
+      margin: 0;
+      text-wrap: balance;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+    code {
+      font: 0.88em/1.4 var(--mono);
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      overflow-wrap: anywhere;
+    }
+
+    /* Summary of what went wrong */
+    .summary {
+      display: grid;
+      gap: 14px;
+    }
+    .summary h2,
+    .next h2 {
+      font: 600 20px/1.2 var(--display);
+      margin: 0;
+    }
+    .issues {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+    .issues li {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--warn);
+      border-radius: 6px;
+      padding: 12px 14px;
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .issues strong {
+      font-weight: 600;
+    }
+    .issues a {
+      font: 500 12px/1 var(--mono);
+      color: var(--warn);
+      text-decoration: none;
+      justify-self: start;
+    }
+    .issues a:hover,
+    .issues a:focus-visible {
+      text-decoration: underline;
+    }
+
+    /* Lanes header */
+    .lanes,
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      column-gap: 16px;
+    }
+    .lanes {
+      position: sticky;
+      top: env(safe-area-inset-top, 0px);
+      z-index: 5;
+      background: var(--bg);
+      padding-block: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0 0 auto;
+      height: env(safe-area-inset-top, 0px);
+      z-index: 10;
+      background: var(--bg);
+    }
+    .lane-head {
+      display: grid;
+      gap: 2px;
+      text-align: center;
+      min-width: 0;
+    }
+    .lane-head b {
+      font: 600 16px/1.2 var(--display);
+      color: var(--c);
+    }
+    .lane-head span {
+      font: 12px/1.3 var(--mono);
+      color: var(--muted);
+    }
+
+    .you {
+      --c: var(--you);
+    }
+    .analista {
+      --c: var(--guava);
+    }
+    .programador {
+      --c: var(--violet);
+    }
+    .revisor {
+      --c: var(--leaf);
+    }
+
+    /* Flow */
+    .flow-wrap {
+      position: relative;
+      display: grid;
+      gap: 0;
+    }
+    .guides {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      column-gap: 16px;
+      pointer-events: none;
+    }
+    .guides i {
+      justify-self: center;
+      width: 0;
+      border-left: 1px dashed var(--line);
+    }
+    .flow {
+      position: relative;
+      row-gap: 0;
+    }
+
+    .scene {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--c);
+      border-radius: 8px;
+      padding: 12px 14px 14px;
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+      scroll-margin-top: 90px;
+    }
+    .scene.warn {
+      border-color: var(--warn);
+      border-top-color: var(--c);
+      box-shadow: 0 0 0 1px var(--warn) inset;
+    }
+    .scene-head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .scene-num {
+      font: 500 12px/1 var(--mono);
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .scene-who {
+      font: 600 12px/1 var(--mono);
+      color: var(--c);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: none;
+    }
+    .scene h3 {
+      font: 600 16px/1.25 var(--display);
+      margin: 0;
+      flex-basis: 100%;
+      text-wrap: balance;
+    }
+    .scene p {
+      margin: 0;
+    }
+    .scene ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 2px;
+    }
+    .quote {
+      font: 13px/1.5 var(--mono);
+      background: var(--code-bg);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .scene.you-line .quote {
+      background: transparent;
+      padding: 0;
+      font-size: 14px;
+    }
+    .scene.you-line .quote::before {
+      content: '› ';
+      color: var(--muted);
+    }
+    .flag {
+      background: var(--warn-bg);
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 13.5px;
+      display: grid;
+      gap: 2px;
+    }
+    .flag.ok {
+      background: var(--ok-bg);
+    }
+    .flag.ok b {
+      color: var(--leaf);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 640px;
+      font-size: 14px;
+    }
+    th,
+    td {
+      text-align: left;
+      vertical-align: top;
+      padding: 10px 14px;
+      border-top: 1px solid var(--line);
+    }
+    thead th {
+      border-top: 0;
+      font: 600 13px/1.2 var(--mono);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    tbody th {
+      font-weight: 600;
+      width: 22%;
+    }
+    td.good {
+      color: var(--leaf);
+    }
+    td.bad {
+      color: var(--warn);
+    }
+    .note {
+      margin: 0;
+      color: var(--muted);
+      max-width: 72ch;
+    }
+    header a {
+      color: var(--guava);
+    }
+    .flag b {
+      color: var(--warn);
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    /* Handoffs: an arrow from one lane to another */
+    .handoff {
+      position: relative;
+      height: 46px;
+      display: grid;
+      align-items: center;
+      min-width: 0;
+    }
+    .handoff .line {
+      position: absolute;
+      left: 12.5%;
+      right: 12.5%;
+      top: 50%;
+      border-top: 1.5px solid var(--hc, var(--muted));
+    }
+    .handoff.warn {
+      --hc: var(--warn);
+    }
+    .handoff .line::after {
+      content: '';
+      position: absolute;
+      top: -6px;
+      border: 5.5px solid transparent;
+    }
+    .handoff.ltr .line::after {
+      right: -2px;
+      border-left: 8px solid var(--hc, var(--muted));
+      border-right: 0;
+    }
+    .handoff.rtl .line::after {
+      left: -2px;
+      border-right: 8px solid var(--hc, var(--muted));
+      border-left: 0;
+    }
+    .handoff span {
+      position: relative;
+      justify-self: center;
+      background: var(--bg);
+      padding: 1px 8px;
+      font: 12px/1.35 var(--mono);
+      color: var(--hc, var(--muted));
+      text-align: center;
+      max-width: 92%;
+      transform: translateY(-11px);
+    }
+    .handoff .mobile-label {
+      display: none;
+    }
+
+    .end {
+      grid-column: 1 / -1;
+      justify-self: center;
+      margin-top: 18px;
+      font: 500 12px/1 var(--mono);
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* What to change */
+    .next {
+      display: grid;
+      gap: 12px;
+      max-width: 72ch;
+    }
+    .next ol {
+      margin: 0;
+      padding-left: 20px;
+      display: grid;
+      gap: 6px;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--guava);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 760px) {
+      .lanes,
+      .guides {
+        display: none;
+      }
+      .flow {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .scene,
+      .handoff {
+        grid-column: 1 / -1 !important;
+      }
+      .scene-who {
+        display: inline;
+      }
+      .handoff {
+        height: auto;
+        padding-block: 8px;
+        justify-items: center;
+      }
+      .handoff .line {
+        display: none;
+      }
+      .handoff span {
+        transform: none;
+      }
+      .handoff .desktop-label {
+        display: none;
+      }
+      .handoff .mobile-label {
+        display: inline;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+    html {
+      scroll-behavior: smooth;
+    }
+
+    /* The rounds, on top of every page: the current one is not a link. */
+    .rounds ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .rounds a,
+    .rounds [aria-current] {
+      display: grid;
+      gap: 2px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 13.5px;
+    }
+    .rounds small {
+      font: 500 11px/1 var(--mono);
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .rounds a:hover,
+    .rounds a:focus-visible {
+      border-color: var(--guava);
+    }
+    .rounds [aria-current] {
+      border-color: var(--guava);
+      box-shadow: 0 0 0 1px var(--guava) inset;
+    }
+  </style>
+
+  <main class="page">
+    <nav class="rounds" id="rodadas" aria-label="Rodadas"></nav>
+    <script src="rodadas.js"></script>
+    <header>
+      <span class="eyebrow"
+        >bun agents/02.ts · rodada 4 · 2/2 · 03/11/2026</span
+      >
+      <h1>Rodada 4, de novo: a mesma correção, com o mesmo tipo de teste</h1>
+      <p>
+        A segunda execução da
+        <a href="2026-11-03-rodada-4-uma-correcao-com-teste.html">rodada 4</a>,
+        com os mesmos agentes, os mesmos pedidos e o mesmo ponto de partida (a
+        tag <code>rodada-base</code>). Nada no script mudou entre as duas. Foi
+        do começo ao fim em 1 min 22 s.
+      </p>
+    </header>
+
+    <section class="summary" aria-labelledby="comparacao">
+      <h2 id="comparacao">As duas execuções da rodada 4</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col"></th>
+              <th scope="col">Rodada 4 · 1/2</th>
+              <th scope="col">Rodada 4 · 2/2</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Pedidos e ponto de partida</th>
+              <td>os da rodada 4</td>
+              <td>os mesmos</td>
+            </tr>
+            <tr>
+              <th scope="row">Onde o analista testou</th>
+              <td class="good">no próprio diretório</td>
+              <td class="good">no próprio diretório</td>
+            </tr>
+            <tr>
+              <th scope="row">Pontos apontados</th>
+              <td>8</td>
+              <td>6</td>
+            </tr>
+            <tr>
+              <th scope="row">Pontos corrigidos</th>
+              <td>1: <code>Object.freeze</code></td>
+              <td>1: <code>Object.freeze</code></td>
+            </tr>
+            <tr>
+              <th scope="row">Teste que falha sem a correção</th>
+              <td class="good">sim, conferido: 5 passam, 1 falha</td>
+              <td class="good">sim, conferido: 5 passam, 1 falha</td>
+            </tr>
+            <tr>
+              <th scope="row">Testes de casos-limite</th>
+              <td>recusou: passariam sem mudança</td>
+              <td>acrescentou 3, e disse que só fecham uma lacuna</td>
+            </tr>
+            <tr>
+              <th scope="row">O aviso do <code>main.ts</code></th>
+              <td>recusou: nenhum teste falharia</td>
+              <td>recusou: o usuário 1 sempre existe</td>
+            </tr>
+            <tr>
+              <th scope="row">Arquivos alterados</th>
+              <td>2</td>
+              <td>2</td>
+            </tr>
+            <tr>
+              <th scope="row">Ferramentas do revisor</th>
+              <td>18</td>
+              <td>14</td>
+            </tr>
+            <tr>
+              <th scope="row">Duração</th>
+              <td>1 min 28 s</td>
+              <td>1 min 22 s (25 s, 33 s, 24 s)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">
+        Na rodada 3, duas execuções iguais corrigiram 2 e 4 pontos. Na rodada 4,
+        com a regra do teste, as duas corrigiram o mesmo ponto, do mesmo jeito.
+        São só duas execuções de cada, mas a regra parece deixar o resultado
+        mais estável.
+      </p>
+    </section>
+
+    <section aria-label="Fluxograma da rodada">
+      <div class="lanes" aria-hidden="true">
+        <div class="lane-head you"><b>Você</b><span>não foi chamado</span></div>
+        <div class="lane-head analista">
+          <b>Analista</b><span>Claude · claude-opus-5-5</span>
+        </div>
+        <div class="lane-head programador">
+          <b>Programador</b><span>Claude · claude-opus-5-5</span>
+        </div>
+        <div class="lane-head revisor">
+          <b>Revisor</b><span>Cursor · gpt-5.6-terra</span>
+        </div>
+      </div>
+      <div class="flow-wrap">
+        <div class="guides" aria-hidden="true">
+          <i></i><i></i><i></i><i></i>
+        </div>
+        <ol class="flow" id="flow" role="list"></ol>
+      </div>
+    </section>
+
+    <section class="next" aria-labelledby="mudar">
+      <h2 id="mudar">O que esta repetição mostra</h2>
+      <ol>
+        <li>
+          A regra do teste deixou as duas execuções parecidas: mesma correção,
+          mesmo tipo de teste, mesmas recusas.
+        </li>
+        <li>
+          O que ainda varia são os testes de casos-limite. Decidir se eles
+          contam como trabalho válido tiraria essa diferença.
+        </li>
+      </ol>
+    </section>
+  </main>
+
+  <script>
+    const LANES = {
+      you: { col: 1, name: 'Você' },
+      analista: { col: 2, name: 'Analista' },
+      programador: { col: 3, name: 'Programador' },
+      revisor: { col: 4, name: 'Revisor' },
+    };
+
+    // Each step is a scene (in the lane of who acts) or a handoff (an arrow between lanes).
+    const STEPS = [
+      {
+        scene: 1,
+        lane: 'programador',
+        title: 'Volta ao ponto de partida e consulta o analista',
+        text: 'O script volta o workspace à tag `rodada-base` (`33125e6`) e chama o analista com o mesmo pedido da rodada 4.',
+        quote: 'Workspace no ponto de partida: rodada-base (33125e6)',
+      },
+      {
+        from: 'programador',
+        to: 'analista',
+        label: 'pedido com o papel do analista',
+      },
+      {
+        scene: 2,
+        lane: 'analista',
+        title: 'Testa no próprio diretório e aponta 6 pontos',
+        text: 'Em 25 s e 3 ferramentas: `npm ci`, `npm test` (5 de 5) e `npm start`, com o `git status` limpo depois. Nenhum bug real:',
+        list: [
+          '`src/usuarios.ts:8-12` `usuariosPadrao` só é imutável no TypeScript',
+          '`src/usuarios.ts:21` nada garante `id` único',
+          '`src/main.ts:3-6` nenhum aviso quando o usuário não existe',
+          '`src/usuarios.test.ts:24-39` faltam testes de casos-limite',
+          '`src/usuarios.ts:4` o `email` não é usado nem validado',
+          '`package.json:13` o glob do `node --test` exige Node 21 ou mais novo',
+        ],
+        ok: 'O git confirma: não alterou nenhum arquivo.',
+      },
+      {
+        from: 'analista',
+        to: 'programador',
+        label: 'o script passa tudo o que o analista disse (1 fala)',
+      },
+      {
+        scene: 3,
+        lane: 'programador',
+        title: 'Corrige 1 ponto, com teste, e fecha uma lacuna',
+        text: 'Em 33 s e 2 ferramentas. Congela `usuariosPadrao` com `Object.freeze` e escreve o teste "usuariosPadrao não pode ser alterado em tempo de execução". Acrescenta 3 casos-limite (`listarAtivos([])`, `buscarPorId([], 1)` e `descreverAtivos` só com inativos) e diz que eles já passavam antes. Recusa os pontos 2, 3, 5 e 6, cada um com o motivo.',
+        ok: 'Conferido numa cópia: com o `src/usuarios.ts` original, o teste novo falha (5 passam, 1 falha); com a correção, os 6 passam. O git mostra os dois arquivos que ele disse. Não fez commit.',
+      },
+      {
+        from: 'programador',
+        to: 'revisor',
+        label:
+          'Programador consulta revisor: a análise, o relato e a regra do teste',
+      },
+      {
+        scene: 4,
+        lane: 'revisor',
+        title: 'Confere a correção, o teste e a regra',
+        text: 'Em 24 s e 14 ferramentas: `git diff --check`, `npm test` (6 de 6) e `npm start`. Nada errado nas mudanças.',
+        list: [
+          'sem os `Object.freeze`, o teste da correção falharia',
+          'os casos-limite estão certos',
+          'nenhum ponto foi corrigido sem teste: os que ficaram de fora não contam contra a regra',
+        ],
+        ok: 'O git confirma: não alterou nenhum arquivo.',
+      },
+      {
+        from: 'revisor',
+        to: 'programador',
+        label: 'fim: o script grava a rodada',
+      },
+      {
+        scene: 5,
+        lane: 'programador',
+        title: 'Rodada guardada',
+        text: '`docs/rodadas/2026-11-03T16-50-30.759Z.json`, já sem caminhos com nome de usuário nem valores de credenciais.',
+      },
+    ];
+
+    /** Text with `code` spans, built as DOM nodes (never innerHTML). */
+    function rich(el, text) {
+      text.split('`').forEach((part, i) => {
+        if (part === '') return;
+        if (i % 2 === 1) {
+          const code = document.createElement('code');
+          code.textContent = part;
+          el.append(code);
+        } else {
+          el.append(part);
+        }
+      });
+      return el;
+    }
+
+    function make(tag, className, text) {
+      const el = document.createElement(tag);
+      if (className) el.className = className;
+      if (text !== undefined) rich(el, text);
+      return el;
+    }
+
+    const flow = document.getElementById('flow');
+
+    for (const step of STEPS) {
+      if (step.scene !== undefined) {
+        const lane = LANES[step.lane];
+        const li = make(
+          'li',
+          `scene ${step.lane === 'you' ? 'you' : step.lane}${step.warn ? ' warn' : ''}${step.you ? ' you-line' : ''}`,
+        );
+        li.id = `cena-${step.scene}`;
+        li.style.gridColumn = String(lane.col);
+
+        const head = make('div', 'scene-head');
+        head.append(make('span', 'scene-num', `cena ${step.scene}`));
+        head.append(make('span', 'scene-who', lane.name));
+        if (step.title) head.append(make('h3', '', step.title));
+        li.append(head);
+
+        if (step.text) li.append(make('p', '', step.text));
+        if (step.list) {
+          const ul = make('ul');
+          for (const item of step.list) ul.append(make('li', '', item));
+          li.append(ul);
+        }
+        if (step.quote) li.append(make('p', 'quote', step.quote));
+        if (step.ok) {
+          const ok = make('div', 'flag ok');
+          ok.append(make('b', '', 'certo'));
+          ok.append(make('span', '', step.ok));
+          li.append(ok);
+        }
+        if (step.flag) {
+          const flag = make('div', 'flag');
+          flag.append(make('b', '', 'atenção'));
+          flag.append(make('span', '', step.flag));
+          li.append(flag);
+        }
+        flow.append(li);
+      } else {
+        const a = LANES[step.from].col;
+        const b = LANES[step.to].col;
+        const li = make(
+          'li',
+          `handoff ${a < b ? 'ltr' : 'rtl'}${step.warn ? ' warn' : ''}`,
+        );
+        li.setAttribute(
+          'aria-label',
+          `${LANES[step.from].name} para ${LANES[step.to].name}: ${step.label}`,
+        );
+        li.style.gridColumn = `${Math.min(a, b)} / ${Math.max(a, b) + 1}`;
+        // The line runs between the centers of the two lanes.
+        const span = Math.abs(a - b) + 1;
+        const line = make('i', 'line');
+        line.style.left = line.style.right = `${50 / span}%`;
+        li.append(line);
+        li.append(make('span', 'desktop-label', step.label));
+        li.append(
+          make(
+            'span',
+            'mobile-label',
+            `↓ ${LANES[step.from].name} → ${LANES[step.to].name} · ${step.label}`,
+          ),
+        );
+        flow.append(li);
+      }
+    }
+
+    flow.append(make('li', 'end', 'fim da rodada'));
+  </script>
+</html>
