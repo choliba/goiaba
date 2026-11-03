@@ -17,6 +17,7 @@ import {
 import {
   DEFAULT_DATABASE_DIR,
   DEFAULT_DATABASE_NAME,
+  DEFAULT_HOMES_DIR,
   DEFAULT_LOG_DIR,
 } from './constants';
 
@@ -53,10 +54,20 @@ export interface GoiabaLoggerConfig {
   readonly use?: LoggerFactory;
 }
 
+/** Where each workspace's home is kept (see `DEFAULT_HOMES_DIR`). */
+export interface GoiabaHomesConfig {
+  /**
+   * Directory, relative to the config file (or `~/…`); defaults to
+   * `.goiaba/homes`.
+   */
+  readonly dir?: string;
+}
+
 export interface GoiabaConfig {
   readonly debug?: boolean;
   readonly logger?: GoiabaLoggerConfig;
   readonly database?: GoiabaDatabaseConfig;
+  readonly homes?: GoiabaHomesConfig;
   readonly envs?: readonly GoiabaEnv[];
 }
 
@@ -72,6 +83,10 @@ export interface ResolvedGoiabaConfig {
   };
   /** Absolute path of the SQLite database file. */
   readonly databasePath: string;
+  readonly homes: {
+    /** Absolute directory of the workspaces' homes. */
+    readonly dir: string;
+  };
   readonly debug: boolean;
   readonly configPath: string | undefined;
   readonly env: ResolvedGoiabaEnv | undefined;
@@ -231,10 +246,12 @@ async function normalizeConfig(
 
   const database = normalizeDatabase(value['database'], configPath);
   const logger = normalizeLogger(value['logger'], configPath);
+  const homes = normalizeHomes(value['homes'], configPath);
 
   return {
     ...(value['debug'] === undefined ? {} : { debug: value['debug'] }),
     ...(database === undefined ? {} : { database }),
+    ...(homes === undefined ? {} : { homes }),
     ...(logger === undefined ? {} : { logger }),
     envs: normalizeEnvs(value['envs'], configPath),
   };
@@ -244,6 +261,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   'debug',
   'database',
   'envs',
+  'homes',
   'logger',
 ]);
 
@@ -337,6 +355,26 @@ function normalizeDatabase(
   };
 }
 
+function normalizeHomes(
+  homes: unknown,
+  configPath: string,
+): GoiabaHomesConfig | undefined {
+  if (homes === undefined) return undefined;
+
+  if (!isRecord(homes)) {
+    throw new UsageError(`homes em ${configPath} deve ser um objeto.`);
+  }
+
+  const { dir } = homes;
+  if (dir !== undefined && (typeof dir !== 'string' || dir.trim() === '')) {
+    throw new UsageError(
+      `homes.dir em ${configPath} deve ser uma string não vazia.`,
+    );
+  }
+
+  return dir === undefined ? {} : { dir };
+}
+
 function isFileName(name: unknown): name is string {
   return (
     typeof name === 'string' &&
@@ -405,6 +443,9 @@ function resolveConfig(
       absolute(baseDir, file.database?.dir ?? DEFAULT_DATABASE_DIR),
       file.database?.name ?? DEFAULT_DATABASE_NAME,
     ),
+    homes: {
+      dir: absolute(baseDir, file.homes?.dir ?? DEFAULT_HOMES_DIR),
+    },
     debug: envOverrides.debug ?? file.debug ?? false,
     configPath,
     envs,
@@ -412,7 +453,12 @@ function resolveConfig(
   };
 }
 
+/** `path` from `baseDir`; `~/…` is the user's home. */
 function absolute(baseDir: string, path: string): string {
+  const home = environment()['HOME'];
+  if (home !== undefined && (path === '~' || path.startsWith('~/'))) {
+    return join(home, path.slice(2));
+  }
   return isAbsolute(path) ? path : resolve(baseDir, path);
 }
 

@@ -43,6 +43,19 @@ async function pullOf(image: string): Promise<string | undefined> {
 }
 
 describe('Workspace', () => {
+  test('reusa o home da mesma raiz e separa raízes diferentes', () => {
+    const project = join(root, 'home-do-workspace');
+    const first = new Workspace({ type: 'bubblewrap', root: project });
+    const same = new Workspace({ type: 'docker', root: `${project}/.` });
+    const other = new Workspace({
+      type: 'bubblewrap',
+      root: join(root, 'outro-workspace'),
+    });
+
+    expect(first.home()).toBe(same.home());
+    expect(first.home()).not.toBe(other.home());
+  });
+
   test('rejeita uma raiz vazia', () => {
     expect(
       () =>

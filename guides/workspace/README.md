@@ -1,65 +1,130 @@
-# Módulo workspace: para que ele existe
+<a id="topo"></a>
 
-O módulo `workspace` prepara comandos para rodarem dentro de um limite de execução. Em termos simples, ele define quais partes do computador um agente consegue ver e alterar enquanto usa um projeto, e como os comandos entram nesse ambiente.
+# Módulo workspace: preparar um ambiente isolado
 
-O workspace mantém juntas a raiz do projeto, as permissões de arquivos, o acesso ao host e a configuração de rede. Ele escolhe uma implementação de sandbox: Docker ou Bubblewrap. Assim, quem executa um comando pede ao workspace que o prepare, sem precisar montar diretamente os detalhes de cada sandbox.
+Um `Workspace` define a raiz que o agente pode alterar e prepara cada comando para executá-lo dentro de um sandbox. Também reúne as permissões de filesystem, a fronteira de rede e o acesso declarado pelo provider ao estado da CLI no host.
+
+## Índice
+
+- [Os arquivos](#os-arquivos)
+- [Interface](#interface)
+- [Como funciona](#como-funciona)
+- [Exemplos](#exemplos)
+  - [1. Homes persistentes e modos de hostState](#1-homes-persistentes-e-modos-de-hoststate)
+- [Regras do módulo](#regras-do-módulo)
+- [Exercícios](#exercícios)
 
 ## Os arquivos
 
-| Arquivo                                 | Papel                                                                                                                              |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `src/workspace/index.ts`                | Define as opções e a classe `Workspace`; valida a raiz e as portas, cria o sandbox e encaminha as configurações e o ciclo de vida. |
-| `src/workspace/sandbox/types.ts`        | Define a interface `Sandbox` e o contrato `NetworkExit` usados pelas implementações.                                               |
-| `src/workspace/sandbox/index.ts`        | Exporta os tipos e as implementações de Bubblewrap e Docker.                                                                       |
-| `src/workspace/sandbox/bubblewrap.ts`   | Cria e mantém a jaula Bubblewrap, monta os caminhos, configura rede e prepara comandos com `nsenter`.                              |
-| `src/workspace/sandbox/docker.ts`       | Prepara comandos em contêineres Docker e define montagens, ambiente, rede e encerramento.                                          |
-| `src/workspace/sandbox/host-access.ts`  | Decide quais diretórios, credenciais e variáveis do host são compartilhados com o sandbox.                                         |
-| `src/workspace/sandbox/host-state.ts`   | Lista os diretórios de estado genéricos das ferramentas do host.                                                                   |
-| `src/workspace/sandbox/protect.ts`      | Converte caminhos existentes em máscaras somente leitura.                                                                          |
-| `src/workspace/sandbox/wrap-command.ts` | Coloca um comando dentro de outro executável, preservando argumentos, diretório atual e entrada.                                   |
-| `src/workspace/sandbox/debug.ts`        | Registra detalhes do comando e dados adicionais no log de depuração do sandbox.                                                    |
+| Arquivo                                | Papel                                                                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `src/workspace/index.ts`               | `Workspace`: valida opções, escolhe sandbox, fixa diretório de trabalho, calcula o home por raiz e encaminha permissões e rede. |
+| `src/workspace/sandbox/types.ts`       | Contratos de `Sandbox` e da saída de rede.                                                                                      |
+| `src/workspace/sandbox/bubblewrap.ts`  | Montagens, jaula persistente e comandos que entram com `nsenter`.                                                               |
+| `src/workspace/sandbox/docker.ts`      | Contêineres, montagens, ambiente e rede do Docker.                                                                              |
+| `src/workspace/sandbox/host-access.ts` | Traduz o contrato do provider e `hostState` em home, credenciais, ambiente e caminhos visíveis.                                 |
+| `src/workspace/sandbox/host-state.ts`  | Caminhos genéricos de estado que o sandbox compartilha quando não recebe um contrato de host.                                   |
+
+[↑ topo](#topo)
+
+## Interface
+
+| Exportação                           | O que faz                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `Workspace`                          | Representa a raiz e o sandbox escolhido (`bubblewrap` ou `docker`).                             |
+| `WorkspaceOptions`                   | Recebe `type`, `root`, caminhos graváveis, portas, imagem do Docker e `hostState`.              |
+| `Workspace.home()`                   | Retorna o home persistente daquela raiz em `homes.dir`; raízes iguais produzem o mesmo caminho. |
+| `Workspace.applyPermissions(policy)` | Compila as permissões de filesystem e configura a fronteira de rede opcional.                   |
+| `Workspace.useHost(host)`            | Passa ao sandbox o conjunto já calculado de montagens e variáveis.                              |
+| `Workspace.protect(paths)`           | Mantém arquivos de configuração e hooks somente para leitura.                                   |
+| `Workspace.prepare(command)`         | Prepara o comando com o diretório de trabalho da raiz.                                          |
+| `Workspace.close()`                  | Encerra sandbox e rede.                                                                         |
+
+`hostState` aceita três valores. `login` é o padrão: a CLI ganha um home por workspace e somente seu arquivo de login entra, montado para leitura. `none` não compartilha arquivos de login e exige uma variável de credencial declarada pelo provider; um provider local sem credenciais continua válido. `share` entrega o estado do provider no host, gravável, incluindo o histórico de outras raízes.
+
+O diretório dos homes é configurado por `homes.dir` em `goiaba.config.ts`; o padrão é `.goiaba/homes`. O diretório que contém todos os homes fica oculto dentro do sandbox se estiver dentro da raiz do workspace.
+
+[↑ topo](#topo)
 
 ## Como funciona
 
-1. `Workspace` recebe opções com tipo, raiz e, no caso de Docker, imagem. Rejeita raiz vazia, a raiz `/` e portas inválidas; então cria `DockerSandbox` ou `BubblewrapSandbox`.
-2. Antes de executar, o chamador pode aplicar permissões de arquivos. `Workspace.applyPermissions` compila a política relativa à raiz e a entrega ao sandbox.
-3. O chamador também pode configurar o acesso ao host, os caminhos protegidos e a saída de rede. O sandbox reúne essas configurações para definir suas montagens e seu ambiente.
-4. Ao preparar um comando, `Workspace.prepare` fixa o diretório de trabalho na raiz e delega ao sandbox. Bubblewrap inicia ou reutiliza uma jaula e envolve o comando com `nsenter`; Docker monta o contêiner e envolve o comando com `docker run`. Nos dois casos, `wrapCommand` forma o comando externo.
-5. Após o uso, `Workspace.close` encerra o sandbox e, se houver, a fronteira de rede configurada.
+1. `Workspace` valida a raiz e `hostState`, depois cria o sandbox adequado.
+2. `home()` calcula um identificador estável a partir do caminho resolvido da raiz. O home guarda sessões e configuração da CLI entre execuções.
+3. O agente consulta `provider.hostAccess()` e prepara o acesso conforme `hostState`. O sandbox recebe o resultado por `useHost`.
+4. O agente passa as permissões, os caminhos protegidos e a rede por operações de `Workspace`.
+5. `prepare` define `cwd` como a raiz e delega ao sandbox. `close` encerra os recursos.
 
-No Bubblewrap, a jaula é mantida viva durante a vida do workspace; comandos entram nela. No Docker, cada comando preparado usa um contêiner com remoção automática, e `close` também tenta remover à força o último contêiner registrado.
+Claude recebe `CLAUDE_CONFIG_DIR` apontando para `.claude` no home isolado; Codex recebe `CODEX_HOME` apontando para `.codex`. Quando `share` é escolhido com gate de execução do Codex, o gate também usa o `CODEX_HOME` compartilhado do host.
 
-## Exemplo real
+[↑ topo](#topo)
 
-Em `src/agent/agent.ts`, a configuração das permissões entrega a política ao workspace e marca arquivos que devem continuar protegidos:
+## Exemplos
+
+### 1. Homes persistentes e modos de hostState
+
+O exemplo cria workspaces sem iniciar uma CLI ou sandbox. Mostra que o padrão é `login`, que cada raiz ganha um home estável e que a escolha de `hostState` fica nas opções.
+
+`guides/workspace/exemplos/1-homes.ts`:
 
 ```ts
-workspace.applyPermissions(permissions);
-const network = configureNetwork({
-  permissions,
-  workspace,
-  provider,
-  approve,
-});
+/** Exemplo 1 do curso de workspace: homes persistentes e hostState. */
+import { getConfig } from '../../../src/config/index';
+import { writeOut } from '../../../src/output/stdio';
+import { Workspace } from '../../../src/workspace/index';
 
-// What enforces the policy stays read-only for the agent.
-workspace.protect([...(broker === undefined ? [] : [broker.dir]), ...cliFiles]);
+const root = '/workspace/app';
+const login = new Workspace({ type: 'bubblewrap', root });
+const sameRoot = new Workspace({
+  type: 'bubblewrap',
+  root: '/workspace/./app',
+});
+const isolated = new Workspace({
+  type: 'bubblewrap',
+  root,
+  hostState: 'none',
+});
+const shared = new Workspace({
+  type: 'bubblewrap',
+  root,
+  hostState: 'share',
+});
+const homesDir = getConfig().homes.dir;
+
+writeOut(`hostState padrão: ${login.hostState}\n`);
+writeOut(`home: ${login.home().replace(homesDir, '<homes>')}\n`);
+writeOut(
+  `mesma raiz, mesmo home: ${String(login.home() === sameRoot.home())}\n`,
+);
+writeOut(`hostState sem login: ${isolated.hostState}\n`);
+writeOut(`hostState compartilhado: ${shared.hostState}\n`);
 ```
 
-`configureNetwork` também chama `workspace.configureNetwork(network)` quando há regras de rede. O trecho mostra a divisão de responsabilidades: `agent.ts` decide quais regras e caminhos se aplicam; o workspace encaminha essas decisões ao sandbox, que as aplica ao preparar o ambiente.
+```text
+hostState padrão: login
+home: <homes>/af7e243d70b1613d
+mesma raiz, mesmo home: true
+hostState sem login: none
+hostState compartilhado: share
+```
+
+O nome do diretório é um hash da raiz resolvida; o mesmo caminho normalizado sempre resulta no mesmo home. O diretório de todos os homes é ocultado dentro do sandbox quando está sob a raiz do projeto.
+
+[↑ topo](#topo)
 
 ## Regras do módulo
 
-- Só o workspace deve criar e configurar `DockerSandbox` ou `BubblewrapSandbox` e decidir qual deles corresponde às opções recebidas.
-- Só o sandbox deve construir os detalhes de execução do isolamento: montagens, máscaras, ambiente do contêiner ou da jaula, e argumentos de entrada como `docker run` e `nsenter`.
-- Quem usa o módulo deve passar permissões, caminhos protegidos, acesso ao host e fronteira de rede pelas operações de `Workspace`; não deve montar esses limites diretamente no comando do agente.
-- A raiz do workspace não pode estar vazia nem resolver para `/`. O workspace raiz é gravável por padrão, exceto quando a política configura `workspaceAccess` como somente leitura.
-- O compartilhamento do host é delimitado por `SandboxHost`: caminhos de estado, credenciais ocultadas e variáveis permitidas. Sem esse objeto, as implementações usam diretórios de estado genéricos e o ambiente padrão do processo.
-- A rede isolada é opcional na interface `Sandbox`. `Workspace.configureNetwork` rejeita a configuração se a implementação não oferecer `isolateNetwork`.
-- A configuração de permissões, caminhos protegidos, host e rede em Bubblewrap deve ocorrer antes do início da jaula. Depois disso, esses métodos lançam `UsageError`.
+- Só `Workspace` escolhe e configura `DockerSandbox` ou `BubblewrapSandbox`.
+- Quem usa workspace passa política, caminhos protegidos, host e rede por suas operações; não monta esses limites à mão no comando do agente.
+- A raiz não pode ser vazia nem `/`.
+- O provider descreve o que precisa do host; `Workspace` aplica somente a parte permitida pelo `hostState` escolhido.
+- Configure filesystem, host e rede antes de iniciar a jaula Bubblewrap.
+
+[↑ topo](#topo)
 
 ## Exercícios
 
-1. Trace `Workspace.prepare` até `wrapCommand`. Descreva quais campos de `ProgramCommand` são preservados quando um comando é envolvido.
-2. Compare os caminhos de rede de Bubblewrap e Docker: identifique o que `configureNetwork` passa para cada implementação e como os comandos entram na rede.
-3. Acompanhe `sandboxHost` até as montagens e o ambiente de um sandbox. Explique como um arquivo de credencial conhecido pode ser ocultado e como uma variável pode ser incluída.
+1. Crie dois workspaces com raízes equivalentes após normalização. Compare `home()` e explique por que a sessão da CLI pode continuar entre execuções.
+2. Escolha `hostState: 'none'` para um provider de nuvem. Quais variáveis declaradas pelo provider precisam estar configuradas?
+3. Compare o que entra no sandbox em `login` e `share`. Que dado de outros projetos passa a ficar disponível em `share`?
+
+[↑ topo](#topo)

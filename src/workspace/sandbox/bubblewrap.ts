@@ -182,6 +182,10 @@ export class BubblewrapSandbox implements Sandbox {
     );
     const readonly = [
       ...bubblewrapReadonlyBinds(this.env, writable),
+      // The CLI's installation: its versions, never its state.
+      ...(this.host?.programs ?? []).filter(
+        (path) => pathExists(path) && !coveredBy(path, writable),
+      ),
       ...(this.filesystem?.workspaceAccess === 'readonly' ? [this.root] : []),
     ];
     const jailArgs = [
@@ -194,12 +198,16 @@ export class BubblewrapSandbox implements Sandbox {
       ...bubblewrapMaskArgs([
         ...(this.filesystem?.masks ?? []),
         ...protectedMasks(this.protectedPaths),
-        // Logins the provider does not use: not in the jail.
+        // Logins the provider does not use, and the other homes: not in
+        // the jail.
         ...(this.host?.hidden ?? []).map((path) => ({
           path,
           access: 'hidden' as const,
         })),
       ]),
+      // The workspace's home, after the masks (it may be inside a hidden
+      // path), and the CLI's login, read-only, inside it.
+      ...homeArgs(this.host),
     ];
 
     logSandbox(
@@ -228,6 +236,22 @@ export class BubblewrapSandbox implements Sandbox {
             destination: path,
             mode: 'rw',
           })),
+          ...(this.host?.home === undefined
+            ? []
+            : [
+                {
+                  type: 'bind',
+                  source: this.host.home,
+                  destination: this.host.home,
+                  mode: 'rw',
+                },
+                ...this.host.credentials.map(({ source, destination }) => ({
+                  type: 'bind',
+                  source,
+                  destination,
+                  mode: 'ro',
+                })),
+              ]),
         ],
         volumes: writable.map((path) => `${path}:${path}:rw`),
         dieWithParent: true,
@@ -518,6 +542,20 @@ function writableBinds(
   }
 
   return paths;
+}
+
+function homeArgs(host: SandboxHost | undefined): string[] {
+  if (host?.home === undefined) return [];
+  return [
+    '--bind',
+    host.home,
+    host.home,
+    ...host.credentials.flatMap(({ source, destination }) => [
+      '--ro-bind',
+      source,
+      destination,
+    ]),
+  ];
 }
 
 function bubblewrapMaskArgs(masks: readonly FilesystemMask[]): string[] {

@@ -4,30 +4,36 @@ import { ecsFormat } from '@elastic/ecs-pino-format';
 import pino from 'pino';
 import { defineConfig } from './src/config';
 
+// define diretórios
 const dirRoot = dirname(__filename);
-const storage = join(dirRoot, 'storage');
+const dirStorage = join(dirRoot, 'storage');
 
+// resolve o destino do log, criando diretórios se necessário
 const destination = (dest: string) =>
   pino.destination({ dest, sync: true, mkdir: true, mode: 0o600 });
+
+// cria um logger pino com ECS e nível de log configurável
+type LoggerPinoOptions = { dir: string; session: string };
+const loggerPino = ({ dir, session }: LoggerPinoOptions) =>
+  pino(
+    {
+      ...ecsFormat({ serviceName: 'goiaba', serviceVersion: '0.1.0' }),
+      level: 'debug',
+      // Sem pid: process.* descreve o comando de cada evento.
+      base: { hostname: hostname() },
+    },
+    destination(join(dir, `${session}.jsonl`)),
+  );
 
 export default defineConfig({
   debug: true,
   logger: {
-    dir: join(storage, 'logs'), // relativo a este arquivo
+    dir: join(dirStorage, 'logs'), // relativo a este arquivo
     // Trocar de pacote muda só esta função; erros têm log.level "error".
-    use: ({ dir, session }) =>
-      pino(
-        {
-          ...ecsFormat({ serviceName: 'goiaba', serviceVersion: '0.1.0' }),
-          level: 'debug',
-          // Sem pid: process.* descreve o comando de cada evento.
-          base: { hostname: hostname() },
-        },
-        destination(join(dir, `${session}.jsonl`)),
-      ),
+    use: loggerPino,
   },
   database: {
-    dir: join(storage, 'db'), // relativo a este arquivo
+    dir: join(dirStorage, 'db'), // relativo a este arquivo
     name: 'batata.db',
   },
   envs: [
@@ -35,7 +41,7 @@ export default defineConfig({
       CURSOR_API_KEY: process.env['CURSOR_API_KEY'],
       CLAUDE_CODE_OAUTH_TOKEN: process.env['CLAUDE_CODE_OAUTH_TOKEN'],
       // Pasta onde os agentes trabalham.
-      workspace: join(storage, 'workspace'),
+      workspace: join(dirStorage, 'workspaces'),
     },
   ],
 });

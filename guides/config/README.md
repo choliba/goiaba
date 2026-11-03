@@ -2,13 +2,14 @@
 
 # Módulo config: para que ele existe
 
-Um projeto que usa o Goiaba tem **um arquivo de configuração**, o `goiaba.config.ts`. Ele diz quatro coisas, e só elas:
+Um projeto que usa o Goiaba tem **um arquivo de configuração**, o `goiaba.config.ts`. Ele define o log, o banco, os homes isolados dos workspaces e as variáveis de ambiente.
 
 | Opção      | O que é                                                  | Sem ela                              |
 | ---------- | -------------------------------------------------------- | ------------------------------------ |
 | `debug`    | grava também os registros de `debug` no log              | `false`                              |
 | `logger`   | onde fica o log (`dir`) e qual pacote o escreve (`use`)  | `.goiaba/logs`, em JSONL, sem pacote |
 | `database` | onde fica o banco SQLite (sessões, decisões, aprovações) | `.goiaba/goiaba.db`                  |
+| `homes`    | onde ficam os homes isolados, um por workspace           | `.goiaba/homes`                      |
 | `envs`     | variáveis de ambiente que o projeto usa                  | nenhuma                              |
 
 É **dado do projeto**: não é a política de um agente (isso é a `AgentPolicy`, do módulo `policy`) nem o código de nenhum agente. O módulo `config` encontra o arquivo, **confere** o que ele diz, completa com os padrões e entrega o resultado já resolvido, com caminhos absolutos, para quem precisa: o logger, o banco, a tela de aprovações, o agente.
@@ -38,6 +39,7 @@ goiaba.config.ts  ──loadConfig()──▶  ResolvedGoiabaConfig  ──getCo
   - [4. Uma config errada não é ignorada](#4-uma-config-errada-não-é-ignorada)
   - [5. GOIABA_DEBUG e GOIABA_LOG_DIR](#5-goiaba_debug-e-goiaba_log_dir)
   - [6. Importar o Goiaba já carrega a config](#6-importar-o-goiaba-já-carrega-a-config)
+  - [7. Homes dos workspaces](#7-homes-dos-workspaces)
 - [Regras do módulo](#regras-do-módulo)
 - [Exercícios](#exercícios)
 
@@ -62,19 +64,21 @@ export default defineConfig({
   debug: true, // boolean
   logger: {
     dir: 'storage/logs', // relativo a este arquivo
-    use: ({ dir, session }) => criarLogger(), // opcional: pino, winston, LogTape…
+    use: () => ({ debug() {}, info() {}, warn() {}, error() {} }),
   },
   database: { dir: 'storage/db', name: 'agentes.db' },
+  homes: { dir: 'storage/homes' }, // relativo a este arquivo; também aceita ~/...
   envs: [{ API_URL: 'https://api.exemplo.com' }],
 });
 ```
 
 | Tipo                   | Forma                                                                        |
 | ---------------------- | ---------------------------------------------------------------------------- |
-| `GoiabaConfig`         | `{ debug?, logger?, database?, envs? }`                                      |
+| `GoiabaConfig`         | `{ debug?, logger?, database?, homes?, envs? }`                              |
 | `GoiabaLoggerConfig`   | `{ dir?: string, use?: LoggerFactory }`                                      |
 | `LoggerFactory`        | `(target: { dir, session }) => object`: cria a instância do pacote de log    |
 | `GoiabaDatabaseConfig` | `{ dir?: string, name?: string }`: `name` é só o nome do arquivo, sem barras |
+| `GoiabaHomesConfig`    | `{ dir?: string }`: diretório dos homes; relativo ao arquivo ou `~/…`        |
 | `GoiabaEnv`            | `{ [nome]: string \| boolean \| number \| undefined }`                       |
 | `GoiabaConfigFactory`  | um `GoiabaConfig` ou uma função (até `async`) que o devolve                  |
 
@@ -87,6 +91,7 @@ O que `loadConfig` e `getConfig` devolvem. Tudo já decidido: nada opcional, cam
 | `logger.dir`   | `string`                     | diretório do log, absoluto                       |
 | `logger.use`   | `LoggerFactory \| undefined` | a fábrica do pacote, se houver                   |
 | `databasePath` | `string`                     | caminho absoluto do arquivo do banco             |
+| `homes.dir`    | `string`                     | diretório absoluto dos homes por workspace       |
 | `debug`        | `boolean`                    |                                                  |
 | `configPath`   | `string \| undefined`        | o arquivo lido; `undefined` sem arquivo          |
 | `env`          | `{ vars } \| undefined`      | o env ativo: o **primeiro** de `envs`            |
@@ -124,7 +129,7 @@ Com `path`, usa exatamente esse arquivo (e falha se ele não existir). Sem arqui
    - opção desconhecida é erro, com a dica da opção certa para os enganos comuns (`databasePath` → `database: { dir, name }`, `logDir` → `logger: { dir }`, `env` → `envs`);
    - cada opção com o tipo certo (`debug` boolean, `database.name` sem barras, `envs` array…).
 3. **Resolve**:
-   - caminhos relativos são relativos **ao arquivo de config**, não ao diretório de onde você rodou;
+   - caminhos relativos são relativos **ao arquivo de config**, não ao diretório de onde você rodou; `homes.dir` também aceita `~/…`;
    - o que faltar recebe o padrão;
    - duas variáveis de ambiente valem mais que o arquivo: `GOIABA_DEBUG` (`1`, `true`, `yes`, `on` ou `0`, `false`, `no`, `off`) e `GOIABA_LOG_DIR`.
 4. **Aplica o env ativo**: as variáveis de texto do primeiro env entram no ambiente do processo, **só as que ainda não existem**.
@@ -185,6 +190,7 @@ writeText(
   debug: true,
   logger: { dir: 'storage/logs' },
   database: { dir: 'storage/db', name: 'agentes.db' },
+  homes: { dir: 'storage/homes' },
 };
 `,
 );
@@ -207,6 +213,9 @@ Saída real:
     "dir": "<projeto>/storage/logs"
   },
   "databasePath": "<projeto>/storage/db/agentes.db",
+  "homes": {
+    "dir": "<projeto>/storage/homes"
+  },
   "debug": true,
   "configPath": "<projeto>/goiaba.config.ts",
   "envs": []
@@ -262,6 +271,9 @@ Saída real:
     "dir": "<diretório>/.goiaba/logs"
   },
   "databasePath": "<diretório>/.goiaba/goiaba.db",
+  "homes": {
+    "dir": "<diretório>/.goiaba/homes"
+  },
   "debug": false,
   "envs": []
 }
@@ -505,6 +517,7 @@ writeOut(
   `logger.use: ${config.logger.use === undefined ? 'não' : 'sim (pino)'}\n`,
 );
 writeOut(`databasePath: ${config.databasePath.replaceAll(root, '<raiz>')}\n`);
+writeOut(`homes.dir: ${config.homes.dir.replaceAll(root, '<raiz>')}\n`);
 writeOut(`debug: ${String(config.debug)}\n`);
 writeOut(
   `envs: ${String(config.envs.length)}, variáveis do env ativo: ${Object.keys(config.env?.vars ?? {}).join(', ')}\n`,
@@ -519,6 +532,7 @@ configPath: <raiz>/goiaba.config.ts
 logger.dir: <raiz>/storage/logs
 logger.use: sim (pino)
 databasePath: <raiz>/storage/db/batata.db
+homes.dir: <raiz>/.goiaba/homes
 debug: true
 envs: 1, variáveis do env ativo: CURSOR_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, workspace
 ```
@@ -527,12 +541,62 @@ Nenhuma chamada a `loadConfig`: o import de `src/index` já procurou o arquivo a
 
 [↑ topo](#topo)
 
+### 7. Homes dos workspaces
+
+`homes.dir` define onde o Goiaba guarda os homes isolados. Cada raiz de workspace recebe um diretório persistente e estável, usado pela CLI para histórico e sessões. O diretório não fica visível dentro do sandbox; no modo `login`, só o arquivo de login do provider entra, em leitura.
+
+`guides/config/exemplos/7-homes.ts`:
+
+```ts
+/** Exemplo 7 do curso de config: escolher onde os homes dos workspaces ficam. */
+import { randomUUID } from 'node:crypto';
+
+import { loadConfig } from '../../../src/config/index';
+import { environment } from '../../../src/execute/process';
+import {
+  ensureDirectory,
+  goiabaCacheDir,
+  join,
+  removePath,
+  writeText,
+} from '../../../src/filesystem/index';
+import { writeOut } from '../../../src/output/stdio';
+
+const project = join(
+  goiabaCacheDir(environment()),
+  'config-exemplo',
+  randomUUID(),
+);
+ensureDirectory(project);
+writeText(
+  join(project, 'goiaba.config.ts'),
+  `export default { homes: { dir: 'storage/homes' } };\n`,
+);
+
+try {
+  const config = await loadConfig({ cwd: project });
+  writeOut(`homes.dir: ${config.homes.dir.replaceAll(project, '<projeto>')}\n`);
+} finally {
+  removePath(project);
+}
+```
+
+Saída real:
+
+```text
+homes.dir: <projeto>/storage/homes
+```
+
+O caminho relativo é resolvido a partir de `goiaba.config.ts`. Para colocar os homes fora do projeto, use um caminho absoluto ou `~/…`.
+
+[↑ topo](#topo)
+
 ## Regras do módulo
 
 **Só o módulo pode:**
 
 - Ler o `goiaba.config.ts`. Quem precisa de uma opção pede a `getConfig()`, que já vem conferida e com caminhos absolutos.
-- Decidir os padrões (`.goiaba/logs`, `.goiaba/goiaba.db`, `debug: false`).
+- Decidir os padrões (`.goiaba/logs`, `.goiaba/goiaba.db`, `.goiaba/homes`, `debug: false`).
 
 **Ninguém deve:**
 

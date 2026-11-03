@@ -1,6 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { constants } from 'node:os';
+import { constants, homedir } from 'node:os';
 import { promisify } from 'node:util';
 
 import { HELPER_MAX_OUTPUT_BYTES } from './constants';
@@ -96,6 +96,14 @@ function endBySignal(signal: NodeJS.Signals): void {
 /** The code the program ends with, without ending it now. */
 export function setExitCode(code: number): void {
   process.exitCode = code;
+}
+
+/**
+ * The user's home: `HOME` as it is now (the runtime's `homedir()` keeps the
+ * value it read first), or the system's when unset.
+ */
+export function userHome(): string {
+  return process.env['HOME'] ?? homedir();
 }
 
 /** Working directory of the current program. */

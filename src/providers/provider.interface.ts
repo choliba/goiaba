@@ -137,6 +137,8 @@ export interface ExecutionGate {
   readonly hookCommand: readonly string[];
   /** Workspace root, for CLI state kept per workspace. */
   readonly root: string;
+  /** The workspace's home the CLI runs with, when isolated from the host's. */
+  readonly home?: string;
 }
 
 /** Which provider, model and CLI an agent runs on; every record of it says so. */
@@ -168,12 +170,28 @@ export interface UnsupportedRule {
   readonly effect: 'stricter' | 'looser';
 }
 
-/** What of the host a provider's CLI needs (see `Provider.hostAccess`). */
+/**
+ * What of the host a provider's CLI needs (see `Provider.hostAccess`). The
+ * CLI runs with a home of its own, one per workspace: none of the user's
+ * CLI state (`~/.claude`, `~/.codex`, `~/.cursor`) reaches the sandbox,
+ * unless the workspace shares it on purpose (`hostState: 'share'`).
+ */
 export interface HostAccess {
-  /** Host paths (dirs or files) where the CLI keeps state; mounted writable. */
-  readonly state: readonly string[];
-  /** Credential files among them the CLI uses to log in. */
+  /** Where the CLI is installed (its versions): mounted read-only. */
+  readonly programs?: readonly string[];
+  /**
+   * Host files the CLI logs in with, under the user's home: with
+   * `hostState: 'login'`, each is mounted read-only at the same place in
+   * the workspace's home.
+   */
   readonly credentialFiles: readonly string[];
   /** Environment variables with the CLI's own credentials. */
   readonly credentialEnv: readonly string[];
+  /**
+   * Variables that point the CLI to its state, as paths relative to the
+   * home (`{ CODEX_HOME: '.codex' }`), for CLIs that read them.
+   */
+  readonly homeEnv?: Readonly<Record<string, string>>;
+  /** With `hostState: 'share'` only: the CLI's state on the host, writable. */
+  readonly sharedState: readonly string[];
 }

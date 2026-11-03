@@ -26,6 +26,7 @@ política. Criar um comando com `createCommand` **não inicia** a CLI.
   - [2. Inspecionar o comando](#2-inspecionar-o-comando)
   - [3. Interpretar a saída da CLI](#3-interpretar-a-saída-da-cli)
   - [4. Traduzir uma política](#4-traduzir-uma-política)
+  - [5. Declarar acesso ao host](#5-declarar-acesso-ao-host)
 - [Regras do módulo](#regras-do-módulo)
 - [Exercícios](#exercícios)
 
@@ -59,7 +60,7 @@ entra como texto e a resposta também.
 | `describe()`                                       | não         | Informa provider, modelo e, quando aplicável, a CLI.                                                                         |
 | `networkEndpoints()`                               | não         | Endereços `host:porta` necessários para o provider funcionar.                                                                |
 | `networkBlocked()`                                 | não         | Endereços que a CLI tenta acessar, mas que não são necessários e devem ser negados.                                          |
-| `hostAccess()`                                     | não         | Estado, arquivos de credencial e variáveis de ambiente que a CLI precisa no host.                                            |
+| `hostAccess()`                                     | não         | Estado compartilhado, arquivos e variáveis de credencial e variáveis (`homeEnv`) que apontam para o home isolado.            |
 | `applyPermissions(policy, gate?)`                  | não         | Aplica na CLI categorias que a sandbox não consegue aplicar; pode retornar caminhos que precisam ficar protegidos.           |
 
 `ProviderOptions` recebe `model` e, opcionalmente, `executable`. Cada provider pode acrescentar suas opções. Claude,
@@ -134,6 +135,8 @@ permissão web e evita que a CLI local use a conta da nuvem.
 Ollama, o estado da CLI continua disponível, mas credenciais não são passadas: o modelo local não precisa do login
 da nuvem.
 
+`homeEnv` associa variáveis que a CLI usa para encontrar sua configuração a caminhos relativos ao home do workspace. Claude recebe `CLAUDE_CONFIG_DIR=.claude`; Codex recebe `CODEX_HOME=.codex`. O workspace transforma esses valores em caminhos absolutos. Assim, sessão, histórico e configuração persistem por raiz sem ler o estado de outra CLI no host.
+
 `networkEndpoints` lista destinos necessários. O agente permite esses destinos pela fronteira de rede do
 workspace. `networkBlocked` lista domínios supérfluos que uma CLI ainda tenta acessar; por exemplo, o provider
 Ollama bloqueia os endpoints da nuvem do Claude ou do Codex. O proxy continua controlando os outros destinos pela
@@ -143,7 +146,7 @@ política de rede.
 
 ## Exemplos
 
-Os exemplos são arquivos completos em `guides/providers/exemplos/`. Os quatro rodam sem iniciar uma CLI
+Os exemplos são arquivos completos em `guides/providers/exemplos/`. Eles rodam sem iniciar uma CLI
 de modelo nem acessar a rede: eles inspecionam o comando e alimentam o parser com saída de exemplo.
 
 ### 1. Descrever um provider
@@ -257,6 +260,37 @@ writeOut(`não expressas: ${permissions.unsupported.length}\n`);
 permitidas: Read(./src/**), Bash(bun test)
 não expressas: 0
 ```
+
+### 5. Declarar acesso ao host
+
+O provider declara nomes de variáveis e caminhos que precisa; o workspace decide o que entra no sandbox conforme `hostState`. O exemplo mostra o contrato sem imprimir valores de credenciais.
+
+`guides/providers/exemplos/5-host-access.ts`:
+
+```ts
+/** Exemplo 5 do curso de providers: inspecionar o acesso declarado ao host. */
+import { writeOut } from '../../../src/output/stdio';
+import { ClaudeProvider } from '../../../src/providers/claude/claude-provider';
+import { CodexProvider } from '../../../src/providers/codex/codex-provider';
+
+for (const provider of [
+  new ClaudeProvider({ model: 'modelo' }),
+  new CodexProvider({ model: 'modelo' }),
+]) {
+  const access = provider.hostAccess();
+  writeOut(`${provider.id}: ${JSON.stringify(access.homeEnv)}\n`);
+  writeOut(`  credenciais de ambiente: ${access.credentialEnv.join(', ')}\n`);
+}
+```
+
+```text
+claude: {"CLAUDE_CONFIG_DIR":".claude"}
+  credenciais de ambiente: CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN
+codex: {"CODEX_HOME":".codex"}
+  credenciais de ambiente: OPENAI_API_KEY, CODEX_API_KEY
+```
+
+No workspace, `hostState: 'login'` é o padrão: cria um home persistente por raiz e monta nele somente o arquivo de login, em leitura. `hostState: 'none'` não monta esse arquivo e exige uma das variáveis de credencial declaradas; providers locais como Ollama, sem credenciais declaradas, continuam válidos. `hostState: 'share'` monta o estado do host como gravável, incluindo o histórico compartilhado. Em `share`, o gate do Codex também usa esse `CODEX_HOME` do host.
 
 [↑ topo](#topo)
 

@@ -45,6 +45,29 @@ describe('CodexProvider', () => {
     );
   });
 
+  test('share com gate mantém o CODEX_HOME compartilhado do host', () => {
+    const provider = new CodexProvider({ model: 'modelo' });
+    const hostHome = mkdtempSync(join(tmpdir(), 'goiaba-codex-share-'));
+
+    try {
+      provider.applyPermissions(
+        { default: 'deny' },
+        {
+          hookCommand: ['/bun', '/gate/hook', '/gate.sock'],
+          root: '/workspace',
+          home: hostHome,
+        },
+      );
+
+      expect(provider.createCommand('pergunta')).toMatchObject({
+        executable: 'env',
+        arguments: expect.arrayContaining([`CODEX_HOME=${hostHome}/.codex`]),
+      });
+    } finally {
+      rmSync(hostHome, { recursive: true, force: true });
+    }
+  });
+
   test('entrega a falha de um comando como evento de ferramenta', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'goiaba-log-'));
 

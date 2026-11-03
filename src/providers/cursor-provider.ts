@@ -1,5 +1,4 @@
-import { homedir } from 'node:os';
-
+import { userHome } from '../execute/process';
 import type { ProgramCommand, ProgramOutput } from '../execute/types';
 import { join } from '../filesystem/index';
 import type {
@@ -32,15 +31,16 @@ export class CursorProvider implements Provider<string, string> {
 
   /** Its state and its install; it logs in with CURSOR_API_KEY. */
   public hostAccess(): HostAccess {
-    const home = homedir();
+    const home = userHome();
     return {
-      state: [
+      programs: [join(home, '.local/share/cursor-agent')],
+      credentialFiles: [join(home, '.config/cursor/auth.json')],
+      credentialEnv: ['CURSOR_API_KEY'],
+      sharedState: [
         join(home, '.cursor'),
         join(home, '.config/cursor'),
         join(home, '.local/share/cursor-agent'),
       ],
-      credentialFiles: [],
-      credentialEnv: ['CURSOR_API_KEY'],
     };
   }
 

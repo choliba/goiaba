@@ -141,8 +141,11 @@ export class OllamaProvider implements Provider<string, string> {
    * no login, token or key reaches the sandbox.
    */
   public hostAccess(): HostAccess {
+    const inner = this.inner.hostAccess();
     return {
-      state: this.inner.hostAccess().state,
+      ...(inner.programs === undefined ? {} : { programs: inner.programs }),
+      sharedState: inner.sharedState,
+      ...(inner.homeEnv === undefined ? {} : { homeEnv: inner.homeEnv }),
       credentialFiles: [],
       credentialEnv: [],
     };

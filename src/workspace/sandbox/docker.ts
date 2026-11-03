@@ -109,7 +109,7 @@ export class DockerSandbox implements Sandbox {
     }
     const envArgs = envNames.flatMap((name) => ['-e', name]);
     const innerRoot = `${HOST_ROOT}${this.root}`;
-    const mounts = describeMounts(
+    const described = describeMounts(
       this.root,
       innerRoot,
       [
@@ -134,6 +134,36 @@ export class DockerSandbox implements Sandbox {
       },
       host === undefined ? undefined : homeOf(this.env),
     );
+    // The CLI's installation, read-only; the workspace's home, writable, with
+    // the CLI's login read-only inside it. Docker mounts the shorter paths
+    // first, so the home is there even inside a hidden path.
+    const mounts = [
+      ...described,
+      ...(host?.programs ?? [])
+        .filter((path) => pathExists(path))
+        .map((path) => ({
+          type: 'bind',
+          source: path,
+          destination: `${HOST_ROOT}${path}`,
+          mode: 'ro',
+        })),
+      ...(host?.home === undefined
+        ? []
+        : [
+            {
+              type: 'bind',
+              source: host.home,
+              destination: `${HOST_ROOT}${host.home}`,
+              mode: 'rw',
+            },
+            ...host.credentials.map(({ source, destination }) => ({
+              type: 'bind',
+              source,
+              destination: `${HOST_ROOT}${destination}`,
+              mode: 'ro',
+            })),
+          ]),
+    ];
     const containerName = `goiaba-${randomUUID().slice(0, 8)}`;
     this.containerName = containerName;
     const { uid, gid } = currentUser();

@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
-import { homedir } from 'node:os';
 
 import {
   createSymlink,
@@ -11,7 +10,7 @@ import {
   goiabaCacheDir,
 } from '../../filesystem/index';
 import { UsageError } from '../../errors';
-import { environment } from '../../execute/process';
+import { environment, userHome } from '../../execute/process';
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
 import { truncateError } from '../../logger/index';
 import { log } from '../../logger/index';
@@ -92,11 +91,12 @@ export class CodexProvider
 
   /** Its state (sessions, config) and its login. */
   public hostAccess(): HostAccess {
-    const home = homedir();
+    const home = userHome();
     return {
-      state: [join(home, '.codex')],
+      sharedState: [join(home, '.codex')],
       credentialFiles: this.login ? [join(home, '.codex/auth.json')] : [],
       credentialEnv: this.login ? ['OPENAI_API_KEY', 'CODEX_API_KEY'] : [],
+      homeEnv: { CODEX_HOME: '.codex' },
     };
   }
 
@@ -133,11 +133,16 @@ export class CodexProvider
 
     if (gate === undefined) return [];
 
-    const home = codexHomeFor(gate.root);
+    // `gate.home` is the home selected by Workspace: isolated for login/none,
+    // or the host home for explicit sharing. Only legacy/direct callers omit it.
+    const home =
+      gate.home === undefined
+        ? codexHomeFor(gate.root)
+        : join(gate.home, '.codex');
     const rules = join(home, 'rules');
     ensureDirectory(rules);
     const hooks = writeHooks(home, gate.hookCommand);
-    if (this.login) linkCredentials(home);
+    if (this.login && gate.home === undefined) linkCredentials(home);
     this.codexHome = home;
 
     // Read-only in the sandbox: the agent must not drop the hook or add rules.
@@ -424,7 +429,7 @@ function writeHooks(home: string, hookCommand: readonly string[]): string {
 
 /** Logged-in Codex keeps its credentials when CODEX_HOME is ours. */
 function linkCredentials(home: string): void {
-  const auth = join(homedir(), '.codex', 'auth.json');
+  const auth = join(userHome(), '.codex', 'auth.json');
   const link = join(home, 'auth.json');
 
   if (pathExists(auth) && !pathExists(link)) {

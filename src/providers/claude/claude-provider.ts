@@ -1,4 +1,4 @@
-import { homedir } from 'node:os';
+import { userHome } from '../../execute/process';
 import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
 
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
@@ -105,14 +105,16 @@ export class ClaudeProvider
 
   /** Its state (sessions, settings), its install, and its login. */
   public hostAccess(): HostAccess {
-    const home = homedir();
+    const home = userHome();
     return {
-      state: [
+      programs: [join(home, '.local/share/claude')],
+      sharedState: [
         join(home, '.claude'),
         join(home, '.claude.json'),
         join(home, '.local/share/claude'),
       ],
       credentialFiles: [join(home, '.claude/.credentials.json')],
+      homeEnv: { CLAUDE_CONFIG_DIR: '.claude' },
       credentialEnv: [
         'CLAUDE_CODE_OAUTH_TOKEN',
         'ANTHROPIC_API_KEY',

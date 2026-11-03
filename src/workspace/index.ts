@@ -1,6 +1,9 @@
+import { createHash } from 'node:crypto';
+
+import { getConfig } from '../config/index';
 import type { ProgramCommand } from '../execute/types';
 import { UsageError } from '../errors';
-import { resolve } from '../filesystem/index';
+import { join, resolve } from '../filesystem/index';
 import { compileFilesystemAccess, type AgentPolicy } from '../policy/index';
 import {
   NetworkBoundary,
@@ -10,7 +13,14 @@ import {
   type NetworkLedger,
   type TrafficObserver,
 } from '../network/index';
-import type { SandboxHost } from './sandbox/host-access';
+import { DEFAULT_DOCKER_IMAGE } from './constants';
+import {
+  HOST_STATES,
+  type HostState,
+  type SandboxHost,
+} from './sandbox/host-access';
+
+export type { HostState } from './sandbox/host-access';
 import {
   BubblewrapSandbox,
   DockerSandbox,
@@ -19,19 +29,29 @@ import {
 
 export type WorkspaceType = 'docker' | 'bubblewrap';
 
-export interface DockerWorkspaceOptions {
-  readonly type: 'docker';
+/** What both kinds of workspace take. */
+interface CommonWorkspaceOptions {
   readonly root: string;
-  readonly image: string;
   readonly writable?: readonly string[];
+  /**
+   * What of the host's CLI state reaches the sandbox: `'login'` (the
+   * default: a home of its own, with only the CLI's login, read-only),
+   * `'none'` (not even the login) or `'share'` (the host's state, with every
+   * project's history in it). See `HostState`.
+   */
+  readonly hostState?: HostState;
+}
+
+export interface DockerWorkspaceOptions extends CommonWorkspaceOptions {
+  readonly type: 'docker';
+  /** `FROM <image>` or a local `name:tag`; `DEFAULT_DOCKER_IMAGE` by default. */
+  readonly image?: string;
   /** See {@link BubblewrapWorkspaceOptions.ports}. */
   readonly ports?: readonly number[];
 }
 
-export interface BubblewrapWorkspaceOptions {
+export interface BubblewrapWorkspaceOptions extends CommonWorkspaceOptions {
   readonly type: 'bubblewrap';
-  readonly root: string;
-  readonly writable?: readonly string[];
   /**
    * Ports of the sandbox you reach at `127.0.0.1:<port>` on the host (e.g. a
    * dev server the agent started). Without network rules the sandbox shares
@@ -64,6 +84,8 @@ export class Workspace {
   /** As created: type, root, image, writable paths. */
   public readonly options: WorkspaceOptions;
   public readonly sandbox: Sandbox;
+  /** What of the host's CLI state reaches the sandbox. */
+  public readonly hostState: HostState;
   private network: NetworkBoundary | undefined;
 
   public constructor(options: WorkspaceOptions) {
@@ -79,10 +101,29 @@ export class Workspace {
     }
 
     validatePorts(options.ports ?? []);
+    const hostState = options.hostState ?? 'login';
+    if (!HOST_STATES.includes(hostState)) {
+      throw new UsageError(
+        `hostState desconhecido: ${hostState}. Use ${HOST_STATES.join(', ')}.`,
+      );
+    }
     this.root = options.root;
     this.type = options.type;
     this.options = options;
+    this.hostState = hostState;
     this.sandbox = createSandbox(options);
+  }
+
+  /**
+   * The home the CLIs run with in this workspace, one per root, kept between
+   * runs (sessions survive for `resume`), in `homes.dir` of the config.
+   */
+  public home(): string {
+    const id = createHash('sha256')
+      .update(resolve(this.root))
+      .digest('hex')
+      .slice(0, 16);
+    return join(getConfig().homes.dir, id);
   }
 
   /**
@@ -152,6 +193,9 @@ export class Workspace {
 
 function createSandbox(options: WorkspaceOptions): Sandbox {
   return options.type === 'docker'
-    ? new DockerSandbox(options)
+    ? new DockerSandbox({
+        ...options,
+        image: options.image ?? DEFAULT_DOCKER_IMAGE,
+      })
     : new BubblewrapSandbox(options);
 }

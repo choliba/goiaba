@@ -63,7 +63,11 @@ import { listenForInterrupt } from '../execute/interrupt';
 import { scriptSignal } from '../usage';
 import type { Workspace, WorkspaceNetworkOptions } from '../workspace/index';
 import type { TrafficObserver } from '../network/index';
-import { currentProcessCommand, environment } from '../execute/process';
+import {
+  currentProcessCommand,
+  environment,
+  userHome,
+} from '../execute/process';
 import { sandboxHost } from '../workspace/sandbox/host-access';
 
 export class Agent {
@@ -386,7 +390,10 @@ export class Agent {
       name: this.name,
       prompt: this.prompt,
       provider: this.provider.describe?.() ?? { name: this.provider.id },
-      workspace: this.workspace.options,
+      workspace: {
+        ...this.workspace.options,
+        hostState: this.workspace.hostState,
+      },
       permissions: this.permissions ?? null,
       gate: this.broker !== undefined,
       conversation: this.conversation,
@@ -1249,7 +1256,12 @@ function enforcePermissions({
   const gate: ExecutionGate | undefined =
     broker === undefined
       ? undefined
-      : { hookCommand: broker.hookCommand(), root: workspace.root };
+      : {
+          hookCommand: broker.hookCommand(),
+          root: workspace.root,
+          // `share` uses the host home; `login` and `none` use this workspace's.
+          home: workspace.hostState === 'share' ? userHome() : workspace.home(),
+        };
   const cliFiles = applyProviderPermissions(provider, permissions, gate);
 
   // What enforces the policy stays read-only for the agent.
@@ -1316,18 +1328,23 @@ function trafficObservers(
 }
 
 /**
- * Only the provider's share of the host reaches the sandbox: its state, its
- * own credentials and the variables `secrets` allows; every other secret
- * (other logins, tokens in the environment) is not there at all. Applies
- * with or without a policy; without one, no extra variable is allowed.
+ * Only the provider's share of the host reaches the sandbox: a home of its
+ * own (or, with `hostState: 'share'`, its state on the host), its own
+ * credentials and the variables `secrets` allows; every other secret (other
+ * logins, tokens in the environment) is not there at all. Applies with or
+ * without a policy, and to any provider (one that declares nothing gets a
+ * home and nothing else).
  */
 function shareHost(
   workspace: Workspace,
   provider: AgentProvider,
   permissions: AgentPolicy | undefined,
 ): void {
-  const access = provider.hostAccess?.();
-  if (access === undefined) return;
+  const access = provider.hostAccess?.() ?? {
+    credentialFiles: [],
+    credentialEnv: [],
+    sharedState: [],
+  };
 
   const policy =
     permissions === undefined ? undefined : new PolicyEngine(permissions);
@@ -1335,7 +1352,15 @@ function shareHost(
   const allowSecret = (name: string): boolean =>
     policy?.check({ category: 'secrets', operation: 'read', secret: name })
       .policy === 'allow';
-  workspace.useHost(sandboxHost(access, environment(), allowSecret));
+  workspace.useHost(
+    sandboxHost(access, environment(), allowSecret, {
+      hostState: workspace.hostState,
+      provider: provider.id,
+      home: workspace.home(),
+      homesDir: getConfig().homes.dir,
+      root: workspace.root,
+    }),
+  );
 }
 
 /**

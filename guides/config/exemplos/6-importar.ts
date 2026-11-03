@@ -19,6 +19,7 @@ writeOut(
   `logger.use: ${config.logger.use === undefined ? 'não' : 'sim (pino)'}\n`,
 );
 writeOut(`databasePath: ${config.databasePath.replaceAll(root, '<raiz>')}\n`);
+writeOut(`homes.dir: ${config.homes.dir.replaceAll(root, '<raiz>')}\n`);
 writeOut(`debug: ${String(config.debug)}\n`);
 writeOut(
   `envs: ${String(config.envs.length)}, variáveis do env ativo: ${Object.keys(config.env?.vars ?? {}).join(', ')}\n`,
