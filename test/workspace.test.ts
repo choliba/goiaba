@@ -56,6 +56,22 @@ describe('Workspace', () => {
     expect(first.home()).not.toBe(other.home());
   });
 
+  test('cria a raiz que ainda não existe antes de rodar nela', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'goiaba-workspace-'));
+    const missing = join(parent, 'ainda', 'nao', 'existe');
+
+    try {
+      const prepared = await new Workspace({
+        type: 'bubblewrap',
+        root: missing,
+      }).prepare(command);
+      expect(prepared.cwd).toBe(missing);
+      expect(existsSync(missing)).toBe(true);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
   test('rejeita uma raiz vazia', () => {
     expect(
       () =>

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { getConfig } from '../config/index';
 import type { ProgramCommand } from '../execute/types';
 import { UsageError } from '../errors';
-import { join, resolve } from '../filesystem/index';
+import { ensureDirectory, join, resolve } from '../filesystem/index';
 import { compileFilesystemAccess, type AgentPolicy } from '../policy/index';
 import {
   NetworkBoundary,
@@ -184,9 +184,14 @@ export class Workspace {
     this.sandbox.protect(paths);
   }
 
+  /**
+   * Runs `command` in the root, created if missing: a spawn in a missing
+   * `cwd` fails as if the program itself were missing (`ENOENT … docker`).
+   */
   public prepare(
     command: ProgramCommand,
   ): ProgramCommand | Promise<ProgramCommand> {
+    ensureDirectory(this.root);
     return this.sandbox.prepare({
       ...command,
       cwd: this.root,
