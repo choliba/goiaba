@@ -15,6 +15,6 @@ export {
   type RoundStartGit,
   type RuleInput,
 } from './define';
-export { noQuestions, readOnlyRespected } from './rules';
+export { noQuestions, noToolCallAsText, readOnlyRespected } from './rules';
 export { runRound, type RunRoundOptions } from './run';
 export { validateRound } from './validate';

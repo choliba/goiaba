@@ -26,10 +26,15 @@ function Chip({
       {test.title}
     </>
   );
+  // The goal on hover: tests of the same declaration differ there.
   return current ? (
-    <span aria-current="page">{content}</span>
+    <span aria-current="page" title={test.definition.goal}>
+      {content}
+    </span>
   ) : (
-    <a href={testHref(test.key)}>{content}</a>
+    <a href={testHref(test.key)} title={test.definition.goal}>
+      {content}
+    </a>
   );
 }
 

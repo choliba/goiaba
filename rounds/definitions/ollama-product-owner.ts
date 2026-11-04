@@ -8,11 +8,13 @@
 import {
   getConfig,
   OllamaProvider,
+  type AgentPolicy,
   type WorkspaceOptions,
 } from '../../src/index';
 import {
   defineRound,
   noQuestions,
+  noToolCallAsText,
   readOnlyRespected,
 } from '../../src/rounds/index';
 
@@ -27,12 +29,39 @@ const workspace: WorkspaceOptions = {
 };
 
 /**
- * The model both agents run on. It must call the CLI's tools for real:
- * qwen2.5-coder writes the call as text (`{"name": "write_stdin", …}`), and
- * then nothing runs.
+ * The model both agents run on: it must call the CLI's tools for real.
+ * qwen2.5-coder wrote the call as text (`{"name": "exec_command", …}`) and
+ * nothing ran; qwen3.5:4b is the one the Ollama examples (agents/) use.
  */
 const local = (): OllamaProvider =>
-  new OllamaProvider({ cli: 'codex', model: 'qwen2.5-coder:latest' });
+  new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' });
+
+/**
+ * What both agents may do: read the project and run a few commands that
+ * only look; anything else is denied without asking (nobody answers in a
+ * round). The sandbox enforces it, so "do not change files" is not only a
+ * request. Any policy also gives the agent its network boundary, which is
+ * what reads Ollama's traffic: without one, the tokens are not measured.
+ */
+const READ_ONLY: AgentPolicy = {
+  default: 'deny',
+  allow: {
+    filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+    execution: [
+      {
+        commands: [
+          'ls *',
+          'cat *',
+          'find *',
+          'pwd',
+          'git status',
+          'git diff *',
+          'git log *',
+        ],
+      },
+    ],
+  },
+};
 
 const TEAM = 'uma equipe de dois agentes: product owner e analista.';
 
@@ -44,8 +73,18 @@ export default defineRound({
   goal: 'O product owner escreve a tarefa do rodapé e o analista define a implementação, sem alterar nenhum arquivo nem fazer perguntas.',
   start: { git: { root, tag: 'rodada-base' } },
   actors: {
-    'product-owner': { provider: local(), workspace, readOnly: true },
-    analista: { provider: local(), workspace, readOnly: true },
+    'product-owner': {
+      provider: local(),
+      workspace,
+      permissions: READ_ONLY,
+      readOnly: true,
+    },
+    analista: {
+      provider: local(),
+      workspace,
+      permissions: READ_ONLY,
+      readOnly: true,
+    },
   },
   flow: [
     {
@@ -73,5 +112,5 @@ export default defineRound({
       ],
     },
   ],
-  rules: [readOnlyRespected(), noQuestions()],
+  rules: [readOnlyRespected(), noQuestions(), noToolCallAsText()],
 });

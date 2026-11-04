@@ -40,3 +40,51 @@ export function noQuestions(): RoundRule {
       })),
   };
 }
+
+/**
+ * A tool call the model wrote as its answer, instead of calling the tool:
+ * `{"name": "exec_command", "arguments": {...}}`. The CLI runs nothing, and
+ * the round looks done. Happens with models that do not speak the CLI's
+ * tool protocol.
+ */
+function writtenToolCall(text: string): string | undefined {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return undefined;
+  try {
+    const value: unknown = JSON.parse(trimmed);
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'name' in value &&
+      typeof value.name === 'string' &&
+      'arguments' in value
+    ) {
+      return value.name;
+    }
+  } catch {
+    // Not JSON: an ordinary answer.
+  }
+  return undefined;
+}
+
+/** No actor answered with a tool call written as text (nothing ran). */
+export function noToolCallAsText(): RoundRule {
+  return {
+    id: 'no-tool-call-as-text',
+    check: ({ steps }) =>
+      steps.map((step) => {
+        const calls = step.said
+          .map(writtenToolCall)
+          .filter((name) => name !== undefined);
+        return {
+          rule: 'no-tool-call-as-text',
+          actor: step.actor,
+          passed: calls.length === 0,
+          detail:
+            calls.length === 0
+              ? 'Não respondeu com uma chamada de ferramenta escrita como texto.'
+              : `Respondeu com a chamada de ferramenta escrita como texto (${calls.join(', ')}), e nada rodou: o modelo não chama as ferramentas da CLI.`,
+        };
+      }),
+  };
+}

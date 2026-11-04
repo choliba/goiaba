@@ -16,7 +16,10 @@ export interface Test {
   /** The start of `configHash`: the test's address. */
   readonly key: string;
   readonly configHash: string;
-  /** Its first round's review title, or the declaration's id. */
+  /**
+   * Its first round's review title; without one, the declaration's id, with
+   * the version when the declaration changed (`ollama-product-owner · v2`).
+   */
   readonly title: string;
   readonly definition: RoundRecord['definition'];
   /** Oldest first. */
@@ -50,6 +53,14 @@ const records = Object.entries(files)
 
 const groups = Map.groupBy(records, (record) => record.configHash);
 
+/** How many configurations each declaration ran with: its versions. */
+const versions = new Map<string, number>();
+for (const group of groups.values()) {
+  const id = group[0]?.definition.id;
+  if (id !== undefined) versions.set(id, (versions.get(id) ?? 0) + 1);
+}
+const seen = new Map<string, number>();
+
 /** Built in two passes: a round points to its test, a test lists its rounds. */
 const built: Test[] = [];
 const allRounds: Round[] = [];
@@ -57,11 +68,16 @@ for (const [configHash, group] of groups) {
   const first = group[0];
   if (first === undefined) continue;
   const rounds: Round[] = [];
+  const { id } = first.definition;
+  const version = (seen.get(id) ?? 0) + 1;
+  seen.set(id, version);
+  const versioned =
+    (versions.get(id) ?? 1) > 1 ? `${id} · v${String(version)}` : id;
   const test: Test = {
     number: built.length + 1,
     key: configHash.slice(0, KEY_LENGTH),
     configHash,
-    title: first.review?.title ?? first.definition.id,
+    title: first.review?.title ?? versioned,
     definition: first.definition,
     rounds,
     previous: built.at(-1),

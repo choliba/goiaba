@@ -39,6 +39,7 @@ export interface RoundFlowStep {
 export interface RuleInput {
   readonly steps: readonly {
     readonly actor: string;
+    readonly said: readonly string[];
     readonly changed: readonly string[];
     readonly asked: readonly string[];
   }[];

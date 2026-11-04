@@ -11,6 +11,7 @@ import type { Provider, ProviderEvent } from '../src/providers/types';
 import {
   defineRound,
   noQuestions,
+  noToolCallAsText,
   readOnlyRespected,
   runRound,
   validateRound,
@@ -344,8 +345,13 @@ test('snapshotActor copia as peças e o hash muda só com a configuração', () 
 test('readOnlyRespected e noQuestions julgam cada passo', () => {
   const input = {
     steps: [
-      { actor: 'analista', changed: [' M a.ts'], asked: [] },
-      { actor: 'programador', changed: [' M b.ts'], asked: ['Posso?'] },
+      { actor: 'analista', said: [], changed: [' M a.ts'], asked: [] },
+      {
+        actor: 'programador',
+        said: [],
+        changed: [' M b.ts'],
+        asked: ['Posso?'],
+      },
     ],
     actors: { analista: { readOnly: true }, programador: { readOnly: false } },
   };
@@ -365,6 +371,48 @@ test('readOnlyRespected e noQuestions julgam cada passo', () => {
   ).toEqual([
     ['analista', true],
     ['programador', false],
+  ]);
+});
+
+test('noToolCallAsText acusa a chamada de ferramenta escrita como resposta', () => {
+  const input = {
+    steps: [
+      {
+        actor: 'product-owner',
+        said: [
+          '{\n  "name": "exec_command",\n  "arguments": { "cmd": "touch footer.html" }\n}',
+        ],
+        changed: [],
+        asked: [],
+      },
+      {
+        actor: 'analista',
+        said: ['O plano: `{ "a": 1 }` em src/x.ts.'],
+        changed: [],
+        asked: [],
+      },
+    ],
+    actors: {
+      'product-owner': { readOnly: true },
+      analista: { readOnly: true },
+    },
+  };
+
+  expect(
+    noToolCallAsText()
+      .check(input)
+      .map((r) => [r.actor, r.passed, r.detail]),
+  ).toEqual([
+    [
+      'product-owner',
+      false,
+      'Respondeu com a chamada de ferramenta escrita como texto (exec_command), e nada rodou: o modelo não chama as ferramentas da CLI.',
+    ],
+    [
+      'analista',
+      true,
+      'Não respondeu com uma chamada de ferramenta escrita como texto.',
+    ],
   ]);
 });
 
