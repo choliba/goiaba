@@ -10,6 +10,7 @@ import type { NetworkDecisionSource } from '../network/types';
 import type { HostState } from '../workspace/sandbox/host-access';
 import type { WorkspaceType } from '../workspace/index';
 import { COST_TOLERANCE_USD } from './constants';
+import { sum, TOKEN_KINDS } from './totals';
 import {
   ROUND_SCHEMA,
   type CostSource,
@@ -361,24 +362,6 @@ function checkActors(round: RoundRecord): void {
       );
     }
   });
-}
-
-const TOKEN_KINDS = [
-  'input',
-  'output',
-  'cacheRead',
-  'cacheWrite',
-  'reasoning',
-] as const;
-
-/** The sum; one `null` (not measured) makes it `null`. Nothing to sum is 0. */
-function sum(values: readonly (number | null)[]): number | null {
-  let total = 0;
-  for (const value of values) {
-    if (value === null) return null;
-    total += value;
-  }
-  return total;
 }
 
 function sameTotal(

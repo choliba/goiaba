@@ -516,6 +516,8 @@ export class Agent {
 
     let nextInput = input;
     let sessionId: string | undefined;
+    /** CLI turns of this run, 1-based; each one is told to the subscribers. */
+    let turns = 0;
     /** The stored session this run tries to continue, until the CLI confirms it. */
     let resuming: string | undefined;
 
@@ -580,6 +582,10 @@ export class Agent {
         );
         this.spoke = () => thinking.spoke();
 
+        turns += 1;
+        // A clock for whoever measures the run, not something that happened:
+        // not logged.
+        agentEvents.emit({ type: 'turn', phase: 'start', turn: turns });
         try {
           for await (const event of runProvider(this.provider, {
             executor: this.executor,
@@ -618,8 +624,13 @@ export class Agent {
             }
 
             if (event.type === 'tool') {
-              // Reaches the log, not the conversation.
+              // Reaches the log and the subscribers, not the conversation.
               logTool(event);
+              agentEvents.emit({
+                type: 'tool',
+                phase: event.phase,
+                detail: event.detail,
+              });
               // On screen: a tool running, then back to the model.
               this.setStatus(
                 event.phase === 'call' ? BACKGROUND_MESSAGE : THINKING_MESSAGE,
@@ -711,6 +722,7 @@ export class Agent {
         } finally {
           this.spoke = undefined;
           thinking.stop();
+          agentEvents.emit({ type: 'turn', phase: 'end', turn: turns });
         }
 
         const waiting =

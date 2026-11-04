@@ -176,20 +176,25 @@ test('Agent entrega a conversa aos subscribers, sem os detalhes do log', async (
 
   const conversation = received.map((output) => [output.type(), output.data()]);
 
-  // Tools, commands and sandboxes go to the log only.
+  // Commands and sandboxes go to the log only; tools and turns also reach
+  // the subscribers, for whoever measures the run (a round).
   expect(conversation).toEqual([
     ['input', { value: 'início' }],
     // What the screen shows while the model works, emitted by the agent.
     ['status', { text: THINKING }],
     ['message', { text: THINKING }],
     ['thinking', { phase: 'start', seconds: 0 }],
+    ['turn', { phase: 'start', turn: 1 }],
     ['session', { id: 'tool-session' }],
+    ['tool', { phase: 'call', detail: { tool: 'Bash' } }],
     ['status', { text: '⏳ rodando em background…' }],
+    ['tool', { phase: 'error', detail: { tool: 'Bash', message: 'x' } }],
     ['status', { text: THINKING }],
     ['output', { value: 'feito' }],
     ['status', { text: null }],
     ['thinking', { phase: 'end', seconds: 0 }],
     ['message', { text: 'feito' }],
+    ['turn', { phase: 'end', turn: 1 }],
   ]);
   expect(received.every((output) => output.agent().name === 'construtor')).toBe(
     true,

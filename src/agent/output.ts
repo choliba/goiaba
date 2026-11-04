@@ -18,7 +18,8 @@ export class AgentOutput {
 
   /**
    * input, resume, resume_failed, session, output, ask, answer, approved,
-   * message, status, thinking, error…
+   * message, status, thinking, turn (`phase` start/end, `turn`), tool
+   * (`phase` call/result/error, `detail`), usage, error…
    */
   public type(): string {
     return this.event.type;
