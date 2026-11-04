@@ -13,7 +13,7 @@ import {
 } from '../components/Config';
 import { Flow } from '../components/Flow';
 import { Rich } from '../components/Rich';
-import { RoundsNav } from '../components/RoundsNav';
+import { TestsNav } from '../components/TestsNav';
 import type { Round } from '../data';
 import {
   cost,
@@ -24,7 +24,7 @@ import {
   tokens,
   when,
 } from '../format';
-import { href } from '../route';
+import { roundHref, testHref } from '../route';
 
 function Measures({ round }: { readonly round: Round }): ReactNode {
   const { record } = round;
@@ -104,21 +104,43 @@ function Measures({ round }: { readonly round: Round }): ReactNode {
 }
 
 export function RoundPage({ round }: { readonly round: Round }): ReactNode {
-  const { record, label, previous } = round;
+  const { record, label, previous, test } = round;
   const changes = previous === undefined ? [] : configChanges(record, previous);
   const prompts = previous === undefined ? [] : promptChanges(record, previous);
   const failed = record.violations.filter((v) => !v.passed);
 
   return (
     <main className="page">
-      <RoundsNav current={record.id} />
+      <TestsNav current={test.key} />
+
+      <nav className="crumbs" aria-label="Rodadas do teste">
+        <a href={testHref(test.key)}>
+          <small>← Teste {test.number}</small>
+          {test.title}
+        </a>
+        <ol>
+          {test.rounds.map((sibling) => (
+            <li key={sibling.record.id}>
+              {sibling.record.id === record.id ? (
+                <span aria-current="page">Rodada {sibling.index}</span>
+              ) : (
+                <a href={roundHref(sibling.record.id)}>
+                  Rodada {sibling.index}
+                </a>
+              )}
+            </li>
+          ))}
+        </ol>
+      </nav>
 
       <header>
         <span className="eyebrow">
-          {record.definition.id} · rodada {label} ·{' '}
+          {record.definition.id} · teste {test.number} · {label} ·{' '}
           {when(record.timing.startedAt)}
         </span>
-        <h1>{record.review?.title ?? `Rodada ${label}`}</h1>
+        <h1>
+          {record.review?.title ?? `Teste ${String(test.number)}, ${label}`}
+        </h1>
         <p>
           <strong>Objetivo:</strong> {record.definition.goal}
         </p>
@@ -166,7 +188,7 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
           <div className="changes">
             <h3>
               O que mudou desde a{' '}
-              <a href={href(previous.id)}>rodada anterior</a>
+              <a href={roundHref(previous.id)}>rodada anterior</a>
             </h3>
             {changes.length === 0 && prompts.length === 0 ? (
               <p className="note">Nada: mesma configuração, mesmos pedidos.</p>

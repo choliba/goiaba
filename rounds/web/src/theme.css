@@ -163,8 +163,8 @@ ol {
   color: var(--warn);
 }
 
-/* The rounds, on top of every page: the current one is not a link. */
-.rounds ol {
+/* The tests, on top of every page: the current one is not a link. */
+.tests > ol {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -172,8 +172,9 @@ ol {
   flex-wrap: wrap;
   gap: 8px;
 }
-.rounds a,
-.rounds [aria-current] {
+.tests > ol a,
+.tests > ol [aria-current],
+.tests .more {
   display: grid;
   gap: 2px;
   padding: 8px 12px;
@@ -184,19 +185,28 @@ ol {
   text-decoration: none;
   font-size: 13.5px;
 }
-.rounds small,
-th small {
+.tests small,
+th small,
+.crumbs small {
   display: block;
   font: 500 11px/1.3 var(--mono);
   color: var(--muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-.rounds a:hover,
-.rounds a:focus-visible {
+.tests > ol a:hover,
+.tests > ol a:focus-visible,
+.tests .more:hover,
+.tests .more:focus-visible {
   border-color: var(--guava);
 }
-.rounds [aria-current] {
+.tests .more {
+  font: 13.5px var(--body);
+  text-align: left;
+  cursor: pointer;
+  border-style: dashed;
+}
+.tests > ol [aria-current] {
   border-color: var(--guava);
   box-shadow: 0 0 0 1px var(--guava) inset;
 }
@@ -231,6 +241,9 @@ thead th {
 }
 tbody th {
   font-weight: 600;
+}
+td a {
+  white-space: nowrap;
 }
 tbody th a {
   color: var(--ink);
@@ -586,4 +599,129 @@ tr.total td {
   .handoff .mobile-label {
     display: inline;
   }
+}
+
+/* Every test, in a dialog */
+.tests-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(80vh, 720px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.tests-dialog::backdrop {
+  background: rgb(22 17 19 / 55%);
+}
+.dialog-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.close {
+  font: 22px/1 var(--body);
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.close:hover {
+  color: var(--ink);
+  background: var(--code-bg);
+}
+.dialog-body input {
+  font: 15px var(--body);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.all-tests {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.all-tests a {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.all-tests a:hover,
+.all-tests a:focus-visible,
+.all-tests a[aria-current] {
+  border-color: var(--guava);
+}
+.all-tests small {
+  font: 500 11px/1.3 var(--mono);
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.all-tests b {
+  font: 600 16px/1.25 var(--display);
+}
+.all-tests span {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+/* A round's test and its other rounds */
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.crumbs > a {
+  display: grid;
+  gap: 2px;
+  color: var(--ink);
+  text-decoration: none;
+  font: 600 16px/1.25 var(--display);
+}
+.crumbs > a:hover {
+  color: var(--guava);
+}
+.crumbs ol {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.crumbs ol a,
+.crumbs ol [aria-current] {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: 500 12.5px/1.3 var(--mono);
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--surface);
+}
+.crumbs ol a:hover {
+  border-color: var(--guava);
+}
+.crumbs ol [aria-current] {
+  border-color: var(--guava);
+  color: var(--guava);
 }

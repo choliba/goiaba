@@ -1,23 +1,30 @@
 /**
- * Where the reader is, in the hash: `#/` the index, `#/rodada/<id>` a round.
- * A hash keeps the pages static: dist/ opens from a file or any folder.
+ * Where the reader is, in the hash: `#/` the index, `#/teste/<key>` a test,
+ * `#/rodada/<id>` a round. A hash keeps the pages static: dist/ opens from
+ * a file or any folder.
  */
 
 import { useEffect, useState } from 'react';
 
 export type Route =
-  { readonly page: 'index' } | { readonly page: 'round'; readonly id: string };
+  | { readonly page: 'index' }
+  | { readonly page: 'test'; readonly key: string }
+  | { readonly page: 'round'; readonly id: string };
 
 export function parse(hash: string): Route {
-  const match = /^#\/rodada\/(.+)$/.exec(hash);
-  return match?.[1] === undefined
-    ? { page: 'index' }
-    : { page: 'round', id: decodeURIComponent(match[1]) };
+  const match = /^#\/(teste|rodada)\/(.+)$/.exec(hash);
+  const value = match?.[2];
+  if (value === undefined) return { page: 'index' };
+  return match?.[1] === 'teste'
+    ? { page: 'test', key: decodeURIComponent(value) }
+    : { page: 'round', id: decodeURIComponent(value) };
 }
 
-/** The index without `id`, a round's page with it. */
-export const href = (id?: string): string =>
-  id === undefined ? '#/' : `#/rodada/${encodeURIComponent(id)}`;
+export const indexHref = (): string => '#/';
+export const testHref = (key: string): string =>
+  `#/teste/${encodeURIComponent(key)}`;
+export const roundHref = (id: string): string =>
+  `#/rodada/${encodeURIComponent(id)}`;
 
 export function useRoute(): Route {
   const [route, setRoute] = useState(() => parse(window.location.hash));

@@ -84,6 +84,10 @@ agente que não existe) para antes de rodar, com uma mensagem dizendo o que corr
 
 ## Ver as páginas
 
+Nas páginas, cada configuração é um **teste**, e cada execução dele é uma **rodada**. O topo mostra os últimos testes
+(`RECENT_TESTS`, em [`web/src/constants.ts`](web/src/constants.ts)), e um botão lista todos. A página de um teste
+junta as suas rodadas (média, menor e maior) e tem um link para cada uma.
+
 ```sh
 cd rounds/web && bun install   # uma vez
 bun run rounds:web              # em desenvolvimento
