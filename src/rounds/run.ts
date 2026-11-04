@@ -310,7 +310,10 @@ async function runOnce(
         ),
       },
       actors: withDecisions,
-      configHash: roundConfigHash(withDecisions),
+      configHash: roundConfigHash(
+        { id: definition.id, goal: definition.goal },
+        withDecisions,
+      ),
       steps: steps.map(({ usage: _usage, ...step }) => step),
       usage,
       totals: {

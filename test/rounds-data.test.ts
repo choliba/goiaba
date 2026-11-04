@@ -3,8 +3,10 @@ import { join } from 'node:path';
 
 import { expect, test } from 'bun:test';
 
-/** The agents' rounds (pages and records), kept in the repository to compare. */
-const DIR = join(import.meta.dir, '..', 'docs', 'rodadas');
+import { validateRound } from '../src/rounds/validate';
+
+/** The rounds' records, kept in the repository to compare: the pages' source. */
+const DIR = join(import.meta.dir, '..', 'rounds', 'data');
 
 /** What a secret looks like, by its shape. */
 const SHAPES: readonly (readonly [string, RegExp])[] = [
@@ -21,11 +23,9 @@ const SHAPES: readonly (readonly [string, RegExp])[] = [
   ['caminho com nome de usuário', /\/home\/(?!<)[a-z][a-z0-9_-]*\//],
 ];
 
-const files = readdirSync(DIR).filter((name) =>
-  ['.html', '.json', '.js'].some((extension) => name.endsWith(extension)),
-);
+const files = readdirSync(DIR).filter((name) => name.endsWith('.json'));
 
-test('as páginas e os registros das rodadas não contêm senhas, tokens nem caminhos com usuário', () => {
+test('os registros das rodadas não contêm senhas, tokens nem caminhos com usuário', () => {
   // The real credentials of this machine (.env included), compared by value.
   const credentials = Object.entries(process.env).filter(
     (entry): entry is [string, string] =>
@@ -49,15 +49,13 @@ test('as páginas e os registros das rodadas não contêm senhas, tokens nem cam
   expect(found).toEqual([]);
 });
 
-test('o menu (rodadas.js) lista todas as páginas de rodada, e só elas', () => {
-  const listed = [
-    ...readFileSync(join(DIR, 'rodadas.js'), 'utf8').matchAll(
-      /arquivo:\s*'([^']+)'/g,
-    ),
-  ].map((match) => match[1]);
-  const pages = files.filter(
-    (name) => name.endsWith('.html') && name !== 'index.html',
-  );
-
-  expect(listed.toSorted()).toEqual(pages.toSorted());
+test('todo registro é uma rodada válida, com o nome do seu id', () => {
+  expect(files.length).toBeGreaterThan(0);
+  for (const file of files) {
+    const round = validateRound(
+      JSON.parse(readFileSync(join(DIR, file), 'utf8')),
+      file,
+    );
+    expect(`${round.id}.json`).toBe(file);
+  }
 });

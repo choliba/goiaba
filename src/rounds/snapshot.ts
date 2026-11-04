@@ -10,7 +10,7 @@ import type { AgentProvider } from '../agent/types';
 import { networkRulesOf } from '../network/rules';
 import type { AgentPolicy } from '../policy/policy.interface';
 import type { Workspace } from '../workspace/index';
-import type { ActorSnapshot, Prompt } from './types';
+import type { ActorSnapshot, Prompt, RoundDefinitionRef } from './types';
 
 /** What an actor ran with, as the round has it. */
 export interface ActorPieces {
@@ -26,7 +26,10 @@ export function stableJson(value: unknown): string {
   return JSON.stringify(value, (_key, item: unknown) =>
     typeof item === 'object' && item !== null && !Array.isArray(item)
       ? Object.fromEntries(
-          Object.entries(item).toSorted(([a], [b]) => a.localeCompare(b)),
+          // By code point, not by locale: the same text on any machine.
+          Object.entries(item).toSorted(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
         )
       : item,
   );
@@ -93,15 +96,21 @@ function configHash(pieces: Omit<ActorSnapshot, 'configHash'>): string {
   );
 }
 
-/** Over every actor's hash, by name: same hash, a repetition. */
+/**
+ * Over the declaration (id and goal) and every actor's hash, by name: same
+ * hash, a repetition. The prompts carry what the agents said, so they stay
+ * out: a round whose prompts change says so in its goal.
+ */
 export function roundConfigHash(
+  definition: RoundDefinitionRef,
   actors: Readonly<Record<string, ActorSnapshot>>,
 ): string {
   return sha256(
-    stableJson(
-      Object.fromEntries(
+    stableJson({
+      definition,
+      actors: Object.fromEntries(
         Object.entries(actors).map(([name, actor]) => [name, actor.configHash]),
       ),
-    ),
+    }),
   );
 }

@@ -1,0 +1,714 @@
+{
+  "schema": 2,
+  "id": "2026-11-03T16-50-30.759Z",
+  "definition": {
+    "id": "analise-programacao-revisao",
+    "goal": "Uma correção, com um teste que falha sem ela."
+  },
+  "start": {
+    "tag": "rodada-base",
+    "commit": "33125e6"
+  },
+  "repeat": {
+    "index": 2,
+    "total": 2
+  },
+  "timing": {
+    "startedAt": "2026-11-03T16:50:30.759Z",
+    "endedAt": "2026-11-03T16:51:53.058Z",
+    "durationMs": 82299,
+    "actors": {
+      "analista": {
+        "startedAt": "2026-11-03T16:50:30.781Z",
+        "endedAt": "2026-11-03T16:50:55.714Z",
+        "durationMs": 24933,
+        "workspaceMs": null,
+        "gitCheckMs": null,
+        "approvalMs": null
+      },
+      "programador": {
+        "startedAt": "2026-11-03T16:50:55.743Z",
+        "endedAt": "2026-11-03T16:51:28.700Z",
+        "durationMs": 32957,
+        "workspaceMs": null,
+        "gitCheckMs": null,
+        "approvalMs": null
+      },
+      "revisor": {
+        "startedAt": "2026-11-03T16:51:28.736Z",
+        "endedAt": "2026-11-03T16:51:53.035Z",
+        "durationMs": 24299,
+        "workspaceMs": null,
+        "gitCheckMs": null,
+        "approvalMs": null
+      }
+    }
+  },
+  "actors": {
+    "analista": {
+      "role": "analista",
+      "provider": {
+        "id": "claude",
+        "name": "claude",
+        "model": "claude-opus-5-5",
+        "cli": null,
+        "cliVersion": null,
+        "options": {}
+      },
+      "workspace": {
+        "type": "docker",
+        "image": "FROM busybox:latest",
+        "root": "<projeto>/storage/workspaces",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": null,
+        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysDeny": [],
+        "decisions": []
+      },
+      "policy": null,
+      "readOnly": true,
+      "configHash": "84afb6456d28a4159ed1b10f61c482bfedad0aed6c7b250b1957dc329db79b01"
+    },
+    "programador": {
+      "role": "programador",
+      "provider": {
+        "id": "claude",
+        "name": "claude",
+        "model": "claude-opus-5-5",
+        "cli": null,
+        "cliVersion": null,
+        "options": {}
+      },
+      "workspace": {
+        "type": "docker",
+        "image": "FROM busybox:latest",
+        "root": "<projeto>/storage/workspaces",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": null,
+        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysDeny": [],
+        "decisions": []
+      },
+      "policy": null,
+      "readOnly": false,
+      "configHash": "37d3a2db0c4ea265c4a16002f60bb42b89f05261e084e3e7b2df21e5066447c8"
+    },
+    "revisor": {
+      "role": "revisor",
+      "provider": {
+        "id": "cursor",
+        "name": "cursor",
+        "model": "gpt-5.6-terra",
+        "cli": null,
+        "cliVersion": null,
+        "options": {}
+      },
+      "workspace": {
+        "type": "docker",
+        "image": "FROM busybox:latest",
+        "root": "<projeto>/storage/workspaces",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": null,
+        "alwaysAllow": [],
+        "alwaysDeny": [],
+        "decisions": []
+      },
+      "policy": null,
+      "readOnly": true,
+      "configHash": "8f56543178dd1a9d2ad5fc9a828a5b5490a6cf4aed0c63448e0f60c350a1805a"
+    }
+  },
+  "configHash": "ea678a3928a552a3194ef5e4eb5fef346d4db0163c45567a2cfdb27dd8b53e2e",
+  "steps": [
+    {
+      "actor": "analista",
+      "by": "programador",
+      "prompt": {
+        "text": "Você é o analista de uma equipe de três agentes: analista, programador e revisor.\nO programador pediu esta análise.\nAnalise o projeto do diretório atual.\nNão altere nenhum arquivo do projeto e não faça perguntas: ninguém vai responder.\nVocê pode compilar e rodar os testes no próprio diretório: o que eles geram (como dist/) o git ignora. Não copie o projeto para outro lugar.\nResponda só com a lista de problemas, do mais importante para o menos importante, cada um com o arquivo e a linha.",
+        "hash": "78122a81cad1f870b2cb72ff62fe58ecf992be9d42ddcf0cc86832b401266101"
+      },
+      "span": {
+        "startedAt": "2026-11-03T16:50:30.781Z",
+        "endedAt": "2026-11-03T16:50:55.714Z",
+        "durationMs": 24933
+      },
+      "said": [
+        "Não achei nenhum bug real. Com Node v22.22.1, `npm ci`, `npm test` (5 de 5 passam) e `npm start` (imprime \"Olá, Ana!\" e \"Usuários ativos: Ana, Carla\") rodam sem erro, e `git status` continua limpo depois. Abaixo estão só pontos menores, do mais importante para o menos importante:\n\n1. **`src/usuarios.ts:8-12`**: `usuariosPadrao` e os objetos dentro dele são somente leitura apenas para o TypeScript. Sem `Object.freeze`, código JS ou um cast (`as Usuario[]`) pode alterar os dados padrão em tempo de execução, e isso afeta todos os módulos que importam a lista.\n2. **`src/usuarios.ts:21`**: `buscarPorId` devolve o primeiro usuário com o id pedido, e nada garante que os ids sejam únicos. Se houver ids repetidos, os outros usuários com o mesmo id ficam escondidos sem nenhum aviso.\n3. **`src/main.ts:3-6`**: se o usuário de id 1 não existir, o programa simplesmente não imprime a saudação, sem mensagem nem código de saída diferente de zero.\n4. **`src/usuarios.test.ts:24-39`**: faltam testes para casos de borda:\n   - `listarAtivos([])`;\n   - `descreverAtivos` com uma lista que tem usuários, mas todos inativos;\n   - `buscarPorId` com lista vazia;\n   - `buscarPorId` com ids repetidos.\n5. **`src/usuarios.ts:4`**: o campo `email` não é usado nem validado em nenhum lugar.\n6. **`package.json:13`**: o script `test` usa um glob (`dist/**/*.test.js`) que só funciona no Node 21 ou mais novo. O `engines` exige Node 22 (`package.json:6-8`), mas esse campo só vale como regra se houver `engine-strict=true`. Sem isso, num Node mais antigo o teste falha com uma mensagem pouco clara."
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-03T16:50:30.784Z",
+            "endedAt": "2026-11-03T16:50:55.714Z",
+            "durationMs": 24930
+          }
+        }
+      ],
+      "tools": [
+        {
+          "turn": 1,
+          "name": "Bash",
+          "detail": {
+            "call_id": "toolu_01Y8ykJMrXNMVNigkXBHouN7",
+            "args": {
+              "command": "cd <projeto>/storage/workspaces; git ls-files; cat package.json 2>/dev/null"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:50:34.431Z",
+            "endedAt": "2026-11-03T16:50:34.574Z",
+            "durationMs": 143
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Bash",
+          "detail": {
+            "call_id": "toolu_013uF3BY8GTL185cMkpDAWS9",
+            "args": {
+              "command": "cd <projeto>/storage/workspaces; for f in .gitignore tsconfig.json tsconfig.build.json src/*.ts; do echo \"== $f\"; cat -n $f; done"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:50:36.705Z",
+            "endedAt": "2026-11-03T16:50:36.742Z",
+            "durationMs": 37
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Bash",
+          "detail": {
+            "call_id": "toolu_01NTPBbYxsfseiNDecJh7rVX",
+            "args": {
+              "command": "cd <projeto>/storage/workspaces; node -v; ls node_modules >/dev/null 2>&1 || npm ci 2>&1 | tail -3; npm test 2>&1 | tail -15; npm start 2>&1 | tail -4; git status --short"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:50:41.027Z",
+            "endedAt": "2026-11-03T16:50:43.965Z",
+            "durationMs": 2938
+          }
+        }
+      ],
+      "changed": [],
+      "diff": ""
+    },
+    {
+      "actor": "programador",
+      "by": null,
+      "prompt": {
+        "text": "Você é o programador de uma equipe de três agentes: analista, programador e revisor.\nO analista entregou a análise abaixo.\nCorrija os problemas que valem a pena corrigir.\nTodo ponto corrigido ganha um teste que falharia sem a correção.\nNão faça perguntas: ninguém vai responder. Quando houver uma decisão, escolha a opção mais simples e diga qual escolheu.\nNão faça commits.\nNo fim, diga o que mudou, arquivo por arquivo, qual teste cobre cada correção, e o que deixou de fora e por quê.\n\nAnálise do analista:\nNão achei nenhum bug real. Com Node v22.22.1, `npm ci`, `npm test` (5 de 5 passam) e `npm start` (imprime \"Olá, Ana!\" e \"Usuários ativos: Ana, Carla\") rodam sem erro, e `git status` continua limpo depois. Abaixo estão só pontos menores, do mais importante para o menos importante:\n\n1. **`src/usuarios.ts:8-12`**: `usuariosPadrao` e os objetos dentro dele são somente leitura apenas para o TypeScript. Sem `Object.freeze`, código JS ou um cast (`as Usuario[]`) pode alterar os dados padrão em tempo de execução, e isso afeta todos os módulos que importam a lista.\n2. **`src/usuarios.ts:21`**: `buscarPorId` devolve o primeiro usuário com o id pedido, e nada garante que os ids sejam únicos. Se houver ids repetidos, os outros usuários com o mesmo id ficam escondidos sem nenhum aviso.\n3. **`src/main.ts:3-6`**: se o usuário de id 1 não existir, o programa simplesmente não imprime a saudação, sem mensagem nem código de saída diferente de zero.\n4. **`src/usuarios.test.ts:24-39`**: faltam testes para casos de borda:\n   - `listarAtivos([])`;\n   - `descreverAtivos` com uma lista que tem usuários, mas todos inativos;\n   - `buscarPorId` com lista vazia;\n   - `buscarPorId` com ids repetidos.\n5. **`src/usuarios.ts:4`**: o campo `email` não é usado nem validado em nenhum lugar.\n6. **`package.json:13`**: o script `test` usa um glob (`dist/**/*.test.js`) que só funciona no Node 21 ou mais novo. O `engines` exige Node 22 (`package.json:6-8`), mas esse campo só vale como regra se houver `engine-strict=true`. Sem isso, num Node mais antigo o teste falha com uma mensagem pouco clara.",
+        "hash": "ad95296b91de98a1b22761201d17aafadb9b4c133676c69b06498de2ef672493"
+      },
+      "span": {
+        "startedAt": "2026-11-03T16:50:55.743Z",
+        "endedAt": "2026-11-03T16:51:28.700Z",
+        "durationMs": 32957
+      },
+      "said": [
+        "Corrigi um dos seis pontos (o 1), cobri parte dos casos de borda do ponto 4 e deixei o resto de fora. Os 6 testes passam (eram 5). `npm start` continua imprimindo \"Olá, Ana!\" e \"Usuários ativos: Ana, Carla\". Não fiz commit.\n\n## O que mudou\n\n**`src/usuarios.ts`** (ponto 1)\n- Agora `usuariosPadrao` é congelado com `Object.freeze`: a lista e cada um dos usuários dentro dela. Antes, um cast (`as Usuario[]`) ou código JS conseguia alterar os dados padrão em tempo de execução. Agora isso gera um `TypeError`.\n- Escolhi a opção mais simples: congelar só um nível (lista e objetos). Os objetos só têm campos simples, então não precisa congelar mais fundo.\n\n**`src/usuarios.test.ts`**\n- Teste novo, **\"usuariosPadrao não pode ser alterado em tempo de execução\"**: tenta fazer `push` na lista e mudar o `nome` de um usuário depois de um cast, e espera `TypeError`. Ele cobre a correção do ponto 1. Confirmei que ele falha sem a correção: voltei `src/usuarios.ts` à versão anterior e o resultado foi 5 passando e 1 falhando.\n- Casos de borda do ponto 4, acrescentados aos testes que já existiam:\n  - `listarAtivos([])` devolve `[]`;\n  - `buscarPorId([], 1)` devolve `undefined`;\n  - `descreverAtivos` com uma lista só de inativos devolve \"Nenhum usuário ativo.\".\n\n  Esses três já passavam antes, porque não havia bug a corrigir. Eles só fecham a lacuna de testes.\n\n## O que ficou de fora e por quê\n\n- **Ponto 2 (ids repetidos em `buscarPorId`)**: os dados padrão têm ids únicos. Decidir o que fazer com ids repetidos (dar erro, avisar, devolver todos) muda o comportamento da função, e nada na análise indica que isso seja necessário. Também não acrescentei o teste de ids repetidos sugerido no ponto 4, porque ele fixaria como regra um comportamento que ninguém decidiu.\n- **Ponto 3 (`main.ts` sem saudação quando falta o id 1)**: com a lista congelada, o usuário de id 1 sempre existe, então esse caminho não acontece na prática. Tratar isso exigiria reorganizar `main.ts` só para poder testar um caso que não ocorre.\n- **Ponto 5 (`email` não usado)**: é só um campo de dados, sem nenhum bug. Validar e-mail seria um recurso novo.\n- **Ponto 6 (`engine-strict`)**: `engine-strict=true` só tem efeito no `npm install` e no `npm ci`, não no `npm test`. Por isso não resolveria a mensagem pouco clara num Node antigo. O `engines` já documenta que o projeto exige Node 22 ou mais novo."
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-03T16:50:55.744Z",
+            "endedAt": "2026-11-03T16:51:28.700Z",
+            "durationMs": 32956
+          }
+        }
+      ],
+      "tools": [
+        {
+          "turn": 1,
+          "name": "Bash",
+          "detail": {
+            "call_id": "toolu_01AjAC5RXTECZekKesZhHp6u",
+            "args": {
+              "command": "cd <projeto>/storage/workspaces; git ls-files; cat package.json src/*.ts; ls; cat .npmrc 2>/dev/null; cat tsconfig.json"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:50:59.055Z",
+            "endedAt": "2026-11-03T16:50:59.190Z",
+            "durationMs": 135
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Bash",
+          "detail": {
+            "call_id": "toolu_01AqVobKTucejG4xBJS2u2ao",
+            "args": {
+              "command": "cd <projeto>/storage/workspaces; python3 - <<'EOF'\np='src/usuarios.ts'; s=open(p).read()\nold='''export const usuariosPadrao: ReadonlyArray<Usuario> = [\n  { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n  { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n  { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n];'''\nnew='''export const usuariosPadrao: ReadonlyArray<Usuario> = Object.freeze(\n  [\n    { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n    { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n    { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n  ].map((u) => Object.freeze(u)),\n);'''\nassert old in s; open(p,'w').write(s.replace(old,new))\np='src/usuarios.test.ts'; s=open(p).read()\ns=s.replace('''    [\"Ana\", \"Carla\"],\n  );\n});''','''    [\"Ana\", \"Carla\"],\n  );\n  assert.deepEqual(listarAtivos([]), []);\n});''')\ns=s.replace('''  assert.equal(buscarPorId(usuariosPadrao, Number.NaN), undefined);\n});''','''  assert.equal(buscarPorId(usuariosPadrao, Number.NaN), undefined);\n  assert.equal(buscarPorId([], 1), undefined);\n});''')\ns=s.replace('''  assert.equal(descreverAtivos([]), \"Nenhum usuário ativo.\");\n});''','''  assert.equal(descreverAtivos([]), \"Nenhum usuário ativo.\");\n  const inativo: Usuario = { id: 9, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: false };\n  assert.equal(descreverAtivos([inativo]), \"Nenhum usuário ativo.\");\n});\n\ntest(\"usuariosPadrao não pode ser alterado em tempo de execução\", () => {\n  const lista = usuariosPadrao as Usuario[];\n  assert.throws(() => lista.push({ id: 4, nome: \"Eva\", email: \"eva@exemplo.com\", ativo: true }), TypeError);\n  assert.throws(() => {\n    (lista[0] as { nome: string }).nome = \"Outra\";\n  }, TypeError);\n  assert.equal(usuariosPadrao.length, 3);\n  assert.equal(usuariosPadrao[0]?.nome, \"Ana\");\n});''')\nopen(p,'w').write(s)\nEOF\nnpm test 2>&1 | tail -12; git stash -q -- src/usuarios.ts; npm test 2>&1 | grep -E \"^# (pass|fail)|not ok\"; git stash pop -q; npm start 2>&1 | tail -2; git status --short"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:51:12.711Z",
+            "endedAt": "2026-11-03T16:51:17.303Z",
+            "durationMs": 4592
+          }
+        }
+      ],
+      "changed": [" M src/usuarios.test.ts", " M src/usuarios.ts"],
+      "diff": "diff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..057d0fa 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -19,6 +19,7 @@ test(\"buscarPorId retorna undefined para id inexistente ou inválido\", () => {\n   assert.equal(buscarPorId(usuariosPadrao, -1), undefined);\n   assert.equal(buscarPorId(usuariosPadrao, 1.5), undefined);\n   assert.equal(buscarPorId(usuariosPadrao, Number.NaN), undefined);\n+  assert.equal(buscarPorId([], 1), undefined);\n });\n \n test(\"listarAtivos retorna apenas usuários ativos\", () => {\n@@ -26,6 +27,7 @@ test(\"listarAtivos retorna apenas usuários ativos\", () => {\n     listarAtivos(usuariosPadrao).map((u) => u.nome),\n     [\"Ana\", \"Carla\"],\n   );\n+  assert.deepEqual(listarAtivos([]), []);\n });\n \n test(\"saudacao monta a mensagem com o nome\", () => {\n@@ -36,4 +38,16 @@ test(\"saudacao monta a mensagem com o nome\", () => {\n test(\"descreverAtivos lista nomes ou avisa quando não há ativos\", () => {\n   assert.equal(descreverAtivos(usuariosPadrao), \"Usuários ativos: Ana, Carla\");\n   assert.equal(descreverAtivos([]), \"Nenhum usuário ativo.\");\n+  const inativo: Usuario = { id: 9, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: false };\n+  assert.equal(descreverAtivos([inativo]), \"Nenhum usuário ativo.\");\n+});\n+\n+test(\"usuariosPadrao não pode ser alterado em tempo de execução\", () => {\n+  const lista = usuariosPadrao as Usuario[];\n+  assert.throws(() => lista.push({ id: 4, nome: \"Eva\", email: \"eva@exemplo.com\", ativo: true }), TypeError);\n+  assert.throws(() => {\n+    (lista[0] as { nome: string }).nome = \"Outra\";\n+  }, TypeError);\n+  assert.equal(usuariosPadrao.length, 3);\n+  assert.equal(usuariosPadrao[0]?.nome, \"Ana\");\n });\ndiff --git a/src/usuarios.ts b/src/usuarios.ts\nindex c86eda5..0c83d35 100644\n--- a/src/usuarios.ts\n+++ b/src/usuarios.ts\n@@ -5,11 +5,13 @@ export interface Usuario {\n   readonly ativo: boolean;\n }\n \n-export const usuariosPadrao: ReadonlyArray<Usuario> = [\n-  { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n-  { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n-  { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n-];\n+export const usuariosPadrao: ReadonlyArray<Usuario> = Object.freeze(\n+  [\n+    { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n+    { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n+    { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n+  ].map((u) => Object.freeze(u)),\n+);\n \n export function buscarPorId(\n   usuarios: ReadonlyArray<Usuario>,\n"
+    },
+    {
+      "actor": "revisor",
+      "by": "programador",
+      "prompt": {
+        "text": "Você é o revisor de uma equipe de três agentes: analista, programador e revisor.\nO programador fez as mudanças abaixo, a partir da análise do analista.\nConfira no código (git diff) se as mudanças estão certas e completas.\nRegra da equipe: Todo ponto corrigido ganha um teste que falharia sem a correção. Confira, ponto por ponto, se cada correção tem esse teste.\nNão altere nenhum arquivo do projeto e não faça perguntas: ninguém vai responder.\nVocê pode compilar e rodar os testes no próprio diretório: o que eles geram (como dist/) o git ignora. Não copie o projeto para outro lugar.\nResponda com o que está certo, o que está errado e o que falta, do mais importante para o menos importante.\n\nAnálise do analista:\nNão achei nenhum bug real. Com Node v22.22.1, `npm ci`, `npm test` (5 de 5 passam) e `npm start` (imprime \"Olá, Ana!\" e \"Usuários ativos: Ana, Carla\") rodam sem erro, e `git status` continua limpo depois. Abaixo estão só pontos menores, do mais importante para o menos importante:\n\n1. **`src/usuarios.ts:8-12`**: `usuariosPadrao` e os objetos dentro dele são somente leitura apenas para o TypeScript. Sem `Object.freeze`, código JS ou um cast (`as Usuario[]`) pode alterar os dados padrão em tempo de execução, e isso afeta todos os módulos que importam a lista.\n2. **`src/usuarios.ts:21`**: `buscarPorId` devolve o primeiro usuário com o id pedido, e nada garante que os ids sejam únicos. Se houver ids repetidos, os outros usuários com o mesmo id ficam escondidos sem nenhum aviso.\n3. **`src/main.ts:3-6`**: se o usuário de id 1 não existir, o programa simplesmente não imprime a saudação, sem mensagem nem código de saída diferente de zero.\n4. **`src/usuarios.test.ts:24-39`**: faltam testes para casos de borda:\n   - `listarAtivos([])`;\n   - `descreverAtivos` com uma lista que tem usuários, mas todos inativos;\n   - `buscarPorId` com lista vazia;\n   - `buscarPorId` com ids repetidos.\n5. **`src/usuarios.ts:4`**: o campo `email` não é usado nem validado em nenhum lugar.\n6. **`package.json:13`**: o script `test` usa um glob (`dist/**/*.test.js`) que só funciona no Node 21 ou mais novo. O `engines` exige Node 22 (`package.json:6-8`), mas esse campo só vale como regra se houver `engine-strict=true`. Sem isso, num Node mais antigo o teste falha com uma mensagem pouco clara.\n\nO que o programador diz que mudou:\nCorrigi um dos seis pontos (o 1), cobri parte dos casos de borda do ponto 4 e deixei o resto de fora. Os 6 testes passam (eram 5). `npm start` continua imprimindo \"Olá, Ana!\" e \"Usuários ativos: Ana, Carla\". Não fiz commit.\n\n## O que mudou\n\n**`src/usuarios.ts`** (ponto 1)\n- Agora `usuariosPadrao` é congelado com `Object.freeze`: a lista e cada um dos usuários dentro dela. Antes, um cast (`as Usuario[]`) ou código JS conseguia alterar os dados padrão em tempo de execução. Agora isso gera um `TypeError`.\n- Escolhi a opção mais simples: congelar só um nível (lista e objetos). Os objetos só têm campos simples, então não precisa congelar mais fundo.\n\n**`src/usuarios.test.ts`**\n- Teste novo, **\"usuariosPadrao não pode ser alterado em tempo de execução\"**: tenta fazer `push` na lista e mudar o `nome` de um usuário depois de um cast, e espera `TypeError`. Ele cobre a correção do ponto 1. Confirmei que ele falha sem a correção: voltei `src/usuarios.ts` à versão anterior e o resultado foi 5 passando e 1 falhando.\n- Casos de borda do ponto 4, acrescentados aos testes que já existiam:\n  - `listarAtivos([])` devolve `[]`;\n  - `buscarPorId([], 1)` devolve `undefined`;\n  - `descreverAtivos` com uma lista só de inativos devolve \"Nenhum usuário ativo.\".\n\n  Esses três já passavam antes, porque não havia bug a corrigir. Eles só fecham a lacuna de testes.\n\n## O que ficou de fora e por quê\n\n- **Ponto 2 (ids repetidos em `buscarPorId`)**: os dados padrão têm ids únicos. Decidir o que fazer com ids repetidos (dar erro, avisar, devolver todos) muda o comportamento da função, e nada na análise indica que isso seja necessário. Também não acrescentei o teste de ids repetidos sugerido no ponto 4, porque ele fixaria como regra um comportamento que ninguém decidiu.\n- **Ponto 3 (`main.ts` sem saudação quando falta o id 1)**: com a lista congelada, o usuário de id 1 sempre existe, então esse caminho não acontece na prática. Tratar isso exigiria reorganizar `main.ts` só para poder testar um caso que não ocorre.\n- **Ponto 5 (`email` não usado)**: é só um campo de dados, sem nenhum bug. Validar e-mail seria um recurso novo.\n- **Ponto 6 (`engine-strict`)**: `engine-strict=true` só tem efeito no `npm install` e no `npm ci`, não no `npm test`. Por isso não resolveria a mensagem pouco clara num Node antigo. O `engines` já documenta que o projeto exige Node 22 ou mais novo.",
+        "hash": "1c2b704863b2bbc587e782029dd7c0cd55afe4d276515872109b8cc3d75e27da"
+      },
+      "span": {
+        "startedAt": "2026-11-03T16:51:28.736Z",
+        "endedAt": "2026-11-03T16:51:53.035Z",
+        "durationMs": 24299
+      },
+      "said": [
+        "O que está certo\n- O ponto 1 foi corrigido corretamente: `usuariosPadrao` e cada objeto usuário são congelados em runtime. A implementação corresponde ao escopo declarado (um nível, suficiente para campos primitivos).\n- Há teste para a correção do ponto 1. Sem os `Object.freeze`, as expectativas de `TypeError` falhariam.\n- Os três casos de borda declarados foram adicionados e estão corretos: lista vazia em `listarAtivos`, lista vazia em `buscarPorId`, e lista composta só por inativos em `descreverAtivos`.\n- `npm test` passa com 6 testes; `npm start` ainda imprime as duas linhas esperadas.\n- `git diff --check` não reporta problemas de whitespace.\n\nO que está errado\n- Nada identificado nas mudanças feitas.\n\nO que falta\n- Continua sem teste para IDs repetidos em `buscarPorId`, mas isso é coerente com a decisão de não alterar o ponto 2. Não é uma violação da regra de testes, pois não houve correção desse ponto.\n- Os pontos 2, 3, 5 e 6 permanecem fora do escopo, como declarado. Dado que a análise não encontrou bugs reais, isso não deixa uma correção implementada sem teste."
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-03T16:51:28.738Z",
+            "endedAt": "2026-11-03T16:51:53.035Z",
+            "durationMs": 24297
+          }
+        }
+      ],
+      "tools": [
+        {
+          "turn": 1,
+          "name": "shell",
+          "detail": {
+            "call_id": "call_ep2U173oqYgLgtiRU3bg1mx8\nfc_07845002c411e823016aea11171d3087d296b73b4a53040091",
+            "args": {
+              "command": "git diff --check && git diff -- src/usuarios.ts src/usuarios.test.ts && git status --short",
+              "workingDirectory": "<projeto>/storage/workspaces",
+              "timeout": 30000,
+              "toolCallId": "call_ep2U173oqYgLgtiRU3bg1mx8\nfc_07845002c411e823016aea11171d3087d296b73b4a53040091",
+              "simpleCommands": ["git", "git", "git"],
+              "hasInputRedirect": false,
+              "hasOutputRedirect": false,
+              "fileOutputThresholdBytes": "40000",
+              "isBackground": false,
+              "skipApproval": false,
+              "timeoutBehavior": "TIMEOUT_BEHAVIOR_BACKGROUND",
+              "hardTimeout": 86400000,
+              "description": "Inspeciona alterações pendentes",
+              "closeStdin": true,
+              "conversationId": "8e9df461-9c81-4a71-90e1-5f31904e82e1",
+              "adminCommandDenylist": [],
+              "requestId": "9a63fda1-8d86-4925-8b8e-c0b3dd924c8b"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:51:35.271Z",
+            "endedAt": "2026-11-03T16:51:35.576Z",
+            "durationMs": 305
+          }
+        },
+        {
+          "turn": 1,
+          "name": "read",
+          "detail": {
+            "call_id": "call_ZqXBFluyfuIVRbnbN2H58VS5\nfc_07845002c411e823016aea11171d4487d28fd9a5407f4abf2c",
+            "args": {
+              "path": "<projeto>/storage/workspaces/package.json"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:51:35.272Z",
+            "endedAt": "2026-11-03T16:51:35.433Z",
+            "durationMs": 161
+          }
+        },
+        {
+          "turn": 1,
+          "name": "read",
+          "detail": {
+            "call_id": "call_ujfOqK8rZcCZeDkfcApCWx9r\nfc_07845002c411e823016aea11171d5487d29e1326fb2344f76f",
+            "args": {
+              "path": "<projeto>/storage/workspaces/src/main.ts"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:51:35.273Z",
+            "endedAt": "2026-11-03T16:51:35.433Z",
+            "durationMs": 160
+          }
+        },
+        {
+          "turn": 1,
+          "name": "shell",
+          "detail": {
+            "call_id": "call_Q4ZpHHv2j2cm1EVVWp8ks0sI\nfc_07845002c411e823016aea111a9e3c87d294788c3fe8c6debb",
+            "args": {
+              "command": "npm test && npm start",
+              "workingDirectory": "<projeto>/storage/workspaces",
+              "timeout": 30000,
+              "toolCallId": "call_Q4ZpHHv2j2cm1EVVWp8ks0sI\nfc_07845002c411e823016aea111a9e3c87d294788c3fe8c6debb",
+              "simpleCommands": ["npm", "npm"],
+              "hasInputRedirect": false,
+              "hasOutputRedirect": false,
+              "fileOutputThresholdBytes": "40000",
+              "isBackground": false,
+              "skipApproval": false,
+              "timeoutBehavior": "TIMEOUT_BEHAVIOR_BACKGROUND",
+              "hardTimeout": 86400000,
+              "description": "Executa testes e programa",
+              "closeStdin": true,
+              "conversationId": "8e9df461-9c81-4a71-90e1-5f31904e82e1",
+              "adminCommandDenylist": [],
+              "requestId": "9a63fda1-8d86-4925-8b8e-c0b3dd924c8b"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:51:38.722Z",
+            "endedAt": "2026-11-03T16:51:40.896Z",
+            "durationMs": 2174
+          }
+        },
+        {
+          "turn": 1,
+          "name": "read",
+          "detail": {
+            "call_id": "call_1P6TPxzxjNQhUFlXdYfLX89f\nfc_07845002c411e823016aea111a9e5487d2bccaa01518d8a761",
+            "args": {
+              "path": "<projeto>/storage/workspaces/src/usuarios.ts"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:51:38.723Z",
+            "endedAt": "2026-11-03T16:51:38.866Z",
+            "durationMs": 143
+          }
+        },
+        {
+          "turn": 1,
+          "name": "shell",
+          "detail": {
+            "call_id": "call_BYzI8iQ9zhzQkoJEt05jO2Da\nfc_07845002c411e823016aea111a9e6487d298704b7eb616d97f",
+            "args": {
+              "command": "git show HEAD:src/usuarios.test.ts && git show HEAD:src/usuarios.ts",
+              "workingDirectory": "<projeto>/storage/workspaces",
+              "timeout": 30000,
+              "toolCallId": "call_BYzI8iQ9zhzQkoJEt05jO2Da\nfc_07845002c411e823016aea111a9e6487d298704b7eb616d97f",
+              "simpleCommands": ["git", "git"],
+              "hasInputRedirect": false,
+              "hasOutputRedirect": false,
+              "fileOutputThresholdBytes": "40000",
+              "isBackground": false,
+              "skipApproval": false,
+              "timeoutBehavior": "TIMEOUT_BEHAVIOR_BACKGROUND",
+              "hardTimeout": 86400000,
+              "description": "Compara testes com base",
+              "closeStdin": true,
+              "conversationId": "8e9df461-9c81-4a71-90e1-5f31904e82e1",
+              "adminCommandDenylist": [],
+              "requestId": "9a63fda1-8d86-4925-8b8e-c0b3dd924c8b"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:51:38.767Z",
+            "endedAt": "2026-11-03T16:51:38.932Z",
+            "durationMs": 165
+          }
+        },
+        {
+          "turn": 1,
+          "name": "shell",
+          "detail": {
+            "call_id": "call_p5Fx2d75Y697YKfV8IN1XFuc\nfc_07845002c411e823016aea1123bbd887d28ccb2cb0c59b708a",
+            "args": {
+              "command": "git status --short && git diff --check",
+              "workingDirectory": "<projeto>/storage/workspaces",
+              "timeout": 30000,
+              "toolCallId": "call_p5Fx2d75Y697YKfV8IN1XFuc\nfc_07845002c411e823016aea1123bbd887d28ccb2cb0c59b708a",
+              "simpleCommands": ["git", "git"],
+              "hasInputRedirect": false,
+              "hasOutputRedirect": false,
+              "fileOutputThresholdBytes": "40000",
+              "isBackground": false,
+              "skipApproval": false,
+              "timeoutBehavior": "TIMEOUT_BEHAVIOR_BACKGROUND",
+              "hardTimeout": 86400000,
+              "description": "Confirma estado após verificação",
+              "closeStdin": true,
+              "conversationId": "8e9df461-9c81-4a71-90e1-5f31904e82e1",
+              "adminCommandDenylist": [],
+              "requestId": "9a63fda1-8d86-4925-8b8e-c0b3dd924c8b"
+            }
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-03T16:51:48.011Z",
+            "endedAt": "2026-11-03T16:51:48.197Z",
+            "durationMs": 186
+          }
+        }
+      ],
+      "changed": [],
+      "diff": ""
+    }
+  ],
+  "usage": [
+    {
+      "ts": "2026-11-03T16:50:34.413Z",
+      "actor": "analista",
+      "turn": 1,
+      "action": "Bash",
+      "tokens": {
+        "input": 16252,
+        "output": 90,
+        "cacheRead": 16250,
+        "cacheWrite": 0,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-03T16:50:36.693Z",
+      "actor": "analista",
+      "turn": 1,
+      "action": "Bash",
+      "tokens": {
+        "input": 16676,
+        "output": 119,
+        "cacheRead": 16250,
+        "cacheWrite": 424,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-03T16:50:40.119Z",
+      "actor": "analista",
+      "turn": 1,
+      "action": "Bash",
+      "tokens": {
+        "input": 18690,
+        "output": 320,
+        "cacheRead": 16674,
+        "cacheWrite": 2014,
+        "reasoning": 175
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-03T16:50:55.624Z",
+      "actor": "analista",
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 19255,
+        "output": 1033,
+        "cacheRead": 18688,
+        "cacheWrite": 565,
+        "reasoning": 309
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-03T16:50:59.049Z",
+      "actor": "programador",
+      "turn": 1,
+      "action": "Bash",
+      "tokens": {
+        "input": 16994,
+        "output": 117,
+        "cacheRead": 11975,
+        "cacheWrite": 5017,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-03T16:51:05.491Z",
+      "actor": "programador",
+      "turn": 1,
+      "action": "Bash",
+      "tokens": {
+        "input": 18911,
+        "output": 1567,
+        "cacheRead": 16992,
+        "cacheWrite": 1917,
+        "reasoning": 452
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-03T16:51:26.833Z",
+      "actor": "programador",
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 20686,
+        "output": 1091,
+        "cacheRead": 18909,
+        "cacheWrite": 1775,
+        "reasoning": 18
+      },
+      "costUsd": null,
+      "costSource": null
+    }
+  ],
+  "totals": {
+    "round": {
+      "tokens": {
+        "input": 127464,
+        "output": 4337,
+        "cacheRead": 115738,
+        "cacheWrite": 11712,
+        "reasoning": 954
+      },
+      "costUsd": null
+    },
+    "actors": {
+      "analista": {
+        "tokens": {
+          "input": 70873,
+          "output": 1562,
+          "cacheRead": 67862,
+          "cacheWrite": 3003,
+          "reasoning": 484
+        },
+        "costUsd": null
+      },
+      "programador": {
+        "tokens": {
+          "input": 56591,
+          "output": 2775,
+          "cacheRead": 47876,
+          "cacheWrite": 8709,
+          "reasoning": 470
+        },
+        "costUsd": null
+      },
+      "revisor": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "costUsd": null
+      }
+    }
+  },
+  "measures": {
+    "analista": {
+      "turns": 1,
+      "tools": 3,
+      "questions": 0,
+      "changedFiles": 0,
+      "tests": null,
+      "typecheck": null
+    },
+    "programador": {
+      "turns": 1,
+      "tools": 2,
+      "questions": 0,
+      "changedFiles": 2,
+      "tests": null,
+      "typecheck": null
+    },
+    "revisor": {
+      "turns": 1,
+      "tools": 7,
+      "questions": 0,
+      "changedFiles": 0,
+      "tests": null,
+      "typecheck": null
+    }
+  },
+  "violations": [
+    {
+      "rule": "read-only-respected",
+      "actor": "analista",
+      "passed": true,
+      "detail": "O git não mostra nenhuma alteração."
+    },
+    {
+      "rule": "read-only-respected",
+      "actor": "revisor",
+      "passed": true,
+      "detail": "O git não mostra nenhuma alteração."
+    }
+  ],
+  "review": {
+    "title": "A mesma correção, de novo",
+    "summary": "A rodada 4 rodada de novo, sem mudar nada: a mesma correção, com o mesmo tipo de teste.",
+    "steps": [
+      {
+        "step": null,
+        "title": "Volta ao ponto de partida e consulta o analista",
+        "text": "O script volta o workspace à tag `rodada-base` (`33125e6`) e chama o analista com o mesmo pedido da rodada 4.\n\"Workspace no ponto de partida: rodada-base (33125e6)\""
+      },
+      {
+        "step": 0,
+        "title": "Testa no próprio diretório e aponta 6 pontos",
+        "text": "Em 25 s e 3 ferramentas: `npm ci`, `npm test` (5 de 5) e `npm start`, com o `git status` limpo depois. Nenhum bug real:\n- `src/usuarios.ts:8-12` `usuariosPadrao` só é imutável no TypeScript\n- `src/usuarios.ts:21` nada garante `id` único\n- `src/main.ts:3-6` nenhum aviso quando o usuário não existe\n- `src/usuarios.test.ts:24-39` faltam testes de casos-limite\n- `src/usuarios.ts:4` o `email` não é usado nem validado\n- `package.json:13` o glob do `node --test` exige Node 21 ou mais novo",
+        "ok": "O git confirma: não alterou nenhum arquivo."
+      },
+      {
+        "step": 1,
+        "title": "Corrige 1 ponto, com teste, e fecha uma lacuna",
+        "text": "Em 33 s e 2 ferramentas. Congela `usuariosPadrao` com `Object.freeze` e escreve o teste \"usuariosPadrao não pode ser alterado em tempo de execução\". Acrescenta 3 casos-limite (`listarAtivos([])`, `buscarPorId([], 1)` e `descreverAtivos` só com inativos) e diz que eles já passavam antes. Recusa os pontos 2, 3, 5 e 6, cada um com o motivo.",
+        "ok": "Conferido numa cópia: com o `src/usuarios.ts` original, o teste novo falha (5 passam, 1 falha); com a correção, os 6 passam. O git mostra os dois arquivos que ele disse. Não fez commit."
+      },
+      {
+        "step": 2,
+        "title": "Confere a correção, o teste e a regra",
+        "text": "Em 24 s e 14 ferramentas: `git diff --check`, `npm test` (6 de 6) e `npm start`. Nada errado nas mudanças.\n- sem os `Object.freeze`, o teste da correção falharia\n- os casos-limite estão certos\n- nenhum ponto foi corrigido sem teste: os que ficaram de fora não contam contra a regra",
+        "ok": "O git confirma: não alterou nenhum arquivo."
+      },
+      {
+        "step": null,
+        "title": "Rodada guardada",
+        "text": "`docs/rodadas/2026-11-03T16-50-30.759Z.json`, já sem caminhos com nome de usuário nem valores de credenciais."
+      }
+    ],
+    "next": [
+      "A regra do teste deixou as duas execuções parecidas: mesma correção, mesmo tipo de teste, mesmas recusas.",
+      "O que ainda varia são os testes de casos-limite. Decidir se eles contam como trabalho válido tiraria essa diferença."
+    ]
+  }
+}

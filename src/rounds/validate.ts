@@ -310,8 +310,9 @@ const roundRecord = object({
     summary: string,
     steps: list(
       object({
-        step: count,
-        title: nonEmpty,
+        step: nullable(count),
+        title: string,
+        'text?': string,
         'ok?': string,
         'warn?': string,
       }),
@@ -356,7 +357,7 @@ function checkActors(round: RoundRecord): void {
   }
   const stepCount = round.steps.length;
   round.review?.steps.forEach((note, i) => {
-    if (note.step >= stepCount) {
+    if (note.step !== null && note.step >= stepCount) {
       throw new Invalid(
         `review.steps[${String(i)}].step: não há o passo ${String(note.step)}`,
       );

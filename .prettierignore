@@ -4,3 +4,5 @@ logs/
 .goiaba/
 bun.lock
 .agents/
+# Gerados pelo runRound (bun run rounds)
+rounds/data/

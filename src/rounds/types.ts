@@ -28,7 +28,7 @@ export interface RoundRecord {
   readonly timing: RoundTiming;
   /** Each agent's pieces, as used, by the agent's name. */
   readonly actors: Readonly<Record<string, ActorSnapshot>>;
-  /** Over every actor's `configHash`: runs with the same one are repetitions. */
+  /** Over the declaration and every actor's `configHash`: same hash, a repetition. */
   readonly configHash: string;
   /** What each agent did, in order. */
   readonly steps: readonly RoundStep[];
@@ -158,7 +158,10 @@ export interface RoundStep {
   readonly asked: readonly string[];
   readonly turns: readonly TurnRecord[];
   readonly tools: readonly ToolRecord[];
-  /** `git status --porcelain` lines of the files it changed. */
+  /**
+   * `git status --porcelain` lines of the files it changed. Empty also when
+   * the round has no git `start`: then nothing checked it.
+   */
   readonly changed: readonly string[];
   /** What it changed (`git diff`), empty when nothing. */
   readonly diff: string;
@@ -268,15 +271,21 @@ export interface RoundReview {
   /** Short, for the index: `Uma correção, com teste`. */
   readonly title: string;
   readonly summary: string;
-  /** One note per step, by its position in `steps`. */
+  /** The scenes of the run, in order: most about a step, some about none. */
   readonly steps: readonly StepReview[];
   /** What to look at in the next round. */
   readonly next: readonly string[];
 }
 
 export interface StepReview {
-  readonly step: number;
+  /**
+   * Its position in `steps`; `null` for what happened outside the agents'
+   * steps (the script, a person answering).
+   */
+  readonly step: number | null;
   readonly title: string;
+  /** What happened in the step, in the reviewer's words. */
+  readonly text?: string;
   readonly ok?: string;
   readonly warn?: string;
 }
