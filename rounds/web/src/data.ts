@@ -16,7 +16,7 @@ export interface Test {
   /** The start of `configHash`: the test's address. */
   readonly key: string;
   readonly configHash: string;
-  /** Its first round's review title, or the goal. */
+  /** Its first round's review title, or the declaration's id. */
   readonly title: string;
   readonly definition: RoundRecord['definition'];
   /** Oldest first. */
@@ -61,7 +61,7 @@ for (const [configHash, group] of groups) {
     number: built.length + 1,
     key: configHash.slice(0, KEY_LENGTH),
     configHash,
-    title: first.review?.title ?? first.definition.goal,
+    title: first.review?.title ?? first.definition.id,
     definition: first.definition,
     rounds,
     previous: built.at(-1),

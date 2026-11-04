@@ -244,6 +244,42 @@ describe('OllamaProvider', () => {
     ]);
   });
 
+  test('não repassa os tokens nem o custo que a CLI calcula para o modelo local', async () => {
+    const provider = new OllamaProvider({
+      cli: 'claude',
+      model: 'qwen2.5-coder:latest',
+    });
+    const lines = [
+      {
+        type: 'assistant',
+        message: {
+          id: 'm1',
+          content: [{ type: 'text', text: 'oi' }],
+          usage: { input_tokens: 15_613, output_tokens: 0 },
+        },
+      },
+      {
+        type: 'result',
+        session_id: 's1',
+        result: 'oi',
+        total_cost_usd: 0.071975,
+      },
+    ];
+    const output = (async function* (): AsyncIterable<ProgramOutput> {
+      yield {
+        channel: 'stdout',
+        chunk: lines.map((line) => `${JSON.stringify(line)}\n`).join(''),
+      };
+    })();
+    const events = [];
+
+    for await (const event of provider.parseOutput(output)) {
+      events.push(event);
+    }
+
+    expect(events.map((event) => event.type)).toEqual(['output', 'session']);
+  });
+
   test('o contexto real chega às duas CLIs', () => {
     const claude = new OllamaProvider({
       cli: 'claude',

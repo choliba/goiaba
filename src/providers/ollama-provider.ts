@@ -205,19 +205,33 @@ export class OllamaProvider implements Provider<string, string> {
   public parseOutput(
     output: AsyncIterable<ProgramOutput>,
   ): AsyncIterable<ProviderEvent<string>> {
-    return withoutPartials(this.inner.parseOutput(withoutOllamaNoise(output)));
+    return withoutCliEstimates(
+      this.inner.parseOutput(withoutOllamaNoise(output)),
+    );
   }
 }
 
 /**
- * The text pieces come from Ollama's traffic (`readTraffic`), for both
- * CLIs: the ones Claude Code also prints would show the text twice.
+ * What only Ollama knows comes from its traffic (`readTraffic`), for both
+ * CLIs, and the CLI's own version is dropped:
+ * - the text pieces: the ones Claude Code also prints would show the text
+ *   twice;
+ * - the tokens and the cost: the CLI prices a local model as if it were
+ *   its vendor's (Claude Code reported US$ 0,15 for a free qwen2.5-coder)
+ *   and counts no output tokens. Without Ollama's traffic (no network
+ *   rules), the tokens are not measured, rather than measured wrong.
  */
-async function* withoutPartials(
+async function* withoutCliEstimates(
   events: AsyncIterable<ProviderEvent<string>>,
 ): AsyncIterable<ProviderEvent<string>> {
   for await (const event of events) {
-    if (event.type !== 'partial') yield event;
+    if (
+      event.type !== 'partial' &&
+      event.type !== 'usage' &&
+      event.type !== 'cost'
+    ) {
+      yield event;
+    }
   }
 }
 

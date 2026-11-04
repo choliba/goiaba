@@ -50,9 +50,15 @@ export const when = (iso: string): string => date.format(new Date(iso));
 export const count = (value: number, one: string, many: string): string =>
   `${String(value)} ${value === 1 ? one : many}`;
 
-/** `Claude · claude-opus-5-5`. */
-export const providerOf = (actor: ActorSnapshot): string =>
-  `${actor.provider.name.charAt(0).toUpperCase()}${actor.provider.name.slice(1)} · ${actor.provider.model}`;
+/**
+ * `Claude · claude-opus-5-5`; with the CLI when the provider drives more
+ * than one: `Ollama (codex) · qwen2.5-coder:latest`.
+ */
+export function providerOf(actor: ActorSnapshot): string {
+  const { name, cli, model } = actor.provider;
+  const provider = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+  return `${provider}${cli === null ? '' : ` (${cli})`} · ${model}`;
+}
 
 /** `analista` → `Analista`. */
 export const title = (name: string): string =>
