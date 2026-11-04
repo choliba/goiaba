@@ -725,3 +725,16 @@ tr.total td {
   border-color: var(--guava);
   color: var(--guava);
 }
+
+/* The agents a filter matches, in the index */
+.agent.match {
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--guava);
+  padding-left: 8px;
+}
+.agent.match .muted {
+  color: var(--ink);
+}
+.agent.dim {
+  opacity: 0.45;
+}
