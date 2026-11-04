@@ -651,6 +651,16 @@ export class Agent {
               continue;
             }
 
+            if (event.type === 'usage') {
+              publish(usageRecord(event.usage, event.action));
+              continue;
+            }
+
+            if (event.type === 'cost') {
+              publish({ type: 'cost', cost_usd: event.usd });
+              continue;
+            }
+
             if (event.type === 'reasoning') {
               // What the model thought, on screen as soon as it arrives:
               // already there when it came piece by piece.
@@ -1449,7 +1459,7 @@ function logTool({ phase, detail }: ToolEvent): void {
 }
 
 /** One request's tokens, as the agent emits and logs them. */
-function usageRecord(usage: TokenUsage): LogInput {
+function usageRecord(usage: TokenUsage, action?: string): LogInput {
   return {
     type: 'usage',
     input_tokens: usage.input,
@@ -1457,6 +1467,10 @@ function usageRecord(usage: TokenUsage): LogInput {
     ...(usage.cachedInput === undefined
       ? {}
       : { cached_input_tokens: usage.cachedInput }),
+    ...(usage.cacheWrite === undefined
+      ? {}
+      : { cache_write_tokens: usage.cacheWrite }),
+    ...(action === undefined ? {} : { action }),
     ...(usage.reasoning === undefined
       ? {}
       : { reasoning_tokens: usage.reasoning }),

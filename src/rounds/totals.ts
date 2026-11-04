@@ -14,18 +14,15 @@ export const TOKEN_KINDS = [
 ] as const satisfies readonly (keyof TokenCounts)[];
 
 /**
- * The sum; one `null` (not measured) makes it `null`, and so does nothing to
- * sum: an agent always makes requests, so none recorded means its CLI does
- * not report them, not that it used 0 tokens.
+ * The sum of what was measured; `null` when nothing was (no value, or all
+ * `null`). A CLI reports tokens per request and the cost once per run, in
+ * records of their own: each record leaves out what it does not carry.
  */
 export function sum(values: readonly (number | null)[]): number | null {
-  if (values.length === 0) return null;
-  let total = 0;
-  for (const value of values) {
-    if (value === null) return null;
-    total += value;
-  }
-  return total;
+  const measured = values.filter((value) => value !== null);
+  return measured.length === 0
+    ? null
+    : measured.reduce((total, value) => total + value, 0);
 }
 
 /** The tokens and cost of `usage`, kind by kind. */

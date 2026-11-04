@@ -7,6 +7,7 @@ import type {
   ProviderEvent,
   ProviderOptions,
   ToolEvent,
+  TokenUsage,
   HostAccess,
 } from './types';
 
@@ -169,10 +170,35 @@ function readEvents(
       events.push({ value: createEvent(event['result']) });
     }
 
+    if (event['type'] === 'result') {
+      const usage = resultUsage(event['usage']);
+      if (usage !== undefined) events.push({ value: { type: 'usage', usage } });
+    }
+
     return events;
   } catch {
     return [{ value: createEvent(line) }];
   }
+}
+
+const count = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+
+/**
+ * The turn's tokens, summed by the CLI. Its `inputTokens` leaves out what
+ * came from the cache and what went to it; `TokenUsage.input` is everything
+ * the model read. The CLI does not report a cost.
+ */
+function resultUsage(usage: unknown): TokenUsage | undefined {
+  if (!isRecord(usage)) return undefined;
+  const cacheRead = count(usage['cacheReadTokens']);
+  const cacheWrite = count(usage['cacheWriteTokens']);
+  return {
+    input: count(usage['inputTokens']) + cacheRead + cacheWrite,
+    output: count(usage['outputTokens']),
+    cachedInput: cacheRead,
+    cacheWrite,
+  };
 }
 
 function readAssistantText(message: unknown): string | undefined {
@@ -234,7 +260,8 @@ function toolCall(event: Record<string, unknown>): ToolEvent | undefined {
 
   return {
     type: 'tool',
-    phase: 'call',
+    // The CLI tells each tool twice: when it starts and when it completes.
+    phase: event['subtype'] === 'completed' ? 'result' : 'call',
     detail: {
       subtype: event['subtype'],
       call_id: event['call_id'],

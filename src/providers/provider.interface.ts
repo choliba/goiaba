@@ -103,6 +103,21 @@ export type ProviderEvent<TOutput> =
       readonly type: 'stderr';
       readonly text: string;
     }
+  | {
+      /** Tokens of one request to the model, as the CLI reports them. */
+      readonly type: 'usage';
+      readonly usage: TokenUsage;
+      /** What the request did, when the CLI says: the tools it called. */
+      readonly action?: string;
+    }
+  | {
+      /**
+       * What the CLI says its run cost so far, in USD, beyond what it already
+       * reported: a run's cost, not one request's.
+       */
+      readonly type: 'cost';
+      readonly usd: number;
+    }
   | ToolEvent;
 
 /** What a model's traffic says as it passes. */
@@ -120,6 +135,8 @@ export interface TokenUsage {
   readonly output: number;
   /** Of `input`, what the model already had and did not read again. */
   readonly cachedInput?: number;
+  /** Of `input`, what was written to the cache for the next requests. */
+  readonly cacheWrite?: number;
   /** Of `output`, the reasoning before the answer. */
   readonly reasoning?: number;
 }

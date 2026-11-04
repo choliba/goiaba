@@ -189,7 +189,10 @@ export interface ToolRecord {
   readonly span: Span;
 }
 
-/** The tokens of one request to a model, and what they cost. */
+/**
+ * What a CLI reported consuming: one request's tokens (and their price, when
+ * known), or the cost of its run, with no tokens.
+ */
 export interface UsageRecord {
   readonly ts: string;
   readonly actor: string;
@@ -208,13 +211,19 @@ export type CostSource = 'cli' | 'table';
 
 /** Tokens, each kind `null` when the CLI does not report it. */
 export interface TokenCounts {
+  /** Everything the model read, the cache included. */
   readonly input: number | null;
+  /** What it wrote, reasoning included. */
   readonly output: number | null;
+  /** Of `input`, what came from the cache. */
   readonly cacheRead: number | null;
+  /** Of `input`, what was written to the cache. */
   readonly cacheWrite: number | null;
+  /** Of `output`, the reasoning before the answer. */
   readonly reasoning: number | null;
 }
 
+/** Sums of what was measured: `null` only when nothing was. */
 export interface RoundTotals {
   readonly round: UsageTotal;
   /** By the agent's name. */

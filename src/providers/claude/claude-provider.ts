@@ -20,6 +20,7 @@ import type {
   LiveTurn,
   ProviderOptions,
   ToolEvent,
+  TokenUsage,
   HostAccess,
 } from '../types';
 
@@ -270,6 +271,7 @@ export class ClaudeProvider
     let sawAssistant = false;
     let sessionEmitted = false;
     const tools = new Map<string, ToolCall>();
+    const usage: UsageState = { pending: undefined, reportedCost: 0 };
 
     for await (const { channel, chunk } of output) {
       if (channel === 'stderr') {
@@ -287,6 +289,7 @@ export class ClaudeProvider
           sessionEmitted,
           tools,
           onResult: () => this.live?.answered(),
+          usage,
         })) {
           if (event.value.type === 'session') {
             sessionEmitted = true;
@@ -305,10 +308,13 @@ export class ClaudeProvider
         sessionEmitted,
         tools,
         onResult: () => this.live?.answered(),
+        usage,
       })) {
         yield event.value;
       }
     }
+    // Ended without a result (killed, say): what it reported still counts.
+    for (const event of flushUsage(usage)) yield event.value;
   }
 }
 
@@ -368,6 +374,89 @@ interface ParseState {
   readonly tools: Map<string, ToolCall>;
   /** A turn ended (`result`): one message of a live turn was answered. */
   readonly onResult?: () => void;
+  readonly usage: UsageState;
+}
+
+/**
+ * The usage of the assistant message being read. The CLI repeats the same
+ * usage in every block of a message (same id), so it is told once, when the
+ * message ends, with the tools the message called.
+ */
+interface UsageState {
+  pending: { id: string; usage: TokenUsage; actions: string[] } | undefined;
+  /** `total_cost_usd` of the last `result`: in a live turn it adds up. */
+  reportedCost: number;
+}
+
+/** The usage of the message read so far, once: the next one began, or the turn ended. */
+function flushUsage(state: UsageState): ParsedEvent[] {
+  const pending = state.pending;
+  state.pending = undefined;
+  if (pending === undefined) return [];
+  return [
+    {
+      value: {
+        type: 'usage',
+        usage: pending.usage,
+        ...(pending.actions.length === 0
+          ? {}
+          : { action: pending.actions.join(', ') }),
+      },
+    },
+  ];
+}
+
+const count = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+
+/**
+ * A message's `usage`: `input_tokens` leaves out what came from the cache
+ * and what went to it; `TokenUsage.input` is everything the model read.
+ */
+function messageUsage(usage: unknown): TokenUsage | undefined {
+  if (!isRecord(usage)) return undefined;
+  const fresh = count(usage['input_tokens']);
+  const cacheRead = count(usage['cache_read_input_tokens']);
+  const cacheWrite = count(usage['cache_creation_input_tokens']);
+  const details = usage['output_tokens_details'];
+  const thinking = isRecord(details) ? details['thinking_tokens'] : undefined;
+  return {
+    input: fresh + cacheRead + cacheWrite,
+    output: count(usage['output_tokens']),
+    cachedInput: cacheRead,
+    cacheWrite,
+    ...(typeof thinking === 'number' ? { reasoning: count(thinking) } : {}),
+  };
+}
+
+/** The usage and tools of one block of an assistant message. */
+function readUsage(message: unknown, state: UsageState): ParsedEvent[] {
+  if (!isRecord(message) || typeof message['id'] !== 'string') return [];
+  const events: ParsedEvent[] = [];
+  if (state.pending?.id !== message['id']) {
+    events.push(...flushUsage(state));
+    const usage = messageUsage(message['usage']);
+    if (usage === undefined) return events;
+    state.pending = { id: message['id'], usage, actions: [] };
+  }
+  for (const block of contentBlocks(message)) {
+    if (block['type'] === 'tool_use' && typeof block['name'] === 'string') {
+      state.pending.actions.push(block['name']);
+    }
+  }
+  return events;
+}
+
+/** What this `result` adds to the cost the CLI already reported. */
+function resultCost(
+  event: Record<string, unknown>,
+  state: UsageState,
+): ParsedEvent[] {
+  const total = event['total_cost_usd'];
+  if (typeof total !== 'number' || !Number.isFinite(total)) return [];
+  const usd = total - state.reportedCost;
+  state.reportedCost = Math.max(total, state.reportedCost);
+  return usd > 0 ? [{ value: { type: 'cost', usd } }] : [];
 }
 
 interface ToolCall {
@@ -382,7 +471,7 @@ interface ParsedEvent {
 
 function readEvents(
   line: string,
-  { sawAssistant, sessionEmitted, tools, onResult }: ParseState,
+  { sawAssistant, sessionEmitted, tools, onResult, usage }: ParseState,
 ): readonly ParsedEvent[] {
   if (line.trim().length === 0) {
     return [];
@@ -409,6 +498,7 @@ function readEvents(
     }
 
     if (event['type'] === 'user') {
+      events.push(...flushUsage(usage));
       events.push(...toolResults(event['message'], tools));
       return events;
     }
@@ -422,6 +512,7 @@ function readEvents(
     }
 
     if (event['type'] === 'assistant') {
+      events.push(...readUsage(event['message'], usage));
       events.push(...toolUses(event['message'], tools));
       const text = readAssistantText(event['message']);
 
@@ -440,7 +531,10 @@ function readEvents(
       events.push({ value: createEvent(event['result']) });
     }
 
-    if (event['type'] === 'result') onResult?.();
+    if (event['type'] === 'result') {
+      events.push(...flushUsage(usage), ...resultCost(event, usage));
+      onResult?.();
+    }
 
     return events;
   } catch {

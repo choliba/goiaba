@@ -28,7 +28,10 @@ afterEach(() => {
   clearConfigCache();
 });
 
-/** Answers with `answer` and the prompt it got; optionally writes a file first. */
+/**
+ * Answers with `answer`; optionally writes a file first, and reports the
+ * tokens and cost of its run as a CLI does.
+ */
 class ScriptedProvider implements Provider<string, string> {
   public readonly id = 'scripted';
   public readonly prompts: string[] = [];
@@ -36,6 +39,7 @@ class ScriptedProvider implements Provider<string, string> {
   public constructor(
     private readonly answer: string,
     private readonly writes?: string,
+    private readonly reports = false,
   ) {}
 
   public describe(): { name: string; model: string } {
@@ -75,6 +79,14 @@ class ScriptedProvider implements Provider<string, string> {
       phase: 'result',
       detail: { call_id: 't1', bytes: 3 },
     };
+    if (this.reports) {
+      yield {
+        type: 'usage',
+        usage: { input: 100, output: 10, cachedInput: 60, cacheWrite: 5 },
+        action: 'Bash',
+      };
+      yield { type: 'cost', usd: 0.01 };
+    }
     yield { type: 'output', value: text };
   }
 }
@@ -368,7 +380,7 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
     // Left by a previous run: the reset takes it away.
     writeFileSync(join(root, 'sobra.txt'), 'x');
 
-    const analista = new ScriptedProvider('dois problemas');
+    const analista = new ScriptedProvider('dois problemas', undefined, true);
     const programador = new ScriptedProvider('corrigi', 'b.txt');
     const files = await runRound(
       defineRound({
@@ -419,8 +431,25 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
       tools: 1,
       changedFiles: 1,
     });
-    // The scripted CLI reports no tokens: not measured, not 0.
-    expect(round.totals.round).toEqual({
+    // The analyst's CLI reports a request and the run's cost; the
+    // programmer's reports nothing: not measured, not 0.
+    expect(round.usage.map((u) => [u.actor, u.action, u.costSource])).toEqual([
+      ['analista', 'Bash', null],
+      ['analista', null, 'cli'],
+    ]);
+    const analystTotal = {
+      tokens: {
+        input: 100,
+        output: 10,
+        cacheRead: 60,
+        cacheWrite: 5,
+        reasoning: null,
+      },
+      costUsd: 0.01,
+    };
+    expect(round.totals.round).toEqual(analystTotal);
+    expect(round.totals.actors['analista']).toEqual(analystTotal);
+    expect(round.totals.actors['programador']).toEqual({
       tokens: {
         input: null,
         output: null,

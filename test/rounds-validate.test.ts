@@ -266,9 +266,10 @@ test.each([
     'totals.actors.analista.tokens.output: 999, mas a soma de usage é 130',
   ],
   [
-    'total medido quando um registro não foi',
+    'total que não é a soma do que foi medido',
     (r: Record<string, unknown>) => {
       at(r, 'usage', 0, 'tokens')['reasoning'] = null;
+      at(r, 'usage', 1, 'tokens')['reasoning'] = null;
     },
     'totals.round.tokens.reasoning: 0, mas a soma de usage é null',
   ],

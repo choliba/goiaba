@@ -125,6 +125,27 @@ export class StepRecorder {
       case 'usage':
         this.request(ts, data);
         return;
+      case 'cost': {
+        // The CLI's run cost, not one request's: a record with no tokens.
+        const usd = amount(data['cost_usd']);
+        if (usd === null) return;
+        this.usage.push({
+          ts,
+          actor: this.actor,
+          turn: Math.max(1, this.turn),
+          action: null,
+          tokens: {
+            input: null,
+            output: null,
+            cacheRead: null,
+            cacheWrite: null,
+            reasoning: null,
+          },
+          costUsd: usd,
+          costSource: 'cli',
+        });
+        return;
+      }
       case 'output': {
         const value = text(data['value']);
         if (value !== undefined) this.said.push(value);

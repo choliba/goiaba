@@ -429,6 +429,124 @@ describe('ClaudeProvider', () => {
     ]);
   });
 
+  test('entrega os tokens uma vez por mensagem, com as ferramentas, e o custo do resultado', async () => {
+    const provider = new ClaudeProvider({ model: 'modelo' });
+    const usage = {
+      input_tokens: 2,
+      cache_creation_input_tokens: 100,
+      cache_read_input_tokens: 900,
+      output_tokens: 50,
+      output_tokens_details: { thinking_tokens: 20 },
+    };
+    // The CLI repeats a message's usage in every block of it (same id).
+    const lines = [
+      {
+        type: 'assistant',
+        message: {
+          id: 'm1',
+          content: [{ type: 'thinking', thinking: '…' }],
+          usage,
+        },
+      },
+      {
+        type: 'assistant',
+        message: {
+          id: 'm1',
+          content: [
+            {
+              type: 'tool_use',
+              id: 't1',
+              name: 'Bash',
+              input: { command: 'ls' },
+            },
+          ],
+          usage,
+        },
+      },
+      {
+        type: 'user',
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'a.txt' },
+          ],
+        },
+      },
+      {
+        type: 'assistant',
+        message: {
+          id: 'm2',
+          content: [{ type: 'text', text: 'feito' }],
+          usage: { input_tokens: 5, output_tokens: 3 },
+        },
+      },
+      {
+        type: 'result',
+        session_id: 's1',
+        result: 'feito',
+        total_cost_usd: 0.25,
+      },
+    ];
+    const events = await collect(
+      provider.parseOutput(
+        source([
+          {
+            channel: 'stdout',
+            chunk: lines.map((line) => `${JSON.stringify(line)}\n`).join(''),
+          },
+        ]),
+      ),
+    );
+
+    expect(
+      events.filter((event) => event.type === 'usage' || event.type === 'cost'),
+    ).toEqual([
+      {
+        type: 'usage',
+        usage: {
+          input: 1002,
+          output: 50,
+          cachedInput: 900,
+          cacheWrite: 100,
+          reasoning: 20,
+        },
+        action: 'Bash',
+      },
+      {
+        type: 'usage',
+        usage: { input: 5, output: 3, cachedInput: 0, cacheWrite: 0 },
+      },
+      { type: 'cost', usd: 0.25 },
+    ]);
+  });
+
+  test('num turno ao vivo, cada resultado entrega só o custo que ainda não tinha informado', async () => {
+    const provider = new ClaudeProvider({ model: 'modelo' });
+    const lines = [
+      { type: 'result', session_id: 's1', result: 'um', total_cost_usd: 0.1 },
+      {
+        type: 'result',
+        session_id: 's1',
+        result: 'dois',
+        total_cost_usd: 0.25,
+      },
+    ];
+    const events = await collect(
+      provider.parseOutput(
+        source([
+          {
+            channel: 'stdout',
+            chunk: lines.map((line) => `${JSON.stringify(line)}\n`).join(''),
+          },
+        ]),
+      ),
+    );
+
+    expect(events.filter((event) => event.type === 'cost')).toEqual([
+      { type: 'cost', usd: 0.1 },
+      { type: 'cost', usd: 0.15 },
+    ]);
+  });
+
   test('usa o resultado final quando não há mensagem de assistente', async () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
     const output = source([

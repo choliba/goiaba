@@ -112,6 +112,36 @@ describe('CursorProvider', () => {
     ]);
   });
 
+  test('entrega os tokens do turno, que o Cursor soma no resultado', async () => {
+    const provider = new CursorProvider({ model: 'modelo' });
+    const output = source([
+      {
+        channel: 'stdout',
+        chunk: `${JSON.stringify({
+          type: 'result',
+          subtype: 'success',
+          session_id: 'chat-3',
+          result: 'pronto',
+          usage: {
+            inputTokens: 10,
+            outputTokens: 4,
+            cacheReadTokens: 80,
+            cacheWriteTokens: 6,
+          },
+        })}\n`,
+      },
+    ]);
+
+    expect(await collect(provider.parseOutput(output))).toEqual([
+      { type: 'session', id: 'chat-3' },
+      { type: 'output', value: 'pronto' },
+      {
+        type: 'usage',
+        usage: { input: 96, output: 4, cachedInput: 80, cacheWrite: 6 },
+      },
+    ]);
+  });
+
   test('cria um comando para retomar uma sessão', () => {
     const provider = new CursorProvider({ model: 'modelo' });
     const command = provider.createCommand('dev', 'chat-123');
@@ -171,10 +201,11 @@ describe('CursorProvider', () => {
         ),
       );
 
+      // The CLI tells it when it starts and when it completes: this is the end.
       expect(events).toEqual([
         {
           type: 'tool',
-          phase: 'call',
+          phase: 'result',
           detail: expect.objectContaining({
             subtype: 'completed',
             call_id: 'tool-1',

@@ -19,7 +19,8 @@ export class AgentOutput {
   /**
    * input, resume, resume_failed, session, output, ask, answer, approved,
    * message, status, thinking, turn (`phase` start/end, `turn`), tool
-   * (`phase` call/result/error, `detail`), usage, error…
+   * (`phase` call/result/error, `detail`), usage (tokens of a request),
+   * cost (`cost_usd` of the CLI's run), error…
    */
   public type(): string {
     return this.event.type;
