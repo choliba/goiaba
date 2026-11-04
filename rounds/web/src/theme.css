@@ -690,14 +690,14 @@ tr.total td {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
-.crumbs > a {
+.crumbs-test {
   display: grid;
   gap: 2px;
   color: var(--ink);
   text-decoration: none;
   font: 600 16px/1.25 var(--display);
 }
-.crumbs > a:hover {
+a.crumbs-test:hover {
   color: var(--guava);
 }
 .crumbs ol {

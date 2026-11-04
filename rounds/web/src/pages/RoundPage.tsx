@@ -13,6 +13,7 @@ import {
 } from '../components/Config';
 import { Flow } from '../components/Flow';
 import { Rich } from '../components/Rich';
+import { TestRounds } from '../components/TestRounds';
 import { TestsNav } from '../components/TestsNav';
 import type { Round } from '../data';
 import {
@@ -24,7 +25,7 @@ import {
   tokens,
   when,
 } from '../format';
-import { roundHref, testHref } from '../route';
+import { roundHref } from '../route';
 
 function Measures({ round }: { readonly round: Round }): ReactNode {
   const { record } = round;
@@ -113,25 +114,7 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
     <main className="page">
       <TestsNav current={test.key} />
 
-      <nav className="crumbs" aria-label="Rodadas do teste">
-        <a href={testHref(test.key)}>
-          <small>← Teste {test.number}</small>
-          {test.title}
-        </a>
-        <ol>
-          {test.rounds.map((sibling) => (
-            <li key={sibling.record.id}>
-              {sibling.record.id === record.id ? (
-                <span aria-current="page">Rodada {sibling.index}</span>
-              ) : (
-                <a href={roundHref(sibling.record.id)}>
-                  Rodada {sibling.index}
-                </a>
-              )}
-            </li>
-          ))}
-        </ol>
-      </nav>
+      <TestRounds test={test} current={record.id} />
 
       <header>
         <span className="eyebrow">

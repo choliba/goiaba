@@ -14,6 +14,7 @@ import {
   promptChanges,
 } from '../components/Config';
 import { Rich } from '../components/Rich';
+import { TestRounds } from '../components/TestRounds';
 import { TestsNav } from '../components/TestsNav';
 import type { Test } from '../data';
 import {
@@ -49,6 +50,8 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
   return (
     <main className="page">
       <TestsNav current={test.key} />
+
+      <TestRounds test={test} />
 
       <header>
         <span className="eyebrow">
