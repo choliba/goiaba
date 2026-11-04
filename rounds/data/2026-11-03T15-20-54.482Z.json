@@ -62,7 +62,10 @@
       },
       "network": {
         "rules": null,
-        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysAllow": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
         "alwaysDeny": [],
         "decisions": []
       },
@@ -90,7 +93,10 @@
       },
       "network": {
         "rules": null,
-        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysAllow": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
         "alwaysDeny": [],
         "decisions": []
       },
@@ -389,7 +395,11 @@
               "workingDirectory": "<projeto>/storage/workspaces",
               "timeout": 30000,
               "toolCallId": "call_UjfLbWntE4Gnk5z7BmhDN06E\nfc_0077d65c12584ed8016ae9fc1e2adc87d2b1683502b284bb22",
-              "simpleCommands": ["git", "git", "git"],
+              "simpleCommands": [
+                "git",
+                "git",
+                "git"
+              ],
               "hasInputRedirect": false,
               "hasOutputRedirect": false,
               "fileOutputThresholdBytes": "40000",
@@ -809,18 +819,21 @@
       },
       {
         "step": 0,
+        "lane": "analista",
         "title": "Analisa sem alterar nada",
         "text": "Em 35 s e 6 ferramentas: compila com `tsc --noEmit`, roda os 5 testes numa cópia temporária, confere a saída do `main.ts`. Nenhum problema crítico; 6 pontos menores, cada um com arquivo e linha:\n- `src/usuarios.ts:1-5` tirar `email` pode quebrar quem usava o campo\n- `src/usuarios.ts:20` nada garante `id` único\n- `src/usuarios.ts:23` `listarAtivos` devolve um array mutável\n- `package.json:13` o `test` deixa os `.test.js` no `dist/`\n- `package.json:9-14` sem script de checagem de tipos nem de lint\n- `src/main.ts` sem teste",
         "warn": "Antes da análise, uma linha de erro da CLI virou fala do analista: \"Copy lost symlinks; retry with cp -a.\". Ela foi passada ao programador junto com o resto."
       },
       {
         "step": 1,
+        "lane": "programador",
         "title": "Corrige 3 pontos e explica os outros 3",
         "text": "Em 29 s e 4 ferramentas. O que ele diz que mudou bate com o `git diff` do projeto:\n- `src/usuarios.ts`: `listarAtivos` devolve `ReadonlyArray<Usuario>`\n- `package.json`: o `test` compila em `dist-test/` e não mexe mais no `dist/`; novo script `typecheck`\n- `.gitignore`: acrescenta `dist-test/`",
         "ok": "Deixou de fora o `email`, o `id` repetido, o teste do `main.ts` e o lint, e disse por quê. Não fez commit."
       },
       {
         "step": 2,
+        "lane": "revisor",
         "title": "Confere o diff",
         "text": "Em 25 s e 18 ferramentas. Confirma as três mudanças e que o build normal continua sem os testes.\n- o ponto 5 ficou pela metade: ainda não há lint\n- o `test` ainda compila código e testes juntos, mas agora num diretório descartável\n- seguem em aberto, por decisão do programador: `id` repetido, teste do `main.ts` e a remoção do `email`"
       },

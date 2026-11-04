@@ -65,7 +65,10 @@
       },
       "network": {
         "rules": null,
-        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysAllow": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
         "alwaysDeny": [],
         "decisions": []
       },
@@ -93,7 +96,10 @@
       },
       "network": {
         "rules": null,
-        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysAllow": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
         "alwaysDeny": [],
         "decisions": []
       },
@@ -274,7 +280,10 @@
           }
         }
       ],
-      "changed": [" M src/main.ts", " M src/usuarios.test.ts"],
+      "changed": [
+        " M src/main.ts",
+        " M src/usuarios.test.ts"
+      ],
       "diff": "diff --git a/src/main.ts b/src/main.ts\nindex 7522c9c..bbcfb32 100644\n--- a/src/main.ts\n+++ b/src/main.ts\n@@ -3,6 +3,8 @@ import { buscarPorId, descreverAtivos, saudacao, usuariosPadrao } from \"./usuari\n const usuario = buscarPorId(usuariosPadrao, 1);\n if (usuario) {\n   console.log(saudacao(usuario));\n+} else {\n+  console.error(\"Usuário 1 não encontrado.\");\n }\n \n console.log(descreverAtivos(usuariosPadrao));\ndiff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..06b76ec 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -28,6 +28,14 @@ test(\"listarAtivos retorna apenas usuários ativos\", () => {\n   );\n });\n \n+test(\"listarAtivos retorna lista vazia sem usuários ativos\", () => {\n+  assert.deepEqual(listarAtivos([]), []);\n+  assert.deepEqual(\n+    listarAtivos(usuariosPadrao.filter((u) => !u.ativo)),\n+    [],\n+  );\n+});\n+\n test(\"saudacao monta a mensagem com o nome\", () => {\n   const usuario: Usuario = { id: 9, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: true };\n   assert.equal(saudacao(usuario), \"Olá, Davi!\");\n"
     },
     {
@@ -314,7 +323,11 @@
               "workingDirectory": "<projeto>/storage/workspaces",
               "timeout": 30000,
               "toolCallId": "call_1nKlYV7nJq4ntPLSNPPd0eHe\nfc_06fda63329e20e10016aea024aa61087d2800f2656a3a805ce",
-              "simpleCommands": ["git", "git", "git"],
+              "simpleCommands": [
+                "git",
+                "git",
+                "git"
+              ],
               "hasInputRedirect": false,
               "hasOutputRedirect": false,
               "fileOutputThresholdBytes": "40000",
@@ -607,18 +620,21 @@
       },
       {
         "step": 0,
+        "lane": "analista",
         "title": "Analisa sem alterar nada",
         "text": "Em 22 s e 3 ferramentas: compila, roda os 5 testes e o programa numa cópia em `/tmp`. Pela cópia, o `npm test` falhou com \"tsc: Permission denied\", e ele não confirmou a causa. 6 pontos menores:\n- `src/usuarios.ts:21` nada garante `id` único\n- `src/usuarios.ts:4` o `email` não é usado nem validado\n- `src/usuarios.test.ts:24-29` falta testar `listarAtivos` com lista vazia\n- `src/main.ts:4-6` nenhum aviso quando o usuário não existe\n- `package.json:13` `test` e `build` rodando juntos apagam o `dist/` um do outro\n- `package.json:16-17` versões com `^`",
         "ok": "O git confirma: não alterou nenhum arquivo."
       },
       {
         "step": 1,
+        "lane": "programador",
         "title": "Corrige 2 pontos e explica os outros 4",
         "text": "Em 19 s e 2 ferramentas:\n- `src/usuarios.test.ts`: teste novo, `listarAtivos` com lista vazia e só com inativos\n- `src/main.ts`: escreve \"Usuário 1 não encontrado.\" no stderr quando não acha o usuário",
         "ok": "O git mostra exatamente os dois arquivos que ele disse. Deixou de fora o `id` repetido, o `email`, a corrida entre `test` e `build` e o `^`, cada um com o motivo. Não fez commit."
       },
       {
         "step": 2,
+        "lane": "revisor",
         "title": "Confere o diff e contesta uma justificativa",
         "text": "Em 22 s e 10 ferramentas. As duas mudanças estão certas, e o diff tem só os dois arquivos declarados.\n- falta um teste para o aviso novo do `main.ts`\n- dos 4 pontos deixados de fora, só a corrida entre `test` e `build` é um risco técnico\n- a justificativa do programador para não corrigir a corrida não é precisa: havia saídas mais simples",
         "ok": "O git confirma: não alterou nenhum arquivo."

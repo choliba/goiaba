@@ -65,7 +65,10 @@
       },
       "network": {
         "rules": null,
-        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysAllow": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
         "alwaysDeny": [],
         "decisions": []
       },
@@ -93,7 +96,10 @@
       },
       "network": {
         "rules": null,
-        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysAllow": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
         "alwaysDeny": [],
         "decisions": []
       },
@@ -287,7 +293,10 @@
           }
         }
       ],
-      "changed": [" M src/usuarios.test.ts", " M src/usuarios.ts"],
+      "changed": [
+        " M src/usuarios.test.ts",
+        " M src/usuarios.ts"
+      ],
       "diff": "diff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..dfffe9a 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -37,3 +37,13 @@ test(\"descreverAtivos lista nomes ou avisa quando não há ativos\", () => {\n   assert.equal(descreverAtivos(usuariosPadrao), \"Usuários ativos: Ana, Carla\");\n   assert.equal(descreverAtivos([]), \"Nenhum usuário ativo.\");\n });\n+\n+test(\"usuariosPadrao não pode ser alterado em tempo de execução\", () => {\n+  const lista = usuariosPadrao as Usuario[];\n+  assert.throws(() => lista.push({ id: 4, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: true }), TypeError);\n+  assert.throws(() => {\n+    (lista[1] as { ativo: boolean }).ativo = true;\n+  }, TypeError);\n+  assert.equal(usuariosPadrao.length, 3);\n+  assert.equal(descreverAtivos(usuariosPadrao), \"Usuários ativos: Ana, Carla\");\n+});\ndiff --git a/src/usuarios.ts b/src/usuarios.ts\nindex c86eda5..39fbd2d 100644\n--- a/src/usuarios.ts\n+++ b/src/usuarios.ts\n@@ -5,11 +5,11 @@ export interface Usuario {\n   readonly ativo: boolean;\n }\n \n-export const usuariosPadrao: ReadonlyArray<Usuario> = [\n-  { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n-  { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n-  { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n-];\n+export const usuariosPadrao: ReadonlyArray<Usuario> = Object.freeze([\n+  Object.freeze({ id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true }),\n+  Object.freeze({ id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false }),\n+  Object.freeze({ id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true }),\n+]);\n \n export function buscarPorId(\n   usuarios: ReadonlyArray<Usuario>,\n"
     },
     {
@@ -327,7 +336,11 @@
               "workingDirectory": "<projeto>/storage/workspaces",
               "timeout": 30000,
               "toolCallId": "call_PTu8zyg3v0f2qFmfareVaCca\nfc_09e7929723c785e7016aea0b11a11c87d29149207181dabb5b",
-              "simpleCommands": ["git", "git", "git"],
+              "simpleCommands": [
+                "git",
+                "git",
+                "git"
+              ],
               "hasInputRedirect": false,
               "hasOutputRedirect": false,
               "fileOutputThresholdBytes": "40000",
@@ -439,7 +452,9 @@
               "workingDirectory": "<projeto>/storage/workspaces",
               "timeout": 30000,
               "toolCallId": "call_6WBt3QK5U4XvXTVFRrqzE0Yz\nfc_09e7929723c785e7016aea0b19f4b487d299018dc8de73a10e",
-              "simpleCommands": ["npm"],
+              "simpleCommands": [
+                "npm"
+              ],
               "hasInputRedirect": false,
               "hasOutputRedirect": false,
               "fileOutputThresholdBytes": "40000",
@@ -471,7 +486,9 @@
               "workingDirectory": "<projeto>/storage/workspaces",
               "timeout": 30000,
               "toolCallId": "call_PioV2EsugE1ltHSYB7eBidmK\nfc_09e7929723c785e7016aea0b19f4cc87d28956df86debbd9bd",
-              "simpleCommands": ["npm"],
+              "simpleCommands": [
+                "npm"
+              ],
               "hasInputRedirect": false,
               "hasOutputRedirect": false,
               "fileOutputThresholdBytes": "40000",
@@ -503,7 +520,10 @@
               "workingDirectory": "<projeto>/storage/workspaces",
               "timeout": 30000,
               "toolCallId": "call_AN1PH02E4ndaZHWvCdabM4zf\nfc_09e7929723c785e7016aea0b22db9c87d28f78b54156f20e20",
-              "simpleCommands": ["git", "git"],
+              "simpleCommands": [
+                "git",
+                "git"
+              ],
               "hasInputRedirect": false,
               "hasOutputRedirect": false,
               "fileOutputThresholdBytes": "40000",
@@ -747,18 +767,21 @@
       },
       {
         "step": 0,
+        "lane": "analista",
         "title": "Testa no próprio diretório e aponta 8 pontos",
         "text": "Em 27 s e 3 ferramentas: `npm ci`, `npm test` (5 de 5) e `npm start`, sem copiar o projeto. Nenhum bug que afete o funcionamento:\n- `src/usuarios.ts:8` `usuariosPadrao` só é imutável no TypeScript, sem `Object.freeze`\n- `src/main.ts:4-6` nenhum aviso quando o usuário não existe\n- `src/usuarios.ts:21` nada garante `id` único\n- `src/usuarios.test.ts` faltam testes de casos-limite e do `main.ts`\n- `src/usuarios.ts:4` o `email` não é usado nem validado\n- `package.json:13` o glob do `node --test` exige Node 21 ou mais novo\n- `package.json:10-13` `test` e `build` apagam o `dist/` um do outro\n- `tsconfig.json` faltam opções de rigor",
         "ok": "O git confirma: não alterou nenhum arquivo. O \"Permission denied\" das rodadas 2 e 3 não apareceu."
       },
       {
         "step": 1,
+        "lane": "programador",
         "title": "Corrige 1 ponto, com teste, e recusa 7",
         "text": "Em 32 s e 3 ferramentas. Congela `usuariosPadrao` com `Object.freeze`, a lista e cada objeto, e escreve o teste \"usuariosPadrao não pode ser alterado em tempo de execução\". Recusa os outros 7: ou não há defeito por trás, ou nenhum teste falharia sem a mudança.",
         "ok": "Conferido numa cópia: com o `src/usuarios.ts` original, o teste novo falha (5 passam, 1 falha); com a correção, os 6 passam. O git mostra os dois arquivos que ele disse. Não fez commit."
       },
       {
         "step": 2,
+        "lane": "revisor",
         "title": "Confere a correção e o teste",
         "text": "Em 28 s e 18 ferramentas: `git diff --check`, `npm test` (6 de 6) e `npm start`. A correção está certa e o teste cobre as duas formas de alterar os dados: acrescentar à lista e mudar um objeto.\n- sem a correção, o primeiro `assert.throws` falharia\n- os 7 pontos recusados são cobertura, política ou decisão de modelo: nenhuma correção obrigatória ficou de fora",
         "ok": "O git confirma: não alterou nenhum arquivo."

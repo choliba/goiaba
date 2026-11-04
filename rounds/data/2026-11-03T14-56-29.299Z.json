@@ -62,7 +62,10 @@
       },
       "network": {
         "rules": null,
-        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysAllow": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
         "alwaysDeny": [],
         "decisions": []
       },
@@ -90,7 +93,10 @@
       },
       "network": {
         "rules": null,
-        "alwaysAllow": ["api.anthropic.com:443", "console.anthropic.com:443"],
+        "alwaysAllow": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
         "alwaysDeny": [],
         "decisions": []
       },
@@ -408,7 +414,12 @@
               "workingDirectory": "<projeto>/storage/workspaces",
               "timeout": 30000,
               "toolCallId": "call_ajHq9M72OWqmqZv0Nl3SNqov\nfc_08242e2a76377b23016ae9f7c711bc87d2a8e44e63ccb8318d",
-              "simpleCommands": ["git", "git", "git", "git"],
+              "simpleCommands": [
+                "git",
+                "git",
+                "git",
+                "git"
+              ],
               "hasInputRedirect": false,
               "hasOutputRedirect": false,
               "fileOutputThresholdBytes": "40000",
@@ -529,7 +540,12 @@
               "workingDirectory": "<projeto>/storage/workspaces",
               "timeout": 30000,
               "toolCallId": "call_IDOZzdHQENnkHZYSzeodKugK\nfc_08242e2a76377b23016ae9f7ca8de087d2ba079ef9e29d5774",
-              "simpleCommands": ["npm", "npm", "git", "git"],
+              "simpleCommands": [
+                "npm",
+                "npm",
+                "git",
+                "git"
+              ],
               "hasInputRedirect": false,
               "hasOutputRedirect": false,
               "fileOutputThresholdBytes": "40000",
@@ -561,7 +577,14 @@
               "workingDirectory": "<projeto>/storage/workspaces",
               "timeout": 30000,
               "toolCallId": "call_K5cLU00AUWcIaEm5e863YDjH\nfc_08242e2a76377b23016ae9f7d017e887d28c5c0a5b8fa03019",
-              "simpleCommands": ["git", "git", "true", "git", "rg", "true"],
+              "simpleCommands": [
+                "git",
+                "git",
+                "true",
+                "git",
+                "rg",
+                "true"
+              ],
               "hasInputRedirect": false,
               "hasOutputRedirect": false,
               "fileOutputThresholdBytes": "40000",
@@ -897,69 +920,82 @@
       },
       {
         "step": 0,
+        "lane": "analista",
         "title": "Analisa o projeto e lista 9 pontos",
         "text": "Roda `npm test`, `npm start` e `npm audit`. Nada crítico: aponta pontos menores de build, código, testes e git, entre eles o `email` sem uso.\n\"Quer que eu corrija algum desses pontos?\""
       },
       {
         "step": null,
+        "lane": "you",
         "title": "Você responde",
         "text": "\"apenas Campo `email` sem uso\""
       },
       {
         "step": 0,
+        "lane": "analista",
         "title": "Pergunta como tratar o email",
         "text": "\"Você prefere remover o campo `email` da interface e dos dados ou mantê-lo e acrescentar uma validação de formato?\""
       },
       {
         "step": null,
+        "lane": "you",
         "title": "Você responde",
         "text": "\"apenas onde ela é declarada e não usada\""
       },
       {
         "step": 0,
+        "lane": "analista",
         "title": "Remove o email ele mesmo",
         "text": "Tira o `email` da interface `Usuario`, dos três usuários e do teste de `saudacao`. Os 5 testes continuam passando. As mudanças ficam no diretório, sem commit.",
         "warn": "O analista fez o trabalho do programador. Nada no prompt dizia que ele só analisa."
       },
       {
         "step": 1,
+        "lane": "programador",
         "title": "Não encontra nada para corrigir",
         "text": "Recebe \"Corrija estes problemas…\" seguido do resumo da remoção. Confere o projeto e não altera nada.\n\"Na sua mensagem não aparece nenhum problema para corrigir, só esse resumo. Quais são os problemas do projeto que você quer que eu corrija?\"",
         "warn": "Ele achou que o texto vinha de você, e a lista de problemas nunca chegou até ele."
       },
       {
         "step": null,
+        "lane": "you",
         "title": "Você responde",
         "text": "\"onde voce está\""
       },
       {
         "step": 1,
+        "lane": "programador",
         "title": "Diz onde está e pergunta de novo",
         "text": "Está em `…/storage/workspaces`, no branch `master`, num repositório ainda sem commits. Volta a perguntar o que corrigir."
       },
       {
         "step": null,
+        "lane": "you",
         "title": "Você responde",
         "text": "\"então vamos fechar esse ticket\""
       },
       {
         "step": 1,
+        "lane": "programador",
         "title": "Tenta commitar e esbarra no autor",
         "text": "Entende \"fechar o ticket\" como commit e planeja dois: o projeto inicial e a remoção do `email`. Os dois falham porque o git não tem nome nem e-mail de autor.\n\"Que nome e e-mail devo configurar como autor neste repositório?\""
       },
       {
         "step": null,
+        "lane": "you",
         "title": "Você responde",
         "text": "\"batata\""
       },
       {
         "step": 1,
+        "lane": "programador",
         "title": "Faz dois commits como batata",
         "text": "Autor `batata <batata@localhost>`, configurado só neste repositório. Não há remoto, então nada saiu da máquina.\n- `33125e6` Cria projeto de exemplo de usuários\n- `d1bbbe3` Remove o campo email de Usuario",
         "warn": "O e-mail foi inventado. Os commits ficaram só no repositório de teste em storage/workspaces, que o .gitignore do Goiaba ignora."
       },
       {
         "step": 2,
+        "lane": "revisor",
         "title": "Não encontra pendências",
         "text": "- `email` removido da interface, dos dados e do teste\n- nenhuma outra referência a `email`\n- testes e compilação passam\n- diretório limpo; `dist/` e `node_modules/` ignorados\n- commits com autoria `batata <batata@localhost>`"
       }

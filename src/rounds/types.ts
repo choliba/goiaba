@@ -6,10 +6,19 @@
  */
 
 import type { NetworkRules } from '../network/rules';
-import type { NetworkDecisionSource } from '../network/types';
 import type { AgentPolicy } from '../policy/policy.interface';
-import type { HostState } from '../workspace/sandbox/host-access';
-import type { WorkspaceType } from '../workspace/index';
+
+// Copies of unions whose modules reach Node (the store, the sandbox): the
+// pages could not compile them. `compat.ts` fails the typecheck if a copy
+// drifts from its original.
+
+/** `WorkspaceType` of src/workspace. */
+export type RoundWorkspaceType = 'docker' | 'bubblewrap';
+/** `HostState` of src/workspace. */
+export type RoundHostState = 'login' | 'none' | 'share';
+/** `NetworkDecisionSource` of src/network. */
+export type RoundDecisionSource =
+  'policy' | 'default' | 'provider' | 'human' | 'saved';
 
 /** The version of this shape; a record with another one is refused. */
 export const ROUND_SCHEMA = 2;
@@ -114,13 +123,13 @@ export interface ProviderSnapshot {
 }
 
 export interface WorkspaceSnapshot {
-  readonly type: WorkspaceType;
+  readonly type: RoundWorkspaceType;
   /** Docker only. */
   readonly image: string | null;
   /** With the project's path as `<projeto>` and the home as `~`. */
   readonly root: string;
   readonly writable: readonly string[];
-  readonly hostState: HostState;
+  readonly hostState: RoundHostState;
   readonly ports: readonly number[];
 }
 
@@ -141,7 +150,7 @@ export interface NetworkDecisionRecord {
   readonly destination: string;
   readonly protocol: 'http' | 'https';
   readonly decision: 'allow' | 'deny';
-  readonly decidedBy: NetworkDecisionSource;
+  readonly decidedBy: RoundDecisionSource;
   readonly reason: string;
 }
 
@@ -283,6 +292,8 @@ export interface StepReview {
    * steps (the script, a person answering).
    */
   readonly step: number | null;
+  /** Who acts in it: an actor, `you` (a person), or absent (the script). */
+  readonly lane?: string;
   readonly title: string;
   /** What happened in the step, in the reviewer's words. */
   readonly text?: string;

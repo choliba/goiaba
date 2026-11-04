@@ -6,14 +6,14 @@
  */
 
 import { UsageError } from '../errors';
-import type { NetworkDecisionSource } from '../network/types';
-import type { HostState } from '../workspace/sandbox/host-access';
-import type { WorkspaceType } from '../workspace/index';
 import { COST_TOLERANCE_USD } from './constants';
 import { sum, TOKEN_KINDS } from './totals';
 import {
   ROUND_SCHEMA,
   type CostSource,
+  type RoundDecisionSource,
+  type RoundHostState,
+  type RoundWorkspaceType,
   type RoundRecord,
   type TokenCounts,
 } from './types';
@@ -146,18 +146,18 @@ const object =
     }
   };
 
-const WORKSPACE_TYPES: Readonly<Record<WorkspaceType, true>> = {
+const WORKSPACE_TYPES: Readonly<Record<RoundWorkspaceType, true>> = {
   docker: true,
   bubblewrap: true,
 };
 
-const HOST_STATES: Readonly<Record<HostState, true>> = {
+const HOST_STATES: Readonly<Record<RoundHostState, true>> = {
   login: true,
   none: true,
   share: true,
 };
 
-const DECISION_SOURCES: Readonly<Record<NetworkDecisionSource, true>> = {
+const DECISION_SOURCES: Readonly<Record<RoundDecisionSource, true>> = {
   policy: true,
   default: true,
   provider: true,
@@ -311,6 +311,7 @@ const roundRecord = object({
     steps: list(
       object({
         step: nullable(count),
+        'lane?': nonEmpty,
         title: string,
         'text?': string,
         'ok?': string,

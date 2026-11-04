@@ -6,3 +6,5 @@ bun.lock
 .agents/
 # Gerados pelo runRound (bun run rounds)
 rounds/data/
+# Build das páginas das rodadas (bun run rounds:build)
+rounds/web/dist/
