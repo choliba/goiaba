@@ -60,14 +60,15 @@ export interface RoundRecord {
    * neither.
    */
   readonly criteria?: RoundCriteria;
-  /** Written after the run, by whoever reviews it; absent until then. */
-  readonly review?: RoundReview;
 }
 
 export interface RoundDefinitionRef {
   /** The declaration's id: `analise-programacao-revisao`. */
   readonly id: string;
-  /** What the round wants to find out, in the user's language. */
+  /**
+   * What the round wants to find out, in the user's language. Empty in the
+   * rounds that ran before declarations had one (agents/02.ts).
+   */
   readonly goal: string;
 }
 
@@ -334,30 +335,4 @@ export interface RuleResult {
   readonly passed: boolean;
   /** Why, in the user's language. */
   readonly detail: string;
-}
-
-/** What a person (or an agent) wrote about the run, after it. */
-export interface RoundReview {
-  /** Short, for the index: `Uma correção, com teste`. */
-  readonly title: string;
-  readonly summary: string;
-  /** The scenes of the run, in order: most about a step, some about none. */
-  readonly steps: readonly StepReview[];
-  /** What to look at in the next round. */
-  readonly next: readonly string[];
-}
-
-export interface StepReview {
-  /**
-   * Its position in `steps`; `null` for what happened outside the agents'
-   * steps (the script, a person answering).
-   */
-  readonly step: number | null;
-  /** Who acts in it: an actor, `you` (a person), or absent (the script). */
-  readonly lane?: string;
-  readonly title: string;
-  /** What happened in the step, in the reviewer's words. */
-  readonly text?: string;
-  readonly ok?: string;
-  readonly warn?: string;
 }

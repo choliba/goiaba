@@ -82,3 +82,7 @@ export function spread(
     max: Math.max(...measured),
   };
 }
+
+/** The goal, or what the rounds that ran without one show. */
+export const goalOf = (goal: string): string =>
+  goal.trim().length === 0 ? 'sem objetivo declarado' : goal;

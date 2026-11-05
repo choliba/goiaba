@@ -3,7 +3,7 @@
   "id": "2026-11-03T15-20-54.482Z",
   "definition": {
     "id": "analise-programacao-revisao",
-    "goal": "Cada um no seu papel."
+    "goal": ""
   },
   "start": null,
   "repeat": {
@@ -133,7 +133,7 @@
       "configHash": "8f56543178dd1a9d2ad5fc9a828a5b5490a6cf4aed0c63448e0f60c350a1805a"
     }
   },
-  "configHash": "2de4bd154751e602199534c572aa4000838f85074ded50bad12b27c9214fadcf",
+  "configHash": "674e600cad6af5c6cf8b5a21735032cc9826e557862accf97b46c3fb8deb3dfc",
   "steps": [
     {
       "key": "analista#1",
@@ -862,46 +862,5 @@
       "typecheck": null
     }
   },
-  "violations": [],
-  "review": {
-    "title": "Cada um no seu papel",
-    "summary": "Cada agente sabe o seu papel, recebe tudo o que o anterior disse, e ninguém pergunta nada a você.",
-    "steps": [
-      {
-        "step": null,
-        "title": "Programador consulta analista",
-        "text": "O script imprime a linha e chama o analista com o papel dele no pedido.\n\"Você é o analista de uma equipe de três agentes: analista, programador e revisor.\nO programador pediu esta análise.\nNão altere nenhum arquivo e não faça perguntas: ninguém vai responder.\""
-      },
-      {
-        "step": 0,
-        "lane": "analista",
-        "title": "Analisa sem alterar nada",
-        "text": "Em 35 s e 6 ferramentas: compila com `tsc --noEmit`, roda os 5 testes numa cópia temporária, confere a saída do `main.ts`. Nenhum problema crítico; 6 pontos menores, cada um com arquivo e linha:\n- `src/usuarios.ts:1-5` tirar `email` pode quebrar quem usava o campo\n- `src/usuarios.ts:20` nada garante `id` único\n- `src/usuarios.ts:23` `listarAtivos` devolve um array mutável\n- `package.json:13` o `test` deixa os `.test.js` no `dist/`\n- `package.json:9-14` sem script de checagem de tipos nem de lint\n- `src/main.ts` sem teste",
-        "warn": "Antes da análise, uma linha de erro da CLI virou fala do analista: \"Copy lost symlinks; retry with cp -a.\". Ela foi passada ao programador junto com o resto."
-      },
-      {
-        "step": 1,
-        "lane": "programador",
-        "title": "Corrige 3 pontos e explica os outros 3",
-        "text": "Em 29 s e 4 ferramentas. O que ele diz que mudou bate com o `git diff` do projeto:\n- `src/usuarios.ts`: `listarAtivos` devolve `ReadonlyArray<Usuario>`\n- `package.json`: o `test` compila em `dist-test/` e não mexe mais no `dist/`; novo script `typecheck`\n- `.gitignore`: acrescenta `dist-test/`",
-        "ok": "Deixou de fora o `email`, o `id` repetido, o teste do `main.ts` e o lint, e disse por quê. Não fez commit."
-      },
-      {
-        "step": 2,
-        "lane": "revisor",
-        "title": "Confere o diff",
-        "text": "Em 25 s e 18 ferramentas. Confirma as três mudanças e que o build normal continua sem os testes.\n- o ponto 5 ficou pela metade: ainda não há lint\n- o `test` ainda compila código e testes juntos, mas agora num diretório descartável\n- seguem em aberto, por decisão do programador: `id` repetido, teste do `main.ts` e a remoção do `email`"
-      },
-      {
-        "step": null,
-        "title": "Rodada guardada",
-        "text": "O script grava o pedido de cada agente, tudo o que ele disse e as perguntas (nenhuma) em `docs/rodadas/2026-11-03T15-20-54.482Z.json`."
-      }
-    ],
-    "next": [
-      "Não passar adiante o que a CLI escreve no stderr. \"Copy lost symlinks; retry with cp -a.\" chegou ao programador como se fosse parte da análise (cena 2).",
-      "Voltar o projeto do workspace ao mesmo ponto antes de cada rodada, para comparar uma rodada com a outra.",
-      "Conferir de verdade que o analista e o revisor não mudaram arquivos: hoje é só um pedido no prompt. O script pode olhar o git status depois de cada um e registrar."
-    ]
-  }
+  "violations": []
 }

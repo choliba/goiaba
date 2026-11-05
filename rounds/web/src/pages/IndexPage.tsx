@@ -189,7 +189,6 @@ export function IndexPage(): ReactNode {
                       <th scope="row">
                         <a href={testHref(test.key)}>
                           <small>
-                            Teste {test.number} ·{' '}
                             {count(
                               test.configurations,
                               'configuração',

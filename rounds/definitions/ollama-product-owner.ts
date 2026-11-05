@@ -22,8 +22,8 @@ const root = getConfig().workspaces.dir;
 
 /** Every agent in its own sandbox, with nothing of the host's CLI state. */
 const workspace: WorkspaceOptions = {
-  type: 'docker',
-  image: 'FROM busybox:latest',
+  type: 'bubblewrap',
+  // image: 'FROM busybox:latest',
   root,
   hostState: 'none',
 };

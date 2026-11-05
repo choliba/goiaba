@@ -3,7 +3,7 @@
   "id": "2026-11-03T15-47-38.774Z",
   "definition": {
     "id": "analise-programacao-revisao",
-    "goal": "Mesmo ponto de partida, conferido pelo git."
+    "goal": ""
   },
   "start": {
     "tag": "rodada-base",
@@ -136,7 +136,7 @@
       "configHash": "8f56543178dd1a9d2ad5fc9a828a5b5490a6cf4aed0c63448e0f60c350a1805a"
     }
   },
-  "configHash": "567c36811e7a609818a69e7649c499bff127e7108003100e4bf935b4609bee6e",
+  "configHash": "674e600cad6af5c6cf8b5a21735032cc9826e557862accf97b46c3fb8deb3dfc",
   "steps": [
     {
       "key": "analista#1",
@@ -670,47 +670,5 @@
       "passed": true,
       "detail": "O git não mostra nenhuma alteração."
     }
-  ],
-  "review": {
-    "title": "Mesmo ponto de partida",
-    "summary": "Toda rodada parte da tag rodada-base, e o git confere o que cada agente mudou.",
-    "steps": [
-      {
-        "step": null,
-        "title": "Volta ao ponto de partida e consulta o analista",
-        "text": "O script volta o workspace à tag `rodada-base` (`33125e6`): o projeto original, com o `email`, de onde a rodada 1 partiu. Depois chama o analista com o papel dele no pedido.\n\"Workspace no ponto de partida: rodada-base (33125e6)\""
-      },
-      {
-        "step": 0,
-        "lane": "analista",
-        "title": "Analisa sem alterar nada",
-        "text": "Em 22 s e 3 ferramentas: compila, roda os 5 testes e o programa numa cópia em `/tmp`. Pela cópia, o `npm test` falhou com \"tsc: Permission denied\", e ele não confirmou a causa. 6 pontos menores:\n- `src/usuarios.ts:21` nada garante `id` único\n- `src/usuarios.ts:4` o `email` não é usado nem validado\n- `src/usuarios.test.ts:24-29` falta testar `listarAtivos` com lista vazia\n- `src/main.ts:4-6` nenhum aviso quando o usuário não existe\n- `package.json:13` `test` e `build` rodando juntos apagam o `dist/` um do outro\n- `package.json:16-17` versões com `^`",
-        "ok": "O git confirma: não alterou nenhum arquivo."
-      },
-      {
-        "step": 1,
-        "lane": "programador",
-        "title": "Corrige 2 pontos e explica os outros 4",
-        "text": "Em 19 s e 2 ferramentas:\n- `src/usuarios.test.ts`: teste novo, `listarAtivos` com lista vazia e só com inativos\n- `src/main.ts`: escreve \"Usuário 1 não encontrado.\" no stderr quando não acha o usuário",
-        "ok": "O git mostra exatamente os dois arquivos que ele disse. Deixou de fora o `id` repetido, o `email`, a corrida entre `test` e `build` e o `^`, cada um com o motivo. Não fez commit."
-      },
-      {
-        "step": 2,
-        "lane": "revisor",
-        "title": "Confere o diff e contesta uma justificativa",
-        "text": "Em 22 s e 10 ferramentas. As duas mudanças estão certas, e o diff tem só os dois arquivos declarados.\n- falta um teste para o aviso novo do `main.ts`\n- dos 4 pontos deixados de fora, só a corrida entre `test` e `build` é um risco técnico\n- a justificativa do programador para não corrigir a corrida não é precisa: havia saídas mais simples",
-        "ok": "O git confirma: não alterou nenhum arquivo."
-      },
-      {
-        "step": null,
-        "title": "Rodada guardada",
-        "text": "O script grava o ponto de partida e, para cada agente, o pedido, tudo o que disse, as perguntas (nenhuma) e o que o git mostrou que ele mudou, em `docs/rodadas/2026-11-03T15-47-38.774Z.json`."
-      }
-    ],
-    "next": [
-      "O analista testou numa cópia em /tmp e esbarrou em \"tsc: Permission denied\" nas rodadas 2 e 3. Ele pode rodar os testes no próprio diretório: o que o build gera (dist/) o git ignora, e o script continua conferindo que nada do projeto mudou.",
-      "O revisor apontou que o aviso novo do main.ts não tem teste. É um bom ponto de partida para ver se o programador da próxima rodada chega a ele sozinho.",
-      "Cada rodada corrige pontos diferentes do mesmo projeto. Para comparar a qualidade, vale fixar o que se espera: por exemplo, que todo ponto corrigido ganhe um teste."
-    ]
-  }
+  ]
 }

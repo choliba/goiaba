@@ -3,7 +3,7 @@
   "id": "2026-11-03T16-24-47.383Z",
   "definition": {
     "id": "analise-programacao-revisao",
-    "goal": "Uma correção, com um teste que falha sem ela."
+    "goal": ""
   },
   "start": {
     "tag": "rodada-base",
@@ -136,7 +136,7 @@
       "configHash": "8f56543178dd1a9d2ad5fc9a828a5b5490a6cf4aed0c63448e0f60c350a1805a"
     }
   },
-  "configHash": "ea678a3928a552a3194ef5e4eb5fef346d4db0163c45567a2cfdb27dd8b53e2e",
+  "configHash": "674e600cad6af5c6cf8b5a21735032cc9826e557862accf97b46c3fb8deb3dfc",
   "steps": [
     {
       "key": "analista#1",
@@ -818,47 +818,5 @@
       "passed": true,
       "detail": "O git não mostra nenhuma alteração."
     }
-  ],
-  "review": {
-    "title": "Uma correção, com teste",
-    "summary": "Testes no próprio diretório e a regra de que toda correção ganha um teste que falha sem ela.",
-    "steps": [
-      {
-        "step": null,
-        "title": "Volta ao ponto de partida e consulta o analista",
-        "text": "O script volta o workspace à tag `rodada-base` (`33125e6`) e chama o analista. Agora o pedido diz que ele pode compilar e testar no próprio diretório.\n\"Workspace no ponto de partida: rodada-base (33125e6)\""
-      },
-      {
-        "step": 0,
-        "lane": "analista",
-        "title": "Testa no próprio diretório e aponta 8 pontos",
-        "text": "Em 27 s e 3 ferramentas: `npm ci`, `npm test` (5 de 5) e `npm start`, sem copiar o projeto. Nenhum bug que afete o funcionamento:\n- `src/usuarios.ts:8` `usuariosPadrao` só é imutável no TypeScript, sem `Object.freeze`\n- `src/main.ts:4-6` nenhum aviso quando o usuário não existe\n- `src/usuarios.ts:21` nada garante `id` único\n- `src/usuarios.test.ts` faltam testes de casos-limite e do `main.ts`\n- `src/usuarios.ts:4` o `email` não é usado nem validado\n- `package.json:13` o glob do `node --test` exige Node 21 ou mais novo\n- `package.json:10-13` `test` e `build` apagam o `dist/` um do outro\n- `tsconfig.json` faltam opções de rigor",
-        "ok": "O git confirma: não alterou nenhum arquivo. O \"Permission denied\" das rodadas 2 e 3 não apareceu."
-      },
-      {
-        "step": 1,
-        "lane": "programador",
-        "title": "Corrige 1 ponto, com teste, e recusa 7",
-        "text": "Em 32 s e 3 ferramentas. Congela `usuariosPadrao` com `Object.freeze`, a lista e cada objeto, e escreve o teste \"usuariosPadrao não pode ser alterado em tempo de execução\". Recusa os outros 7: ou não há defeito por trás, ou nenhum teste falharia sem a mudança.",
-        "ok": "Conferido numa cópia: com o `src/usuarios.ts` original, o teste novo falha (5 passam, 1 falha); com a correção, os 6 passam. O git mostra os dois arquivos que ele disse. Não fez commit."
-      },
-      {
-        "step": 2,
-        "lane": "revisor",
-        "title": "Confere a correção e o teste",
-        "text": "Em 28 s e 18 ferramentas: `git diff --check`, `npm test` (6 de 6) e `npm start`. A correção está certa e o teste cobre as duas formas de alterar os dados: acrescentar à lista e mudar um objeto.\n- sem a correção, o primeiro `assert.throws` falharia\n- os 7 pontos recusados são cobertura, política ou decisão de modelo: nenhuma correção obrigatória ficou de fora",
-        "ok": "O git confirma: não alterou nenhum arquivo."
-      },
-      {
-        "step": null,
-        "title": "Rodada guardada",
-        "text": "O registro, já sem caminhos com nome de usuário nem valores de credenciais, fica ao lado das páginas: `docs/rodadas/2026-11-03T16-24-47.383Z.json`."
-      }
-    ],
-    "next": [
-      "A regra do teste fez o programador corrigir menos. Vale decidir se um teste que só aumenta a cobertura, sem defeito por trás, conta como trabalho válido.",
-      "O analista rodou npm ci, que reinstala o node_modules. O git ignora a pasta, mas o ambiente das etapas seguintes muda. Pode bastar pedir npm test.",
-      "Pedir ao analista a gravidade de cada ponto ajudaria a comparar se o programador corrige os mais graves, e não só os que cabem na regra."
-    ]
-  }
+  ]
 }

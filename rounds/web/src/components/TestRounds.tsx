@@ -19,9 +19,7 @@ export function TestRounds({
 }): ReactNode {
   const name = (
     <>
-      <small>
-        {current === undefined ? '' : '← '}Teste {test.number}
-      </small>
+      <small>{current === undefined ? 'teste' : '← teste'}</small>
       {test.title}
     </>
   );

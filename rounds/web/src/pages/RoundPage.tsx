@@ -12,7 +12,6 @@ import {
   promptChanges,
 } from '../components/Config';
 import { Flow } from '../components/Flow';
-import { Rich } from '../components/Rich';
 import { Scores } from '../components/Scores';
 import { TestRounds } from '../components/TestRounds';
 import { TestsNav } from '../components/TestsNav';
@@ -25,6 +24,7 @@ import {
   title,
   tokens,
   when,
+  goalOf,
 } from '../format';
 import { roundHref } from '../route';
 
@@ -119,14 +119,12 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
 
       <header>
         <span className="eyebrow">
-          {record.definition.id} · teste {test.number} · {label} · config.{' '}
-          {round.configuration} · {when(record.timing.startedAt)}
+          {record.definition.id} · {label} · config. {round.configuration} ·{' '}
+          {when(record.timing.startedAt)}
         </span>
-        <h1>
-          {record.review?.title ?? `Teste ${String(test.number)}, ${label}`}
-        </h1>
+        <h1>Rodada {round.index}</h1>
         <p>
-          <strong>Objetivo:</strong> {record.definition.goal}
+          <strong>Objetivo:</strong> {goalOf(record.definition.goal)}
         </p>
         {record.label !== undefined && (
           <p>
@@ -134,7 +132,6 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
             {record.label}”
           </p>
         )}
-        {record.review !== undefined && <Rich text={record.review.summary} />}
         <p className="muted">
           {record.start === null
             ? 'Sem ponto de partida no git.'
@@ -203,19 +200,6 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
       </section>
 
       <Flow round={record} />
-
-      {record.review !== undefined && record.review.next.length > 0 && (
-        <section className="next" aria-labelledby="proxima">
-          <h2 id="proxima">O que olhar na próxima rodada</h2>
-          <ol>
-            {record.review.next.map((item) => (
-              <li key={item}>
-                <Rich text={item} />
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
     </main>
   );
 }

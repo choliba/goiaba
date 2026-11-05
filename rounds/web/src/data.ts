@@ -4,8 +4,9 @@
  * file in rounds/definitions); every time it runs is a round, numbered in
  * the order it ran, whatever changed in between. Each round is compared with
  * the one before it in the same test. Rounds with the same configuration
- * (the same `configHash`) share a configuration number: only those are
- * averaged together.
+ * (the same `configHash`) are averaged together, and only those. Nothing
+ * here is numbered by order: a test is its id, a configuration the start
+ * of its hash, so they stay the same whatever records come or go.
  */
 
 import { scoreRound, type RoundScore } from '../../../src/rounds/score';
@@ -13,8 +14,6 @@ import type { RoundRecord } from '../../../src/rounds/types';
 import { validateRound } from '../../../src/rounds/validate';
 
 export interface Test {
-  /** In the order tests first ran, from 1. */
-  readonly number: number;
   /** The declaration's id: the test's address. */
   readonly key: string;
   /** The declaration's id. */
@@ -34,13 +33,16 @@ export interface Round {
   readonly index: number;
   /** `rodada 2 de 3`, or `rodada única`. */
   readonly label: string;
-  /** Its configuration within the test, from 1, in the order they first ran. */
-  readonly configuration: number;
+  /** Its configuration: the start of `configHash` (`674e600c`). */
+  readonly configuration: string;
   /** The round before it in the same test: what it is compared with. */
   readonly previous: RoundRecord | undefined;
   /** Its scores, by the rubric, against the test's earlier rounds. */
   readonly score: RoundScore;
 }
+
+/** How many characters of `configHash` name a configuration. */
+const CONFIG_KEY_LENGTH = 8;
 
 const files = import.meta.glob<unknown>('../../data/*.json', {
   eager: true,
@@ -59,20 +61,13 @@ const allRounds: Round[] = [];
 for (const [id, group] of groups) {
   const last = group.at(-1);
   if (last === undefined) continue;
-  const configurations = new Map<string, number>();
-  for (const record of group) {
-    if (!configurations.has(record.configHash)) {
-      configurations.set(record.configHash, configurations.size + 1);
-    }
-  }
   const rounds: Round[] = [];
   const test: Test = {
-    number: built.length + 1,
     key: id,
     title: id,
     goal: last.definition.goal,
     rounds,
-    configurations: configurations.size,
+    configurations: new Set(group.map((record) => record.configHash)).size,
   };
   group.forEach((record, position) => {
     rounds.push({
@@ -83,7 +78,7 @@ for (const [id, group] of groups) {
         group.length === 1
           ? 'rodada única'
           : `rodada ${String(position + 1)} de ${String(group.length)}`,
-      configuration: configurations.get(record.configHash) ?? 1,
+      configuration: record.configHash.slice(0, CONFIG_KEY_LENGTH),
       previous: group[position - 1],
       score: scoreRound(record, group.slice(0, position)),
     });

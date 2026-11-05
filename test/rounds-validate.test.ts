@@ -201,14 +201,10 @@ test('aceita uma rodada válida e a devolve', () => {
   expect(validateRound(value)).toBe(value);
 });
 
-test('aceita uma rodada com revisão e com o que não foi medido como null', () => {
+test('aceita uma rodada com o que não foi medido como null, e sem objetivo', () => {
   const value = changed((r) => {
-    r['review'] = {
-      title: 'Só leitura',
-      summary: 'O analista não alterou nada.',
-      steps: [{ step: 0, title: 'Analisa', ok: 'git limpo' }],
-      next: ['medir o custo do Cursor'],
-    };
+    // agents/02.ts ran before declarations had a goal.
+    at(r, 'definition')['goal'] = '';
     for (const index of [0, 1]) {
       at(r, 'usage', index)['costUsd'] = null;
       at(r, 'usage', index)['costSource'] = null;
@@ -305,18 +301,6 @@ test.each([
       at(r, 'totals', 'round')['fresh'] = 1;
     },
     'totals.round.fresh: 1, mas os tokens novos de usage somam 1430',
-  ],
-  [
-    'revisão de um passo que não existe',
-    (r: Record<string, unknown>) => {
-      r['review'] = {
-        title: 'x',
-        summary: '',
-        steps: [{ step: 3, title: 'y' }],
-        next: [],
-      };
-    },
-    'review.steps[0].step: não há o passo 3',
   ],
 ])('recusa %s, dizendo onde', (_name, change, message) => {
   const value = changed(change);

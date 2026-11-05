@@ -20,6 +20,7 @@ import {
   title,
   tokensShort,
   when,
+  goalOf,
 } from '../format';
 import { roundHref } from '../route';
 import {
@@ -93,13 +94,12 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
 
       <header>
         <span className="eyebrow">
-          {test.key} · teste {test.number} ·{' '}
-          {count(test.rounds.length, 'rodada', 'rodadas')} ·{' '}
+          {test.key} · {count(test.rounds.length, 'rodada', 'rodadas')} ·{' '}
           {count(test.configurations, 'configuração', 'configurações')}
         </span>
         <h1>{test.title}</h1>
         <p>
-          <strong>Objetivo:</strong> {test.goal}
+          <strong>Objetivo:</strong> {goalOf(test.goal)}
         </p>
         <p className="muted">
           Cada execução é uma rodada, e cada rodada diz o que mudou desde a
@@ -134,11 +134,10 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                     <th scope="row">
                       <a href={roundHref(round.record.id)}>
                         <small>
-                          Rodada {round.index} · config. {round.configuration} ·{' '}
+                          config. {round.configuration} ·{' '}
                           {when(round.record.timing.startedAt)}
                         </small>
-                        {round.record.review?.title ??
-                          `Rodada ${String(round.index)}`}
+                        Rodada {round.index}
                       </a>
                     </th>
                     <td>
@@ -164,9 +163,9 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                 );
               })}
               {byConfiguration.map(([configuration, rounds]) => (
-                <tr key={`media-${String(configuration)}`} className="total">
+                <tr key={`media-${configuration}`} className="total">
                   <th scope="row">
-                    Média da config. {configuration}
+                    Média da config. <code>{configuration}</code>
                     <small>{roundList(rounds)} · menor – maior</small>
                   </th>
                   <td />

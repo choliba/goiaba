@@ -3,7 +3,7 @@
   "id": "2026-11-03T14-56-29.299Z",
   "definition": {
     "id": "analise-programacao-revisao",
-    "goal": "Ver o que acontece quando o programador consulta o analista e o revisor."
+    "goal": ""
   },
   "start": null,
   "repeat": {
@@ -133,7 +133,7 @@
       "configHash": "8325d51a23edf9168ff890fd82f65e837ef01f34560b788ec713bbd110f7239b"
     }
   },
-  "configHash": "b049c4bbdcc435ed4430665e615c1afaed26f02e2b81e8bacf7d073e76f62a4b",
+  "configHash": "f6b529fd9df92eccdebac345931bf8411826cbb10aee6a2dbaa654178b18ecc7",
   "steps": [
     {
       "key": "analista#1",
@@ -966,102 +966,5 @@
       "typecheck": null
     }
   },
-  "violations": [],
-  "review": {
-    "title": "Papéis misturados",
-    "summary": "O analista corrigiu o código, o programador recebeu só a última fala, e \"fechar o ticket\" virou commit com autor inventado.\n- O analista corrigiu o código: Ele terminou perguntando se devia corrigir, e removeu o email ele mesmo. (cena 6)\n- O programador recebeu só a última fala: O script passou o resumo da remoção, e não a lista de problemas. Ele achou que não havia nada a fazer. (cena 7)\n- Cada agente achou que falava com você: O programador tratou a análise como texto colado por você, e \"fechar o ticket\" virou um commit com autor inventado. (cena 13)",
-    "steps": [
-      {
-        "step": null,
-        "title": "Programador consulta analista",
-        "text": "O script imprime a linha e chama o analista. O programador ainda não rodou: é o script que fala por ele.\n\"Analise o projeto e liste os problemas.\""
-      },
-      {
-        "step": 0,
-        "lane": "analista",
-        "title": "Analisa o projeto e lista 9 pontos",
-        "text": "Roda `npm test`, `npm start` e `npm audit`. Nada crítico: aponta pontos menores de build, código, testes e git, entre eles o `email` sem uso.\n\"Quer que eu corrija algum desses pontos?\""
-      },
-      {
-        "step": null,
-        "lane": "you",
-        "title": "Você responde",
-        "text": "\"apenas Campo `email` sem uso\""
-      },
-      {
-        "step": 0,
-        "lane": "analista",
-        "title": "Pergunta como tratar o email",
-        "text": "\"Você prefere remover o campo `email` da interface e dos dados ou mantê-lo e acrescentar uma validação de formato?\""
-      },
-      {
-        "step": null,
-        "lane": "you",
-        "title": "Você responde",
-        "text": "\"apenas onde ela é declarada e não usada\""
-      },
-      {
-        "step": 0,
-        "lane": "analista",
-        "title": "Remove o email ele mesmo",
-        "text": "Tira o `email` da interface `Usuario`, dos três usuários e do teste de `saudacao`. Os 5 testes continuam passando. As mudanças ficam no diretório, sem commit.",
-        "warn": "O analista fez o trabalho do programador. Nada no prompt dizia que ele só analisa."
-      },
-      {
-        "step": 1,
-        "lane": "programador",
-        "title": "Não encontra nada para corrigir",
-        "text": "Recebe \"Corrija estes problemas…\" seguido do resumo da remoção. Confere o projeto e não altera nada.\n\"Na sua mensagem não aparece nenhum problema para corrigir, só esse resumo. Quais são os problemas do projeto que você quer que eu corrija?\"",
-        "warn": "Ele achou que o texto vinha de você, e a lista de problemas nunca chegou até ele."
-      },
-      {
-        "step": null,
-        "lane": "you",
-        "title": "Você responde",
-        "text": "\"onde voce está\""
-      },
-      {
-        "step": 1,
-        "lane": "programador",
-        "title": "Diz onde está e pergunta de novo",
-        "text": "Está em `…/storage/workspaces`, no branch `master`, num repositório ainda sem commits. Volta a perguntar o que corrigir."
-      },
-      {
-        "step": null,
-        "lane": "you",
-        "title": "Você responde",
-        "text": "\"então vamos fechar esse ticket\""
-      },
-      {
-        "step": 1,
-        "lane": "programador",
-        "title": "Tenta commitar e esbarra no autor",
-        "text": "Entende \"fechar o ticket\" como commit e planeja dois: o projeto inicial e a remoção do `email`. Os dois falham porque o git não tem nome nem e-mail de autor.\n\"Que nome e e-mail devo configurar como autor neste repositório?\""
-      },
-      {
-        "step": null,
-        "lane": "you",
-        "title": "Você responde",
-        "text": "\"batata\""
-      },
-      {
-        "step": 1,
-        "lane": "programador",
-        "title": "Faz dois commits como batata",
-        "text": "Autor `batata <batata@localhost>`, configurado só neste repositório. Não há remoto, então nada saiu da máquina.\n- `33125e6` Cria projeto de exemplo de usuários\n- `d1bbbe3` Remove o campo email de Usuario",
-        "warn": "O e-mail foi inventado. Os commits ficaram só no repositório de teste em storage/workspaces, que o .gitignore do Goiaba ignora."
-      },
-      {
-        "step": 2,
-        "lane": "revisor",
-        "title": "Não encontra pendências",
-        "text": "- `email` removido da interface, dos dados e do teste\n- nenhuma outra referência a `email`\n- testes e compilação passam\n- diretório limpo; `dist/` e `node_modules/` ignorados\n- commits com autoria `batata <batata@localhost>`"
-      }
-    ],
-    "next": [
-      "Dizer no prompt quem é cada agente e quem o consultou. Por exemplo: \"Você é o analista. O programador pediu esta análise. Não altere arquivos e não faça perguntas.\"",
-      "Passar ao próximo agente tudo o que o anterior disse, e não só a última fala.",
-      "Decidir se o programador pode fazer perguntas a você, ou se a rodada vai do começo ao fim sozinha."
-    ]
-  }
+  "violations": []
 }

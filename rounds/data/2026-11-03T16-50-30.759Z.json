@@ -3,7 +3,7 @@
   "id": "2026-11-03T16-50-30.759Z",
   "definition": {
     "id": "analise-programacao-revisao",
-    "goal": "Uma correção, com um teste que falha sem ela."
+    "goal": ""
   },
   "start": {
     "tag": "rodada-base",
@@ -136,7 +136,7 @@
       "configHash": "8f56543178dd1a9d2ad5fc9a828a5b5490a6cf4aed0c63448e0f60c350a1805a"
     }
   },
-  "configHash": "ea678a3928a552a3194ef5e4eb5fef346d4db0163c45567a2cfdb27dd8b53e2e",
+  "configHash": "674e600cad6af5c6cf8b5a21735032cc9826e557862accf97b46c3fb8deb3dfc",
   "steps": [
     {
       "key": "analista#1",
@@ -756,46 +756,5 @@
       "passed": true,
       "detail": "O git não mostra nenhuma alteração."
     }
-  ],
-  "review": {
-    "title": "A mesma correção, de novo",
-    "summary": "A rodada 4 rodada de novo, sem mudar nada: a mesma correção, com o mesmo tipo de teste.",
-    "steps": [
-      {
-        "step": null,
-        "title": "Volta ao ponto de partida e consulta o analista",
-        "text": "O script volta o workspace à tag `rodada-base` (`33125e6`) e chama o analista com o mesmo pedido da rodada 4.\n\"Workspace no ponto de partida: rodada-base (33125e6)\""
-      },
-      {
-        "step": 0,
-        "lane": "analista",
-        "title": "Testa no próprio diretório e aponta 6 pontos",
-        "text": "Em 25 s e 3 ferramentas: `npm ci`, `npm test` (5 de 5) e `npm start`, com o `git status` limpo depois. Nenhum bug real:\n- `src/usuarios.ts:8-12` `usuariosPadrao` só é imutável no TypeScript\n- `src/usuarios.ts:21` nada garante `id` único\n- `src/main.ts:3-6` nenhum aviso quando o usuário não existe\n- `src/usuarios.test.ts:24-39` faltam testes de casos-limite\n- `src/usuarios.ts:4` o `email` não é usado nem validado\n- `package.json:13` o glob do `node --test` exige Node 21 ou mais novo",
-        "ok": "O git confirma: não alterou nenhum arquivo."
-      },
-      {
-        "step": 1,
-        "lane": "programador",
-        "title": "Corrige 1 ponto, com teste, e fecha uma lacuna",
-        "text": "Em 33 s e 2 ferramentas. Congela `usuariosPadrao` com `Object.freeze` e escreve o teste \"usuariosPadrao não pode ser alterado em tempo de execução\". Acrescenta 3 casos-limite (`listarAtivos([])`, `buscarPorId([], 1)` e `descreverAtivos` só com inativos) e diz que eles já passavam antes. Recusa os pontos 2, 3, 5 e 6, cada um com o motivo.",
-        "ok": "Conferido numa cópia: com o `src/usuarios.ts` original, o teste novo falha (5 passam, 1 falha); com a correção, os 6 passam. O git mostra os dois arquivos que ele disse. Não fez commit."
-      },
-      {
-        "step": 2,
-        "lane": "revisor",
-        "title": "Confere a correção, o teste e a regra",
-        "text": "Em 24 s e 14 ferramentas: `git diff --check`, `npm test` (6 de 6) e `npm start`. Nada errado nas mudanças.\n- sem os `Object.freeze`, o teste da correção falharia\n- os casos-limite estão certos\n- nenhum ponto foi corrigido sem teste: os que ficaram de fora não contam contra a regra",
-        "ok": "O git confirma: não alterou nenhum arquivo."
-      },
-      {
-        "step": null,
-        "title": "Rodada guardada",
-        "text": "`docs/rodadas/2026-11-03T16-50-30.759Z.json`, já sem caminhos com nome de usuário nem valores de credenciais."
-      }
-    ],
-    "next": [
-      "A regra do teste deixou as duas execuções parecidas: mesma correção, mesmo tipo de teste, mesmas recusas.",
-      "O que ainda varia são os testes de casos-limite. Decidir se eles contam como trabalho válido tiraria essa diferença."
-    ]
-  }
+  ]
 }

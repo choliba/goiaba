@@ -3,7 +3,7 @@
   "id": "2026-11-03T15-56-15.155Z",
   "definition": {
     "id": "analise-programacao-revisao",
-    "goal": "Mesmo ponto de partida, conferido pelo git."
+    "goal": ""
   },
   "start": {
     "tag": "rodada-base",
@@ -136,7 +136,7 @@
       "configHash": "8f56543178dd1a9d2ad5fc9a828a5b5490a6cf4aed0c63448e0f60c350a1805a"
     }
   },
-  "configHash": "567c36811e7a609818a69e7649c499bff127e7108003100e4bf935b4609bee6e",
+  "configHash": "674e600cad6af5c6cf8b5a21735032cc9826e557862accf97b46c3fb8deb3dfc",
   "steps": [
     {
       "key": "analista#1",
@@ -873,47 +873,5 @@
       "passed": true,
       "detail": "O git não mostra nenhuma alteração."
     }
-  ],
-  "review": {
-    "title": "Mesma configuração, outro resultado",
-    "summary": "A rodada 3 rodada de novo, sem mudar nada: o programador corrigiu 4 pontos onde a primeira execução corrigiu 2.",
-    "steps": [
-      {
-        "step": null,
-        "title": "Volta ao ponto de partida e consulta o analista",
-        "text": "O script volta o workspace à tag `rodada-base` (`33125e6`) e chama o analista com o mesmo pedido da rodada 3.\n\"Workspace no ponto de partida: rodada-base (33125e6)\""
-      },
-      {
-        "step": 0,
-        "lane": "analista",
-        "title": "Analisa sem alterar nada",
-        "text": "Em 28 s e 4 ferramentas: `tsc --noEmit` nos dois `tsconfig` e os 5 testes, compilados numa pasta temporária, desta vez sem erro. 6 pontos menores:\n- `package.json:13` o `npm test` deixa os `.test.js` no `dist/`\n- `src/usuarios.ts:8-12` `usuariosPadrao` só é imutável no TypeScript\n- `src/usuarios.ts:21` nada garante `id` único\n- `src/usuarios.ts:4` o `email` não é usado nem validado\n- `src/usuarios.test.ts:24-29` falta testar `listarAtivos` com lista vazia\n- `src/main.ts:3-6` nenhum aviso quando o usuário não existe, e nenhum teste",
-        "ok": "O git confirma: não alterou nenhum arquivo."
-      },
-      {
-        "step": 1,
-        "lane": "programador",
-        "title": "Corrige 4 pontos, em 5 arquivos",
-        "text": "Em 34 s e 3 ferramentas:\n- `package.json` e `.gitignore`: testes em `dist-test/`, e o `clean` apaga as duas pastas\n- `src/usuarios.ts`: `Object.freeze` na lista e em cada usuário\n- `src/main.ts`: \"Usuário 1 não encontrado.\" no stderr\n- `src/usuarios.test.ts`: lista vazia e lista congelada",
-        "ok": "O git mostra os cinco arquivos que ele disse. Deixou de fora o `id` repetido, o `email` e o teste do `main.ts`, cada um com o motivo. Não fez commit.",
-        "warn": "No meio do trabalho, ele escreveu em inglês: \"My replacement left the old `require(...)` prefix in place. I'll fix the `clean` script:\". A frase virou fala e foi para o revisor junto com o relato."
-      },
-      {
-        "step": 2,
-        "lane": "revisor",
-        "title": "Confere o diff",
-        "text": "Em 27 s e 22 ferramentas. As mudanças estão certas, o `clean` funciona com `\"type\": \"module\"`, os dois `tsconfig` passam no `tsc --noEmit`.\n- incompleto: o aviso do `main.ts` não tem teste\n- seguem pendentes, por decisão razoável: `id` repetido e `email`",
-        "ok": "O git confirma: não alterou nenhum arquivo."
-      },
-      {
-        "step": null,
-        "title": "Rodada guardada",
-        "text": "`docs/rodadas/2026-11-03T15-56-15.155Z.json`, já sem caminhos com nome de usuário nem valores de credenciais."
-      }
-    ],
-    "next": [
-      "Para comparar duas configurações, vale rodar cada uma pelo menos duas vezes e olhar a faixa de resultados, não um número só.",
-      "Agora que ninguém pergunta nada, a última fala de cada agente é o relato final. Passar só ela evitaria levar adiante frases do meio do trabalho, como a do programador em inglês."
-    ]
-  }
+  ]
 }

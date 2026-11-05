@@ -8,7 +8,7 @@ import { useRef, useState, type ReactNode } from 'react';
 
 import { RECENT_TESTS } from '../constants';
 import { lastRun, recentTests, type Test } from '../data';
-import { count, when } from '../format';
+import { count, goalOf, when } from '../format';
 import { indexHref, testHref } from '../route';
 
 function Chip({
@@ -20,19 +20,17 @@ function Chip({
 }): ReactNode {
   const content = (
     <>
-      <small>
-        Teste {test.number} · {count(test.rounds.length, 'rodada', 'rodadas')}
-      </small>
+      <small>{count(test.rounds.length, 'rodada', 'rodadas')}</small>
       {test.title}
     </>
   );
   // The goal on hover: tests of the same declaration differ there.
   return current ? (
-    <span aria-current="page" title={test.goal}>
+    <span aria-current="page" title={goalOf(test.goal)}>
       {content}
     </span>
   ) : (
-    <a href={testHref(test.key)} title={test.goal}>
+    <a href={testHref(test.key)} title={goalOf(test.goal)}>
       {content}
     </a>
   );
@@ -48,10 +46,9 @@ function AllTests({
   const [query, setQuery] = useState('');
   const words = query.toLocaleLowerCase('pt-BR').split(/\s+/).filter(Boolean);
   const shown = recentTests.filter((test) => {
-    const text =
-      `${String(test.number)} ${test.title} ${test.goal} ${test.key}`.toLocaleLowerCase(
-        'pt-BR',
-      );
+    const text = `${test.title} ${test.goal} ${test.key}`.toLocaleLowerCase(
+      'pt-BR',
+    );
     return words.every((word) => text.includes(word));
   });
   return (
@@ -69,7 +66,7 @@ function AllTests({
       </div>
       <input
         type="search"
-        placeholder="Buscar por número, título ou objetivo"
+        placeholder="Buscar pelo id ou pelo objetivo"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         aria-label="Buscar testes"
@@ -84,12 +81,11 @@ function AllTests({
               aria-current={test.key === current ? 'page' : undefined}
             >
               <small>
-                Teste {test.number} ·{' '}
                 {count(test.rounds.length, 'rodada', 'rodadas')} · última em{' '}
                 {when(lastRun(test))}
               </small>
               <b>{test.title}</b>
-              <span>{test.goal}</span>
+              <span>{goalOf(test.goal)}</span>
             </a>
           </li>
         ))}

@@ -263,7 +263,7 @@ const step = object({
 const roundRecord = object({
   schema: literal(ROUND_SCHEMA),
   id: nonEmpty,
-  definition: object({ id: nonEmpty, goal: nonEmpty }),
+  definition: object({ id: nonEmpty, goal: string }),
   'label?': nonEmpty,
   start: nullable(object({ tag: nonEmpty, commit: nonEmpty })),
   repeat: object({ index: positive, total: positive }),
@@ -324,21 +324,6 @@ const roundRecord = object({
       'costUsd?': amount,
     }),
   }),
-  'review?': object({
-    title: nonEmpty,
-    summary: string,
-    steps: list(
-      object({
-        step: nullable(count),
-        'lane?': nonEmpty,
-        title: string,
-        'text?': string,
-        'ok?': string,
-        'warn?': string,
-      }),
-    ),
-    next: list(string),
-  }),
 });
 
 /** Every agent the record names somewhere is one of `actors`. */
@@ -375,14 +360,6 @@ function checkActors(round: RoundRecord): void {
       throw new Invalid(`${path}: "${name}" não está em actors`);
     }
   }
-  const stepCount = round.steps.length;
-  round.review?.steps.forEach((note, i) => {
-    if (note.step !== null && note.step >= stepCount) {
-      throw new Invalid(
-        `review.steps[${String(i)}].step: não há o passo ${String(note.step)}`,
-      );
-    }
-  });
 }
 
 function sameTotal(

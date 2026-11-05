@@ -107,6 +107,14 @@ bun run rounds:build            # gera rounds/web/dist, que abre de qualquer lug
 
 ## O registro
 
+O registro e as páginas saem só do que o sistema registrou durante a execução. Nada neles é escrito depois, nem por
+uma pessoa nem por um agente. A única exceção é o `label`, que é texto de quem rodou. Por isso também nada é numerado
+pela ordem dos arquivos: um teste é o seu `id`, e uma configuração é o começo do seu `configHash` (`674e600c`). Os dois
+continuam iguais quando registros entram ou saem de `data/`.
+
+As rodadas de 03/11, anteriores às declarações (`agents/02.ts`), não tinham objetivo: o `goal` delas é vazio, e a página
+mostra "sem objetivo declarado".
+
 O formato está em [`../src/rounds/types.ts`](../src/rounds/types.ts) (`RoundRecord`, `schema: 3`). Cada registro guarda:
 
 - a configuração de cada agente: provider, workspace, regras de rede, o que a rede decidiu de fato e a política;
@@ -115,7 +123,6 @@ O formato está em [`../src/rounds/types.ts`](../src/rounds/types.ts) (`RoundRec
   (`timing.actors`, `totals.actors`) e a rodada (`timing`, `totals.round`);
 - os tokens novos (`fresh`) em cada um desses níveis: o que o modelo leu fora do cache, mais o que escreveu;
 - o resultado das regras, o gabarito e os limites declarados (`criteria`), e o `label`;
-- a revisão (`review`), escrita depois: o título, as cenas e o que olhar na próxima rodada.
 
 Cada passo tem uma chave estável, `agente#n` (o n-ésimo passo daquele agente): é por ela que rodadas diferentes são
 comparadas, e por ela que um gráfico junta "o passo do analista" de todas as rodadas, mesmo que o `flow` mude.
