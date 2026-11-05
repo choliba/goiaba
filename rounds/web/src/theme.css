@@ -163,29 +163,96 @@ ol {
   color: var(--warn);
 }
 
-/* The tests, on top of every page: the current one is not a link. */
-.tests > ol {
+/*
+ * The top of every page. Above: the site's name and the list of every
+ * test, the same on every page. Below: the recent tests, like tabs.
+ */
+.topbar {
+  display: grid;
+  gap: 0;
+  /* A header, but the page's width: the text one is for the page heading. */
+  max-width: none;
+  border-bottom: 1px solid var(--line);
+}
+.topbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+}
+.brand {
+  font: 700 22px/1 var(--display);
+  color: var(--ink);
+  text-decoration: none;
+}
+a.brand:hover {
+  color: var(--guava);
+}
+.all-tests-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 14px/1 var(--body);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.all-tests-button:hover,
+.all-tests-button:focus-visible {
+  border-color: var(--guava);
+}
+.rounds-count {
+  font: 500 12px/1 var(--mono);
+  color: var(--muted);
+  background: var(--code-bg);
+  border-radius: 999px;
+  padding: 3px 7px;
+}
+.recent {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  min-width: 0;
+}
+.recent-label {
+  align-self: center;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.recent ol {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
-.tests > ol a,
-.tests > ol [aria-current],
-.tests .more {
-  display: grid;
-  gap: 2px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
+.recent a,
+.recent [aria-current] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 9px;
+  border-bottom: 3px solid transparent;
   color: var(--ink);
   text-decoration: none;
-  font-size: 13.5px;
+  font-size: 14px;
+  white-space: nowrap;
 }
-.tests small,
+.recent a:hover,
+.recent a:focus-visible {
+  border-bottom-color: var(--line);
+}
+.recent [aria-current] {
+  border-bottom-color: var(--guava);
+  font-weight: 600;
+}
 th small,
 .crumbs small {
   display: block;
@@ -193,22 +260,6 @@ th small,
   color: var(--muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-}
-.tests > ol a:hover,
-.tests > ol a:focus-visible,
-.tests .more:hover,
-.tests .more:focus-visible {
-  border-color: var(--guava);
-}
-.tests .more {
-  font: 13.5px var(--body);
-  text-align: left;
-  cursor: pointer;
-  border-style: dashed;
-}
-.tests > ol [aria-current] {
-  border-color: var(--guava);
-  box-shadow: 0 0 0 1px var(--guava) inset;
 }
 
 /* Tables */

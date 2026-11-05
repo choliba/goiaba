@@ -1,7 +1,9 @@
 /**
- * The top of every page: the most recent tests (`RECENT_TESTS`), each with
- * how many rounds it ran, and a button that lists every test in a dialog,
- * with a search. The current test is marked, not a link.
+ * The top of every page, in two rows. Above, what is the same everywhere:
+ * the site's name (back to the index) on the left, and on the right the
+ * button that lists every test in a dialog, with a search. Below, the most
+ * recent tests (`RECENT_TESTS`), each with how many rounds it ran; the
+ * current one is marked, not a link.
  */
 
 import { useRef, useState, type ReactNode } from 'react';
@@ -20,8 +22,13 @@ function Chip({
 }): ReactNode {
   const content = (
     <>
-      <small>{count(test.rounds.length, 'rodada', 'rodadas')}</small>
       {test.title}
+      <span
+        className="rounds-count"
+        aria-label={count(test.rounds.length, 'rodada', 'rodadas')}
+      >
+        {test.rounds.length}
+      </span>
     </>
   );
   // The goal on hover: tests of the same declaration differ there.
@@ -116,36 +123,41 @@ export function TestsNav({
   const others = recentTests.length - recent.length;
 
   return (
-    <nav className="tests" aria-label="Testes">
-      <ol>
-        <li>
-          {current === undefined ? (
-            <span aria-current="page">
-              <small>Visão geral</small>Índice
-            </span>
-          ) : (
-            <a href={indexHref()}>
-              <small>Visão geral</small>Índice
-            </a>
-          )}
-        </li>
-        {recent.map((test) => (
-          <li key={test.key}>
-            <Chip test={test} current={test.key === current} />
-          </li>
-        ))}
-        <li>
-          <button
-            type="button"
-            className="more"
-            onClick={show}
-            aria-haspopup="dialog"
-          >
-            <small>{others > 0 ? `mais ${String(others)}` : 'lista'}</small>
-            Todos os testes ({recentTests.length})
-          </button>
-        </li>
-      </ol>
+    <header className="topbar">
+      <div className="topbar-row">
+        {current === undefined ? (
+          <span className="brand" aria-current="page">
+            Rodadas
+          </span>
+        ) : (
+          <a className="brand" href={indexHref()}>
+            Rodadas
+          </a>
+        )}
+        <button
+          type="button"
+          className="all-tests-button"
+          onClick={show}
+          aria-haspopup="dialog"
+        >
+          Todos os testes
+          <span className="rounds-count">{recentTests.length}</span>
+        </button>
+      </div>
+      <nav className="recent" aria-label="Testes recentes">
+        <span className="recent-label">
+          {others > 0
+            ? `Recentes (${String(recent.length)} de ${String(recentTests.length)})`
+            : 'Recentes'}
+        </span>
+        <ol>
+          {recent.map((test) => (
+            <li key={test.key}>
+              <Chip test={test} current={test.key === current} />
+            </li>
+          ))}
+        </ol>
+      </nav>
       <dialog
         ref={dialog}
         className="tests-dialog"
@@ -157,6 +169,6 @@ export function TestsNav({
       >
         {open && <AllTests current={current} onClose={close} />}
       </dialog>
-    </nav>
+    </header>
   );
 }
