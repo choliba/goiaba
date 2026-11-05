@@ -22,7 +22,7 @@ import {
   when,
   goalOf,
 } from '../format';
-import { roundHref } from '../route';
+import { roundHref, rowLink } from '../route';
 import {
   changedFiles,
   decimal,
@@ -131,7 +131,10 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                   round.previous !== undefined &&
                   changeSummary(round.record, round.previous).length > 0;
                 return (
-                  <tr key={round.record.id}>
+                  <tr
+                    key={round.record.id}
+                    {...rowLink(roundHref(round.record.id))}
+                  >
                     <th scope="row">
                       <a href={roundHref(round.record.id)}>
                         <small>

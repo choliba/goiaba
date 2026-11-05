@@ -21,7 +21,7 @@ import {
   tokensShort,
   when,
 } from '../format';
-import { roundHref, testHref } from '../route';
+import { roundHref, rowLink, testHref } from '../route';
 import { changedFiles, roundTokens, rulesOf } from '../summary';
 
 const ALL = '';
@@ -186,7 +186,7 @@ export function IndexPage(): ReactNode {
                       : changeSummary(record, last.previous).join(', ') ||
                         'nada: mesma configuração';
                   return (
-                    <tr key={test.key}>
+                    <tr key={test.key} {...rowLink(testHref(test.key))}>
                       <th scope="row">
                         <a href={testHref(test.key)}>
                           <small>

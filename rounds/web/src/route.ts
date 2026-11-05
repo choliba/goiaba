@@ -38,3 +38,26 @@ export function useRoute(): Route {
   }, []);
   return route;
 }
+
+/**
+ * A table row that opens `href` when clicked anywhere: the row's own link
+ * stays for the keyboard, and a click on another link inside it (a round of
+ * the test, say) still goes there.
+ */
+export function rowLink(href: string): {
+  readonly className: string;
+  readonly onClick: (event: { readonly target: EventTarget }) => void;
+} {
+  return {
+    className: 'row-link',
+    onClick: ({ target }) => {
+      if (
+        target instanceof Element &&
+        target.closest('a, summary, button') !== null
+      ) {
+        return;
+      }
+      window.location.hash = href.slice(1);
+    },
+  };
+}

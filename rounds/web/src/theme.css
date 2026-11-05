@@ -810,3 +810,15 @@ a.crumbs-test:hover {
 .actor h3.final .grade {
   font-size: 15px;
 }
+
+/* A table row that opens its round or test from anywhere on it */
+tr.row-link {
+  cursor: pointer;
+}
+tr.row-link:hover th,
+tr.row-link:hover td {
+  background: var(--code-bg);
+}
+tr.row-link:hover th a {
+  color: var(--guava);
+}
