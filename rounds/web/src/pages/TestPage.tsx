@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 
 import type { RoundRecord } from '../../../../src/rounds/types';
 import { ActorConfigs, changeSummary } from '../components/Config';
+import { Grade, grade } from '../components/Scores';
 import { TestRounds } from '../components/TestRounds';
 import { TestsNav } from '../components/TestsNav';
 import type { Round, Test } from '../data';
@@ -119,6 +120,8 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                 <th scope="col">Custo</th>
                 <th scope="col">Arquivos alterados</th>
                 <th scope="col">Regras</th>
+                <th scope="col">Eficácia</th>
+                <th scope="col">Eficiência</th>
               </tr>
             </thead>
             <tbody>
@@ -151,6 +154,12 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                     <td>{cost(round.record.totals.round.costUsd)}</td>
                     <td>{changedFiles(round.record) ?? 'não conferido'}</td>
                     <td>{rulesOf(round.record)}</td>
+                    <td>
+                      <Grade score={round.score.round.effectiveness.score} />
+                    </td>
+                    <td>
+                      <Grade score={round.score.round.efficiency.score} />
+                    </td>
                   </tr>
                 );
               })}
@@ -163,6 +172,18 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                   <td />
                   <Averages rounds={rounds} />
                   <td />
+                  <td>
+                    {ranged(
+                      rounds.map((r) => r.score.round.effectiveness.score),
+                      grade,
+                    )}
+                  </td>
+                  <td>
+                    {ranged(
+                      rounds.map((r) => r.score.round.efficiency.score),
+                      grade,
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

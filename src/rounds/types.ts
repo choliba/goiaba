@@ -21,7 +21,7 @@ export type RoundDecisionSource =
   'policy' | 'default' | 'provider' | 'human' | 'saved';
 
 /** The version of this shape; a record with another one is refused. */
-export const ROUND_SCHEMA = 2;
+export const ROUND_SCHEMA = 3;
 
 /** One run of a round. */
 export interface RoundRecord {
@@ -54,6 +54,12 @@ export interface RoundRecord {
   readonly measures: Readonly<Record<string, ActorMeasures>>;
   /** The result of every rule the declaration checks. */
   readonly violations: readonly RuleResult[];
+  /**
+   * What the declaration expected of this run, copied so the record can be
+   * scored alone: the answer key and the limits. Absent when it declared
+   * neither.
+   */
+  readonly criteria?: RoundCriteria;
   /** Written after the run, by whoever reviews it; absent until then. */
   readonly review?: RoundReview;
 }
@@ -161,8 +167,34 @@ export interface NetworkDecisionRecord {
   readonly reason: string;
 }
 
+/** What a round's declaration expects, to score it (see `src/rounds/score.ts`). */
+export interface RoundCriteria {
+  /**
+   * The answer key, by actor: what its answer must contain, one point per
+   * entry (`usuariosPadrao`, `Object.freeze`). Found when the text appears in
+   * what it said, ignoring case.
+   */
+  readonly expected?: Readonly<Record<string, readonly string[]>>;
+  /** Limits set before the run: meeting them is part of the goal. */
+  readonly limits?: RoundLimits;
+}
+
+export interface RoundLimits {
+  /** The whole round, wall clock, in ms. */
+  readonly roundMs?: number;
+  /** Each actor's time, the sum of its steps, in ms. */
+  readonly actorMs?: Readonly<Record<string, number>>;
+  /** The whole round, in USD. */
+  readonly costUsd?: number;
+}
+
 /** What an agent did in one step of the flow. */
 export interface RoundStep {
+  /**
+   * Stable across rounds: the actor and which of its steps (`analista#1`).
+   * Rounds are compared, and charted, by this key, not by position.
+   */
+  readonly key: string;
   readonly actor: string;
   /** Who consulted it, when someone did. */
   readonly by: string | null;
@@ -181,6 +213,22 @@ export interface RoundStep {
   readonly changed: readonly string[];
   /** What it changed (`git diff`), empty when nothing. */
   readonly diff: string;
+  /** Tokens and cost of this step: the sum of its `usage` records. */
+  readonly totals: UsageTotal;
+  /**
+   * The `file:line` references in what it said, checked against the
+   * workspace at the round's start; `null` when there was no git start.
+   */
+  readonly references: References | null;
+}
+
+export interface References {
+  /** Distinct references cited. */
+  readonly cited: number;
+  /** Of them, the file exists and the line is within it. */
+  readonly valid: number;
+  /** The ones that are not, as cited. */
+  readonly invalid: readonly string[];
 }
 
 export interface Prompt {
@@ -215,7 +263,9 @@ export interface ToolRecord {
 export interface UsageRecord {
   readonly ts: string;
   readonly actor: string;
-  /** The turn of the actor's step it belongs to. */
+  /** The position in `steps` of the step it belongs to. */
+  readonly step: number;
+  /** The turn of that step. */
   readonly turn: number;
   /** What caused it, when the CLI says: a tool, a message. */
   readonly action: string | null;
@@ -251,6 +301,12 @@ export interface RoundTotals {
 
 export interface UsageTotal {
   readonly tokens: TokenCounts;
+  /**
+   * New tokens: what the model read that did not come from the cache
+   * (`input - cacheRead`), plus what it wrote. The effort of the work;
+   * efficiency is scored on it. `null` when not measured.
+   */
+  readonly fresh: number | null;
   readonly costUsd: number | null;
 }
 

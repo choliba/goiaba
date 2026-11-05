@@ -34,7 +34,7 @@ const workspace: WorkspaceOptions = {
  * nothing ran; qwen3.5:4b is the one the Ollama examples (agents/) use.
  */
 const local = (): OllamaProvider =>
-  new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' });
+  new OllamaProvider({ cli: 'claude', model: 'qwen3.5:4b' });
 
 /**
  * What both agents may do: read the project and run a few commands that

@@ -1,5 +1,5 @@
 {
-  "schema": 2,
+  "schema": 3,
   "id": "2026-11-03T15-47-38.774Z",
   "definition": {
     "id": "analise-programacao-revisao",
@@ -139,6 +139,7 @@
   "configHash": "567c36811e7a609818a69e7649c499bff127e7108003100e4bf935b4609bee6e",
   "steps": [
     {
+      "key": "analista#1",
       "actor": "analista",
       "by": "programador",
       "prompt": {
@@ -218,9 +219,26 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": {
+        "cited": 6,
+        "valid": 6,
+        "invalid": []
+      },
+      "totals": {
+        "tokens": {
+          "input": 76276,
+          "output": 1441,
+          "cacheRead": 67814,
+          "cacheWrite": 8454,
+          "reasoning": 217
+        },
+        "fresh": 9903,
+        "costUsd": null
+      }
     },
     {
+      "key": "programador#1",
       "actor": "programador",
       "by": null,
       "prompt": {
@@ -284,9 +302,26 @@
         " M src/main.ts",
         " M src/usuarios.test.ts"
       ],
-      "diff": "diff --git a/src/main.ts b/src/main.ts\nindex 7522c9c..bbcfb32 100644\n--- a/src/main.ts\n+++ b/src/main.ts\n@@ -3,6 +3,8 @@ import { buscarPorId, descreverAtivos, saudacao, usuariosPadrao } from \"./usuari\n const usuario = buscarPorId(usuariosPadrao, 1);\n if (usuario) {\n   console.log(saudacao(usuario));\n+} else {\n+  console.error(\"Usuário 1 não encontrado.\");\n }\n \n console.log(descreverAtivos(usuariosPadrao));\ndiff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..06b76ec 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -28,6 +28,14 @@ test(\"listarAtivos retorna apenas usuários ativos\", () => {\n   );\n });\n \n+test(\"listarAtivos retorna lista vazia sem usuários ativos\", () => {\n+  assert.deepEqual(listarAtivos([]), []);\n+  assert.deepEqual(\n+    listarAtivos(usuariosPadrao.filter((u) => !u.ativo)),\n+    [],\n+  );\n+});\n+\n test(\"saudacao monta a mensagem com o nome\", () => {\n   const usuario: Usuario = { id: 9, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: true };\n   assert.equal(saudacao(usuario), \"Olá, Davi!\");\n"
+      "diff": "diff --git a/src/main.ts b/src/main.ts\nindex 7522c9c..bbcfb32 100644\n--- a/src/main.ts\n+++ b/src/main.ts\n@@ -3,6 +3,8 @@ import { buscarPorId, descreverAtivos, saudacao, usuariosPadrao } from \"./usuari\n const usuario = buscarPorId(usuariosPadrao, 1);\n if (usuario) {\n   console.log(saudacao(usuario));\n+} else {\n+  console.error(\"Usuário 1 não encontrado.\");\n }\n \n console.log(descreverAtivos(usuariosPadrao));\ndiff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..06b76ec 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -28,6 +28,14 @@ test(\"listarAtivos retorna apenas usuários ativos\", () => {\n   );\n });\n \n+test(\"listarAtivos retorna lista vazia sem usuários ativos\", () => {\n+  assert.deepEqual(listarAtivos([]), []);\n+  assert.deepEqual(\n+    listarAtivos(usuariosPadrao.filter((u) => !u.ativo)),\n+    [],\n+  );\n+});\n+\n test(\"saudacao monta a mensagem com o nome\", () => {\n   const usuario: Usuario = { id: 9, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: true };\n   assert.equal(saudacao(usuario), \"Olá, Davi!\");\n",
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      },
+      "totals": {
+        "tokens": {
+          "input": 55446,
+          "output": 1505,
+          "cacheRead": 47784,
+          "cacheWrite": 7656,
+          "reasoning": 225
+        },
+        "fresh": 9167,
+        "costUsd": null
+      }
     },
     {
+      "key": "revisor#1",
       "actor": "revisor",
       "by": "programador",
       "prompt": {
@@ -415,13 +450,30 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      },
+      "totals": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      }
     }
   ],
   "usage": [
     {
       "ts": "2026-11-03T15:47:41.692Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -437,6 +489,7 @@
     {
       "ts": "2026-11-03T15:47:44.881Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -452,6 +505,7 @@
     {
       "ts": "2026-11-03T15:47:50.358Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -467,6 +521,7 @@
     {
       "ts": "2026-11-03T15:48:00.598Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": null,
       "tokens": {
@@ -482,6 +537,7 @@
     {
       "ts": "2026-11-03T15:48:03.200Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -497,6 +553,7 @@
     {
       "ts": "2026-11-03T15:48:07.043Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -512,6 +569,7 @@
     {
       "ts": "2026-11-03T15:48:19.754Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": null,
       "tokens": {
@@ -534,6 +592,7 @@
         "cacheWrite": 16110,
         "reasoning": 442
       },
+      "fresh": 19070,
       "costUsd": null
     },
     "actors": {
@@ -545,6 +604,7 @@
           "cacheWrite": 8454,
           "reasoning": 217
         },
+        "fresh": 9903,
         "costUsd": null
       },
       "programador": {
@@ -555,6 +615,7 @@
           "cacheWrite": 7656,
           "reasoning": 225
         },
+        "fresh": 9167,
         "costUsd": null
       },
       "revisor": {
@@ -565,6 +626,7 @@
           "cacheWrite": null,
           "reasoning": null
         },
+        "fresh": null,
         "costUsd": null
       }
     }

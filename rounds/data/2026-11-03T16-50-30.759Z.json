@@ -1,5 +1,5 @@
 {
-  "schema": 2,
+  "schema": 3,
   "id": "2026-11-03T16-50-30.759Z",
   "definition": {
     "id": "analise-programacao-revisao",
@@ -139,6 +139,7 @@
   "configHash": "ea678a3928a552a3194ef5e4eb5fef346d4db0163c45567a2cfdb27dd8b53e2e",
   "steps": [
     {
+      "key": "analista#1",
       "actor": "analista",
       "by": "programador",
       "prompt": {
@@ -215,9 +216,26 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": {
+        "cited": 7,
+        "valid": 7,
+        "invalid": []
+      },
+      "totals": {
+        "tokens": {
+          "input": 70873,
+          "output": 1562,
+          "cacheRead": 67862,
+          "cacheWrite": 3003,
+          "reasoning": 484
+        },
+        "fresh": 4573,
+        "costUsd": null
+      }
     },
     {
+      "key": "programador#1",
       "actor": "programador",
       "by": null,
       "prompt": {
@@ -281,9 +299,26 @@
         " M src/usuarios.test.ts",
         " M src/usuarios.ts"
       ],
-      "diff": "diff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..057d0fa 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -19,6 +19,7 @@ test(\"buscarPorId retorna undefined para id inexistente ou inválido\", () => {\n   assert.equal(buscarPorId(usuariosPadrao, -1), undefined);\n   assert.equal(buscarPorId(usuariosPadrao, 1.5), undefined);\n   assert.equal(buscarPorId(usuariosPadrao, Number.NaN), undefined);\n+  assert.equal(buscarPorId([], 1), undefined);\n });\n \n test(\"listarAtivos retorna apenas usuários ativos\", () => {\n@@ -26,6 +27,7 @@ test(\"listarAtivos retorna apenas usuários ativos\", () => {\n     listarAtivos(usuariosPadrao).map((u) => u.nome),\n     [\"Ana\", \"Carla\"],\n   );\n+  assert.deepEqual(listarAtivos([]), []);\n });\n \n test(\"saudacao monta a mensagem com o nome\", () => {\n@@ -36,4 +38,16 @@ test(\"saudacao monta a mensagem com o nome\", () => {\n test(\"descreverAtivos lista nomes ou avisa quando não há ativos\", () => {\n   assert.equal(descreverAtivos(usuariosPadrao), \"Usuários ativos: Ana, Carla\");\n   assert.equal(descreverAtivos([]), \"Nenhum usuário ativo.\");\n+  const inativo: Usuario = { id: 9, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: false };\n+  assert.equal(descreverAtivos([inativo]), \"Nenhum usuário ativo.\");\n+});\n+\n+test(\"usuariosPadrao não pode ser alterado em tempo de execução\", () => {\n+  const lista = usuariosPadrao as Usuario[];\n+  assert.throws(() => lista.push({ id: 4, nome: \"Eva\", email: \"eva@exemplo.com\", ativo: true }), TypeError);\n+  assert.throws(() => {\n+    (lista[0] as { nome: string }).nome = \"Outra\";\n+  }, TypeError);\n+  assert.equal(usuariosPadrao.length, 3);\n+  assert.equal(usuariosPadrao[0]?.nome, \"Ana\");\n });\ndiff --git a/src/usuarios.ts b/src/usuarios.ts\nindex c86eda5..0c83d35 100644\n--- a/src/usuarios.ts\n+++ b/src/usuarios.ts\n@@ -5,11 +5,13 @@ export interface Usuario {\n   readonly ativo: boolean;\n }\n \n-export const usuariosPadrao: ReadonlyArray<Usuario> = [\n-  { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n-  { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n-  { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n-];\n+export const usuariosPadrao: ReadonlyArray<Usuario> = Object.freeze(\n+  [\n+    { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n+    { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n+    { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n+  ].map((u) => Object.freeze(u)),\n+);\n \n export function buscarPorId(\n   usuarios: ReadonlyArray<Usuario>,\n"
+      "diff": "diff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..057d0fa 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -19,6 +19,7 @@ test(\"buscarPorId retorna undefined para id inexistente ou inválido\", () => {\n   assert.equal(buscarPorId(usuariosPadrao, -1), undefined);\n   assert.equal(buscarPorId(usuariosPadrao, 1.5), undefined);\n   assert.equal(buscarPorId(usuariosPadrao, Number.NaN), undefined);\n+  assert.equal(buscarPorId([], 1), undefined);\n });\n \n test(\"listarAtivos retorna apenas usuários ativos\", () => {\n@@ -26,6 +27,7 @@ test(\"listarAtivos retorna apenas usuários ativos\", () => {\n     listarAtivos(usuariosPadrao).map((u) => u.nome),\n     [\"Ana\", \"Carla\"],\n   );\n+  assert.deepEqual(listarAtivos([]), []);\n });\n \n test(\"saudacao monta a mensagem com o nome\", () => {\n@@ -36,4 +38,16 @@ test(\"saudacao monta a mensagem com o nome\", () => {\n test(\"descreverAtivos lista nomes ou avisa quando não há ativos\", () => {\n   assert.equal(descreverAtivos(usuariosPadrao), \"Usuários ativos: Ana, Carla\");\n   assert.equal(descreverAtivos([]), \"Nenhum usuário ativo.\");\n+  const inativo: Usuario = { id: 9, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: false };\n+  assert.equal(descreverAtivos([inativo]), \"Nenhum usuário ativo.\");\n+});\n+\n+test(\"usuariosPadrao não pode ser alterado em tempo de execução\", () => {\n+  const lista = usuariosPadrao as Usuario[];\n+  assert.throws(() => lista.push({ id: 4, nome: \"Eva\", email: \"eva@exemplo.com\", ativo: true }), TypeError);\n+  assert.throws(() => {\n+    (lista[0] as { nome: string }).nome = \"Outra\";\n+  }, TypeError);\n+  assert.equal(usuariosPadrao.length, 3);\n+  assert.equal(usuariosPadrao[0]?.nome, \"Ana\");\n });\ndiff --git a/src/usuarios.ts b/src/usuarios.ts\nindex c86eda5..0c83d35 100644\n--- a/src/usuarios.ts\n+++ b/src/usuarios.ts\n@@ -5,11 +5,13 @@ export interface Usuario {\n   readonly ativo: boolean;\n }\n \n-export const usuariosPadrao: ReadonlyArray<Usuario> = [\n-  { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n-  { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n-  { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n-];\n+export const usuariosPadrao: ReadonlyArray<Usuario> = Object.freeze(\n+  [\n+    { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n+    { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n+    { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n+  ].map((u) => Object.freeze(u)),\n+);\n \n export function buscarPorId(\n   usuarios: ReadonlyArray<Usuario>,\n",
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      },
+      "totals": {
+        "tokens": {
+          "input": 56591,
+          "output": 2775,
+          "cacheRead": 47876,
+          "cacheWrite": 8709,
+          "reasoning": 470
+        },
+        "fresh": 11490,
+        "costUsd": null
+      }
     },
     {
+      "key": "revisor#1",
       "actor": "revisor",
       "by": "programador",
       "prompt": {
@@ -501,13 +536,30 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      },
+      "totals": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      }
     }
   ],
   "usage": [
     {
       "ts": "2026-11-03T16:50:34.413Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -523,6 +575,7 @@
     {
       "ts": "2026-11-03T16:50:36.693Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -538,6 +591,7 @@
     {
       "ts": "2026-11-03T16:50:40.119Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -553,6 +607,7 @@
     {
       "ts": "2026-11-03T16:50:55.624Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": null,
       "tokens": {
@@ -568,6 +623,7 @@
     {
       "ts": "2026-11-03T16:50:59.049Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -583,6 +639,7 @@
     {
       "ts": "2026-11-03T16:51:05.491Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -598,6 +655,7 @@
     {
       "ts": "2026-11-03T16:51:26.833Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": null,
       "tokens": {
@@ -620,6 +678,7 @@
         "cacheWrite": 11712,
         "reasoning": 954
       },
+      "fresh": 16063,
       "costUsd": null
     },
     "actors": {
@@ -631,6 +690,7 @@
           "cacheWrite": 3003,
           "reasoning": 484
         },
+        "fresh": 4573,
         "costUsd": null
       },
       "programador": {
@@ -641,6 +701,7 @@
           "cacheWrite": 8709,
           "reasoning": 470
         },
+        "fresh": 11490,
         "costUsd": null
       },
       "revisor": {
@@ -651,6 +712,7 @@
           "cacheWrite": null,
           "reasoning": null
         },
+        "fresh": null,
         "costUsd": null
       }
     }

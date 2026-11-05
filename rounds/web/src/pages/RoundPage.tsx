@@ -13,6 +13,7 @@ import {
 } from '../components/Config';
 import { Flow } from '../components/Flow';
 import { Rich } from '../components/Rich';
+import { Scores } from '../components/Scores';
 import { TestRounds } from '../components/TestRounds';
 import { TestsNav } from '../components/TestsNav';
 import type { Round } from '../data';
@@ -141,6 +142,8 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
           Durou {duration(record.timing.durationMs)}.
         </p>
       </header>
+
+      <Scores score={round.score} />
 
       <Measures round={round} />
 

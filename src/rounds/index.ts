@@ -18,3 +18,10 @@ export {
 export { noQuestions, noToolCallAsText, readOnlyRespected } from './rules';
 export { runRound, type RunRoundOptions } from './run';
 export { validateRound } from './validate';
+export {
+  RUBRIC_VERSION,
+  scoreRound,
+  type ActorScore,
+  type CriterionScore,
+  type RoundScore,
+} from './score';

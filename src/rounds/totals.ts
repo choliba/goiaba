@@ -37,6 +37,14 @@ export function totalOf(usage: readonly UsageRecord[]): UsageTotal {
       cacheWrite: of('cacheWrite'),
       reasoning: of('reasoning'),
     },
+    fresh: sum(usage.map(freshOf)),
     costUsd: sum(usage.map((u) => u.costUsd)),
   };
+}
+
+/** The new tokens of one record: read minus cached, plus written. */
+export function freshOf(record: UsageRecord): number | null {
+  const { input, cacheRead, output } = record.tokens;
+  if (input === null && output === null) return null;
+  return (input ?? 0) - (cacheRead ?? 0) + (output ?? 0);
 }

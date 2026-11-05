@@ -161,7 +161,7 @@ const at = (second: number): string =>
   `2026-11-04T10:00:${String(second).padStart(2, '0')}.000Z`;
 
 test('StepRecorder mede turnos, ferramentas, tokens, custo, falas, perguntas e rede', () => {
-  const recorder = new StepRecorder('analista', (tokens) =>
+  const recorder = new StepRecorder('analista', 0, (tokens) =>
     tokens.input === null ? null : tokens.input * 0.000001,
   );
 
@@ -253,6 +253,7 @@ test('StepRecorder mede turnos, ferramentas, tokens, custo, falas, perguntas e r
     {
       ts: at(6),
       actor: 'analista',
+      step: 0,
       turn: 1,
       action: 'Bash',
       tokens: {
@@ -268,6 +269,7 @@ test('StepRecorder mede turnos, ferramentas, tokens, custo, falas, perguntas e r
     {
       ts: at(7),
       actor: 'analista',
+      step: 0,
       turn: 1,
       action: null,
       tokens: {
@@ -473,6 +475,28 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
       ['programador', ['corrigi'], ['?? b.txt']],
     ]);
     expect(round.steps[0]?.prompt.text).toBe('Analise.');
+    expect(round.steps.map((step) => step.key)).toEqual([
+      'analista#1',
+      'programador#1',
+    ]);
+    expect(round.steps[0]?.totals).toEqual({
+      tokens: {
+        input: 100,
+        output: 10,
+        cacheRead: 60,
+        cacheWrite: 5,
+        reasoning: null,
+      },
+      fresh: 50,
+      costUsd: 0.01,
+    });
+    expect(round.usage.map((u) => u.step)).toEqual([0, 0]);
+    // Nothing cited: checked, and none to check.
+    expect(round.steps[0]?.references).toEqual({
+      cited: 0,
+      valid: 0,
+      invalid: [],
+    });
     expect(round.steps[0]?.tools.map((t) => [t.name, t.outcome])).toEqual([
       ['Bash', 'result'],
     ]);
@@ -496,6 +520,7 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
         cacheWrite: 5,
         reasoning: null,
       },
+      fresh: 50,
       costUsd: 0.01,
     };
     expect(round.totals.round).toEqual(analystTotal);
@@ -508,6 +533,7 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
         cacheWrite: null,
         reasoning: null,
       },
+      fresh: null,
       costUsd: null,
     });
     expect(round.violations).toEqual([

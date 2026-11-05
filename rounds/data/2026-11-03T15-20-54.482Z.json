@@ -1,5 +1,5 @@
 {
-  "schema": 2,
+  "schema": 3,
   "id": "2026-11-03T15-20-54.482Z",
   "definition": {
     "id": "analise-programacao-revisao",
@@ -136,6 +136,7 @@
   "configHash": "2de4bd154751e602199534c572aa4000838f85074ded50bad12b27c9214fadcf",
   "steps": [
     {
+      "key": "analista#1",
       "actor": "analista",
       "by": "programador",
       "prompt": {
@@ -261,9 +262,22 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": null,
+      "totals": {
+        "tokens": {
+          "input": 137348,
+          "output": 2290,
+          "cacheRead": 127776,
+          "cacheWrite": 9558,
+          "reasoning": 736
+        },
+        "fresh": 11862,
+        "costUsd": null
+      }
     },
     {
+      "key": "programador#1",
       "actor": "programador",
       "by": null,
       "prompt": {
@@ -356,9 +370,22 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": null,
+      "totals": {
+        "tokens": {
+          "input": 95958,
+          "output": 1728,
+          "cacheRead": 87304,
+          "cacheWrite": 8644,
+          "reasoning": 258
+        },
+        "fresh": 10382,
+        "costUsd": null
+      }
     },
     {
+      "key": "revisor#1",
       "actor": "revisor",
       "by": "programador",
       "prompt": {
@@ -552,13 +579,26 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": null,
+      "totals": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      }
     }
   ],
   "usage": [
     {
       "ts": "2026-11-03T15:20:56.895Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -574,6 +614,7 @@
     {
       "ts": "2026-11-03T15:20:59.144Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -589,6 +630,7 @@
     {
       "ts": "2026-11-03T15:21:04.222Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -604,6 +646,7 @@
     {
       "ts": "2026-11-03T15:21:07.983Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -619,6 +662,7 @@
     {
       "ts": "2026-11-03T15:21:13.036Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -634,6 +678,7 @@
     {
       "ts": "2026-11-03T15:21:16.409Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -649,6 +694,7 @@
     {
       "ts": "2026-11-03T15:21:29.849Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": null,
       "tokens": {
@@ -664,6 +710,7 @@
     {
       "ts": "2026-11-03T15:21:33.350Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -679,6 +726,7 @@
     {
       "ts": "2026-11-03T15:21:37.131Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -694,6 +742,7 @@
     {
       "ts": "2026-11-03T15:21:40.094Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -709,6 +758,7 @@
     {
       "ts": "2026-11-03T15:21:48.121Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -724,6 +774,7 @@
     {
       "ts": "2026-11-03T15:21:58.508Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": null,
       "tokens": {
@@ -746,6 +797,7 @@
         "cacheWrite": 18202,
         "reasoning": 994
       },
+      "fresh": 22244,
       "costUsd": null
     },
     "actors": {
@@ -757,6 +809,7 @@
           "cacheWrite": 9558,
           "reasoning": 736
         },
+        "fresh": 11862,
         "costUsd": null
       },
       "programador": {
@@ -767,6 +820,7 @@
           "cacheWrite": 8644,
           "reasoning": 258
         },
+        "fresh": 10382,
         "costUsd": null
       },
       "revisor": {
@@ -777,6 +831,7 @@
           "cacheWrite": null,
           "reasoning": null
         },
+        "fresh": null,
         "costUsd": null
       }
     }

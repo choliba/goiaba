@@ -9,7 +9,7 @@ import type { AgentProvider } from '../agent/types';
 import { UsageError } from '../errors';
 import type { AgentPolicy } from '../policy/policy.interface';
 import type { WorkspaceOptions } from '../workspace/index';
-import type { RuleResult } from './types';
+import type { RoundLimits, RuleResult } from './types';
 
 /** One agent of the round. */
 export interface RoundActor {
@@ -80,6 +80,13 @@ export interface RoundDefinition {
   readonly actors: Readonly<Record<string, RoundActor>>;
   readonly flow: readonly RoundFlowStep[];
   readonly rules?: readonly RoundRule[];
+  /**
+   * The answer key, by actor: what its answer must contain, one point per
+   * entry. Scores the completeness of its work (see rounds/README.md).
+   */
+  readonly expected?: Readonly<Record<string, readonly string[]>>;
+  /** Limits set before the run (time, cost): meeting them is part of the goal. */
+  readonly limits?: RoundLimits;
   /** How many times it runs, each run its own record; 1 by default. */
   readonly repeat?: number;
 }
@@ -96,6 +103,8 @@ const KNOWN_FIELDS = new Set([
   'flow',
   'rules',
   'repeat',
+  'expected',
+  'limits',
 ]);
 
 /**
@@ -151,6 +160,42 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
       }
     }
   });
+  for (const [field, names] of [
+    ['expected', Object.keys(definition.expected ?? {})],
+    ['limits.actorMs', Object.keys(definition.limits?.actorMs ?? {})],
+  ] as const) {
+    for (const name of names) {
+      if (!actors.includes(name)) {
+        throw new UsageError(
+          `${where}: ${field} fala de "${name}", que não está em actors (${actors.join(', ')}).`,
+        );
+      }
+    }
+  }
+  for (const [name, points] of Object.entries(definition.expected ?? {})) {
+    if (
+      points.length === 0 ||
+      points.some((point) => point.trim().length === 0)
+    ) {
+      throw new UsageError(
+        `${where}: expected.${name} precisa de ao menos um ponto, e nenhum vazio.`,
+      );
+    }
+  }
+  const { roundMs, costUsd, actorMs = {} } = definition.limits ?? {};
+  for (const [field, value] of [
+    ['limits.roundMs', roundMs],
+    ['limits.costUsd', costUsd],
+    ...Object.entries(actorMs).map(
+      ([name, ms]) => [`limits.actorMs.${name}`, ms] as const,
+    ),
+  ] as const) {
+    if (value !== undefined && !(value > 0)) {
+      throw new UsageError(
+        `${where}: ${field} deve ser maior que zero, veio ${String(value)}.`,
+      );
+    }
+  }
   const repeat = definition.repeat ?? 1;
   if (!Number.isInteger(repeat) || repeat < 1) {
     throw new UsageError(

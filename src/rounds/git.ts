@@ -60,3 +60,22 @@ export function changes(
   // A file already changed and changed again keeps its line.
   return { changed: added.length > 0 ? added : after.status, diff: after.diff };
 }
+
+/**
+ * How many lines `path` had at `tag`; `undefined` when it did not exist
+ * there (or is not a file).
+ */
+export async function linesAt(
+  root: string,
+  tag: string,
+  path: string,
+): Promise<number | undefined> {
+  try {
+    const text = await git(root, 'show', `${tag}:${path.replace(/^\.\//, '')}`);
+    return text.endsWith('\n')
+      ? text.split('\n').length - 1
+      : text.split('\n').length;
+  } catch {
+    return undefined;
+  }
+}

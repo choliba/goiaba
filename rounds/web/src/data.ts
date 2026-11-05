@@ -8,6 +8,7 @@
  * averaged together.
  */
 
+import { scoreRound, type RoundScore } from '../../../src/rounds/score';
 import type { RoundRecord } from '../../../src/rounds/types';
 import { validateRound } from '../../../src/rounds/validate';
 
@@ -37,6 +38,8 @@ export interface Round {
   readonly configuration: number;
   /** The round before it in the same test: what it is compared with. */
   readonly previous: RoundRecord | undefined;
+  /** Its scores, by the rubric, against the test's earlier rounds. */
+  readonly score: RoundScore;
 }
 
 const files = import.meta.glob<unknown>('../../data/*.json', {
@@ -82,6 +85,7 @@ for (const [id, group] of groups) {
           : `rodada ${String(position + 1)} de ${String(group.length)}`,
       configuration: configurations.get(record.configHash) ?? 1,
       previous: group[position - 1],
+      score: scoreRound(record, group.slice(0, position)),
     });
   });
   built.push(test);

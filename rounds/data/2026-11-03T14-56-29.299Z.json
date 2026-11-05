@@ -1,5 +1,5 @@
 {
-  "schema": 2,
+  "schema": 3,
   "id": "2026-11-03T14-56-29.299Z",
   "definition": {
     "id": "analise-programacao-revisao",
@@ -136,6 +136,7 @@
   "configHash": "b049c4bbdcc435ed4430665e615c1afaed26f02e2b81e8bacf7d073e76f62a4b",
   "steps": [
     {
+      "key": "analista#1",
       "actor": "analista",
       "by": "programador",
       "prompt": {
@@ -231,9 +232,22 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": null,
+      "totals": {
+        "tokens": {
+          "input": 117464,
+          "output": 2287,
+          "cacheRead": 111643,
+          "cacheWrite": 5809,
+          "reasoning": 706
+        },
+        "fresh": 8108,
+        "costUsd": null
+      }
     },
     {
+      "key": "programador#1",
       "actor": "programador",
       "by": null,
       "prompt": {
@@ -375,9 +389,22 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": null,
+      "totals": {
+        "tokens": {
+          "input": 177436,
+          "output": 2681,
+          "cacheRead": 167579,
+          "cacheWrite": 9839,
+          "reasoning": 881
+        },
+        "fresh": 12538,
+        "costUsd": null
+      }
     },
     {
+      "key": "revisor#1",
       "actor": "revisor",
       "by": "programador",
       "prompt": {
@@ -608,13 +635,26 @@
         }
       ],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": null,
+      "totals": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      }
     }
   ],
   "usage": [
     {
       "ts": "2026-11-03T14:56:31.956Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -630,6 +670,7 @@
     {
       "ts": "2026-11-03T14:56:34.803Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -645,6 +686,7 @@
     {
       "ts": "2026-11-03T14:56:56.048Z",
       "actor": "analista",
+      "step": 0,
       "turn": 1,
       "action": null,
       "tokens": {
@@ -660,6 +702,7 @@
     {
       "ts": "2026-11-03T14:58:39.347Z",
       "actor": "analista",
+      "step": 0,
       "turn": 2,
       "action": null,
       "tokens": {
@@ -675,6 +718,7 @@
     {
       "ts": "2026-11-03T14:59:07.804Z",
       "actor": "analista",
+      "step": 0,
       "turn": 3,
       "action": "Bash",
       "tokens": {
@@ -690,6 +734,7 @@
     {
       "ts": "2026-11-03T14:59:15.310Z",
       "actor": "analista",
+      "step": 0,
       "turn": 3,
       "action": null,
       "tokens": {
@@ -705,6 +750,7 @@
     {
       "ts": "2026-11-03T14:59:18.144Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -720,6 +766,7 @@
     {
       "ts": "2026-11-03T14:59:21.325Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": "Bash",
       "tokens": {
@@ -735,6 +782,7 @@
     {
       "ts": "2026-11-03T14:59:29.102Z",
       "actor": "programador",
+      "step": 1,
       "turn": 1,
       "action": null,
       "tokens": {
@@ -750,6 +798,7 @@
     {
       "ts": "2026-11-03T15:01:34.347Z",
       "actor": "programador",
+      "step": 1,
       "turn": 2,
       "action": null,
       "tokens": {
@@ -765,6 +814,7 @@
     {
       "ts": "2026-11-03T15:02:06.799Z",
       "actor": "programador",
+      "step": 1,
       "turn": 3,
       "action": "Bash",
       "tokens": {
@@ -780,6 +830,7 @@
     {
       "ts": "2026-11-03T15:02:09.585Z",
       "actor": "programador",
+      "step": 1,
       "turn": 3,
       "action": "Bash",
       "tokens": {
@@ -795,6 +846,7 @@
     {
       "ts": "2026-11-03T15:02:23.997Z",
       "actor": "programador",
+      "step": 1,
       "turn": 3,
       "action": null,
       "tokens": {
@@ -810,6 +862,7 @@
     {
       "ts": "2026-11-03T15:03:17.622Z",
       "actor": "programador",
+      "step": 1,
       "turn": 4,
       "action": "Bash",
       "tokens": {
@@ -825,6 +878,7 @@
     {
       "ts": "2026-11-03T15:03:26.996Z",
       "actor": "programador",
+      "step": 1,
       "turn": 4,
       "action": null,
       "tokens": {
@@ -847,6 +901,7 @@
         "cacheWrite": 15648,
         "reasoning": 1587
       },
+      "fresh": 20646,
       "costUsd": null
     },
     "actors": {
@@ -858,6 +913,7 @@
           "cacheWrite": 5809,
           "reasoning": 706
         },
+        "fresh": 8108,
         "costUsd": null
       },
       "programador": {
@@ -868,6 +924,7 @@
           "cacheWrite": 9839,
           "reasoning": 881
         },
+        "fresh": 12538,
         "costUsd": null
       },
       "revisor": {
@@ -878,6 +935,7 @@
           "cacheWrite": null,
           "reasoning": null
         },
+        "fresh": null,
         "costUsd": null
       }
     }

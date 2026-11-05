@@ -82,6 +82,7 @@ function round(): RoundRecord {
     configHash: 'b2',
     steps: [
       {
+        key: 'analista#1',
         actor: 'analista',
         by: null,
         prompt: { text: 'Analise o projeto.', hash: 'c3' },
@@ -105,12 +106,19 @@ function round(): RoundRecord {
         ],
         changed: [],
         diff: '',
+        totals: {
+          tokens: { ...noTokens, input: 2200, output: 130, cacheRead: 900 },
+          fresh: 1430,
+          costUsd: 0.03,
+        },
+        references: { cited: 1, valid: 1, invalid: [] },
       },
     ],
     usage: [
       {
         ts: '2026-11-04T10:00:10.000Z',
         actor: 'analista',
+        step: 0,
         turn: 1,
         action: 'Bash',
         tokens: { ...noTokens, input: 1000, output: 50 },
@@ -120,6 +128,7 @@ function round(): RoundRecord {
       {
         ts: '2026-11-04T10:00:58.000Z',
         actor: 'analista',
+        step: 0,
         turn: 1,
         action: null,
         tokens: { ...noTokens, input: 1200, output: 80, cacheRead: 900 },
@@ -130,11 +139,13 @@ function round(): RoundRecord {
     totals: {
       round: {
         tokens: { ...noTokens, input: 2200, output: 130, cacheRead: 900 },
+        fresh: 1430,
         costUsd: 0.03,
       },
       actors: {
         analista: {
           tokens: { ...noTokens, input: 2200, output: 130, cacheRead: 900 },
+          fresh: 1430,
           costUsd: 0.03,
         },
       },
@@ -202,6 +213,7 @@ test('aceita uma rodada com revisão e com o que não foi medido como null', () 
       at(r, 'usage', index)['costUsd'] = null;
       at(r, 'usage', index)['costSource'] = null;
     }
+    at(r, 'steps', 0, 'totals')['costUsd'] = null;
     at(r, 'totals', 'round')['costUsd'] = null;
     at(r, 'totals', 'actors', 'analista')['costUsd'] = null;
   });
@@ -214,7 +226,7 @@ test.each([
     (r: Record<string, unknown>) => {
       r['schema'] = 1;
     },
-    '$.schema: esperava 2, veio 1',
+    '$.schema: esperava 3, veio 1',
   ],
   [
     'campo obrigatório faltando',
@@ -271,7 +283,28 @@ test.each([
       at(r, 'usage', 0, 'tokens')['reasoning'] = null;
       at(r, 'usage', 1, 'tokens')['reasoning'] = null;
     },
-    'totals.round.tokens.reasoning: 0, mas a soma de usage é null',
+    'steps[0].totals.tokens.reasoning: 0, mas a soma de usage é null',
+  ],
+  [
+    'registro de tokens num passo de outro agente',
+    (r: Record<string, unknown>) => {
+      at(r, 'usage', 0)['actor'] = 'revisor';
+    },
+    'usage[0].actor: "revisor" não está em actors',
+  ],
+  [
+    'chave de passo errada',
+    (r: Record<string, unknown>) => {
+      at(r, 'steps', 0)['key'] = 'analista#2';
+    },
+    'steps[0].key: "analista#2", mas é o passo 1 de analista (analista#1)',
+  ],
+  [
+    'tokens novos que não batem',
+    (r: Record<string, unknown>) => {
+      at(r, 'totals', 'round')['fresh'] = 1;
+    },
+    'totals.round.fresh: 1, mas os tokens novos de usage somam 1430',
   ],
   [
     'revisão de um passo que não existe',

@@ -93,11 +93,14 @@ export class StepRecorder {
 
   /**
    * @param actor the step's agent: every usage record carries it.
+   * @param step the step's position in the round: every usage record
+   *   carries it too.
    * @param cost the price of a request when the CLI does not say it; `null`
    *   when unknown.
    */
   public constructor(
     private readonly actor: string,
+    private readonly step: number,
     private readonly cost: (tokens: TokenCounts) => number | null = () => null,
   ) {}
 
@@ -132,6 +135,7 @@ export class StepRecorder {
         this.usage.push({
           ts,
           actor: this.actor,
+          step: this.step,
           turn: Math.max(1, this.turn),
           action: null,
           tokens: {
@@ -269,6 +273,7 @@ export class StepRecorder {
     this.usage.push({
       ts,
       actor: this.actor,
+      step: this.step,
       turn: Math.max(1, this.turn),
       action: text(data['action']) ?? null,
       tokens: counts,

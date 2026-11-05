@@ -1,5 +1,5 @@
 {
-  "schema": 2,
+  "schema": 3,
   "id": "2026-11-04T23-05-04.265Z",
   "definition": {
     "id": "ollama-product-owner",
@@ -108,6 +108,7 @@
   "configHash": "ca060d9203979fa1a45368ec9ebd56a5c782a86b36ccc288869d677232715343",
   "steps": [
     {
+      "key": "product-owner#1",
       "actor": "product-owner",
       "by": "analista",
       "prompt": {
@@ -145,9 +146,26 @@
       ],
       "tools": [],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      },
+      "totals": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      }
     },
     {
+      "key": "analista#1",
       "actor": "analista",
       "by": null,
       "prompt": {
@@ -175,7 +193,23 @@
       ],
       "tools": [],
       "changed": [],
-      "diff": ""
+      "diff": "",
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      },
+      "totals": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      }
     }
   ],
   "usage": [],
@@ -188,6 +222,7 @@
         "cacheWrite": null,
         "reasoning": null
       },
+      "fresh": null,
       "costUsd": null
     },
     "actors": {
@@ -199,6 +234,7 @@
           "cacheWrite": null,
           "reasoning": null
         },
+        "fresh": null,
         "costUsd": null
       },
       "analista": {
@@ -209,6 +245,7 @@
           "cacheWrite": null,
           "reasoning": null
         },
+        "fresh": null,
         "costUsd": null
       }
     }

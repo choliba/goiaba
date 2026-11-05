@@ -22,3 +22,16 @@ export const MIN_SECRET_LENGTH = 12;
  */
 export const NO_ONE_ANSWERS =
   'Ninguém vai responder nesta rodada. Decida você, escolhendo a opção mais simples, diga qual escolheu e siga.';
+
+/**
+ * The rubric's numbers (src/rounds/score.ts, rounds/README.md). Resources
+ * are scored against the test's reference (the median of earlier rounds):
+ * - `best`: at or under this share of the reference, 5. A quarter less is
+ *   already a clear gain, not noise between two runs;
+ * - `worst`: at or over this multiple, 0. Twice the time or tokens is a
+ *   clear loss;
+ * - the reference itself scores 3: as good as usual, not better.
+ * `wastePenalty`: points off the process score (from 5) for each question,
+ * tool error or denied attempt: five wasted steps and it is 0.
+ */
+export const RUBRIC = { best: 0.75, worst: 2, wastePenalty: 1 } as const;

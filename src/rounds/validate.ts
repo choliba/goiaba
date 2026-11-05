@@ -7,7 +7,7 @@
 
 import { UsageError } from '../errors';
 import { COST_TOLERANCE_USD } from './constants';
-import { sum, TOKEN_KINDS } from './totals';
+import { freshOf, sum, TOKEN_KINDS } from './totals';
 import {
   ROUND_SCHEMA,
   type CostSource,
@@ -184,7 +184,11 @@ const tokens = object({
   reasoning: nullable(count),
 });
 
-const usageTotal = object({ tokens, costUsd: nullable(amount) });
+const usageTotal = object({
+  tokens,
+  fresh: nullable(count),
+  costUsd: nullable(amount),
+});
 
 const check = object({
   passed: boolean,
@@ -231,6 +235,7 @@ const actor = object({
 });
 
 const step = object({
+  key: nonEmpty,
   actor: nonEmpty,
   by: nullable(nonEmpty),
   prompt: object({ text: string, hash: nonEmpty }),
@@ -249,6 +254,10 @@ const step = object({
   ),
   changed: list(string),
   diff: string,
+  totals: usageTotal,
+  references: nullable(
+    object({ cited: count, valid: count, invalid: list(nonEmpty) }),
+  ),
 });
 
 const roundRecord = object({
@@ -280,6 +289,7 @@ const roundRecord = object({
     object({
       ts: isoDate,
       actor: nonEmpty,
+      step: count,
       turn: positive,
       action: nullable(string),
       tokens,
@@ -306,6 +316,14 @@ const roundRecord = object({
       detail: string,
     }),
   ),
+  'criteria?': object({
+    'expected?': record(list(nonEmpty)),
+    'limits?': object({
+      'roundMs?': positive,
+      'actorMs?': record(positive),
+      'costUsd?': amount,
+    }),
+  }),
   'review?': object({
     title: nonEmpty,
     summary: string,
@@ -368,7 +386,11 @@ function checkActors(round: RoundRecord): void {
 }
 
 function sameTotal(
-  total: { readonly tokens: TokenCounts; readonly costUsd: number | null },
+  total: {
+    readonly tokens: TokenCounts;
+    readonly fresh: number | null;
+    readonly costUsd: number | null;
+  },
   usage: RoundRecord['usage'],
   path: string,
 ): void {
@@ -379,6 +401,12 @@ function sameTotal(
         `${path}.tokens.${kind}: ${String(total.tokens[kind])}, mas a soma de usage é ${String(expected)}`,
       );
     }
+  }
+  const fresh = sum(usage.map(freshOf));
+  if (total.fresh !== fresh) {
+    throw new Invalid(
+      `${path}.fresh: ${String(total.fresh)}, mas os tokens novos de usage somam ${String(fresh)}`,
+    );
   }
   const cost = sum(usage.map((u) => u.costUsd));
   const matches =
@@ -392,8 +420,35 @@ function sameTotal(
   }
 }
 
-/** The totals are the sum of `usage`, for the round and for each agent. */
+/**
+ * The totals are the sum of `usage`, for the round, each agent and each
+ * step; every usage record points at a step of its own agent; every step's
+ * key is `actor#n`, its n-th step.
+ */
 function checkTotals(round: RoundRecord): void {
+  round.usage.forEach((usage, i) => {
+    const owner = round.steps.at(usage.step);
+    if (owner?.actor !== usage.actor) {
+      throw new Invalid(
+        `usage[${String(i)}].step: ${String(usage.step)} não é um passo de ${usage.actor}`,
+      );
+    }
+  });
+  const seen = new Map<string, number>();
+  round.steps.forEach((item, i) => {
+    const n = (seen.get(item.actor) ?? 0) + 1;
+    seen.set(item.actor, n);
+    if (item.key !== `${item.actor}#${String(n)}`) {
+      throw new Invalid(
+        `steps[${String(i)}].key: "${item.key}", mas é o passo ${String(n)} de ${item.actor} (${item.actor}#${String(n)})`,
+      );
+    }
+    sameTotal(
+      item.totals,
+      round.usage.filter((u) => u.step === i),
+      `steps[${String(i)}].totals`,
+    );
+  });
   sameTotal(round.totals.round, round.usage, 'totals.round');
   for (const [name, total] of Object.entries(round.totals.actors)) {
     sameTotal(

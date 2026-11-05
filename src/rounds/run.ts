@@ -12,7 +12,8 @@ import type { Interaction } from '../interaction/index';
 import { Workspace } from '../workspace/index';
 import { NO_ONE_ANSWERS } from './constants';
 import type { RoundDefinition, RoundFlowStep } from './define';
-import { changes, resetTo, tree, type Tree } from './git';
+import { changes, linesAt, resetTo, tree, type Tree } from './git';
+import { checkReferences } from './references';
 import { spanOf, StepRecorder } from './measures';
 import { measuresOf, sanitize, writeRound } from './record';
 import { promptOf, roundConfigHash, snapshotActor } from './snapshot';
@@ -162,7 +163,12 @@ async function runOnce(
       (path) => sanitize(path, project),
     );
     const model = actors[name].provider.model;
-    const recorder = new StepRecorder(name, (tokens) => price(model, tokens));
+    const index = steps.length;
+    // Which of this actor's steps: `analista#2` is its second.
+    const key = `${name}#${String(steps.filter((step) => step.actor === name).length + 1)}`;
+    const recorder = new StepRecorder(name, index, (tokens) =>
+      price(model, tokens),
+    );
 
     if (flowStep.by !== undefined) {
       screen.write(`\n${title(flowStep.by)} consulta ${name}`);
@@ -250,7 +256,14 @@ async function runOnce(
 
     const measured = recorder.finish(stepEndedAt);
     (decisions[name] ??= []).push(...measured.decisions);
+    const references =
+      git === undefined
+        ? null
+        : await checkReferences(measured.said.join('\n'), (path) =>
+            linesAt(git.root, git.tag, path),
+          );
     return {
+      key,
       actor: name,
       by: flowStep.by ?? null,
       prompt: promptOf(text),
@@ -262,6 +275,8 @@ async function runOnce(
       usage: measured.usage,
       changed,
       diff,
+      totals: totalOf(measured.usage),
+      references,
     };
   }
 
@@ -344,6 +359,18 @@ async function runOnce(
         ]),
       ),
       violations: rules,
+      ...(definition.expected === undefined && definition.limits === undefined
+        ? {}
+        : {
+            criteria: {
+              ...(definition.expected === undefined
+                ? {}
+                : { expected: definition.expected }),
+              ...(definition.limits === undefined
+                ? {}
+                : { limits: definition.limits }),
+            },
+          }),
     };
   }
 }
