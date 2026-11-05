@@ -881,3 +881,52 @@ tr.row-link:hover td {
 tr.row-link:hover th a {
   color: var(--guava);
 }
+
+/* XY chart */
+.xy-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 12px;
+}
+.xy-chart .tick line {
+  stroke: var(--line);
+}
+.xy-chart .axis {
+  stroke: var(--muted);
+}
+.xy-chart text {
+  font: 11px var(--mono);
+  fill: var(--muted);
+}
+.xy-chart .axis-label {
+  font: 600 12px var(--body);
+  fill: var(--ink);
+}
+.xy-chart circle {
+  fill-opacity: 0.85;
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.xy-chart a:hover circle,
+.xy-chart a:focus circle {
+  fill-opacity: 1;
+  stroke: var(--ink);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  font: 13px var(--body);
+  color: var(--muted);
+}
+.legend .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}

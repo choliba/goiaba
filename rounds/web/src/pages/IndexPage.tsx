@@ -1,7 +1,7 @@
 /**
  * Every test, newest first: how many rounds and configurations it ran, and
  * its last round. Filtered by agent: a test shows when one of its agents, in
- * any round, matches the role, provider and model chosen, all at once; in
+ * any round, matches the role, provider, CLI and model chosen, all at once; in
  * the last round's agents, the matching ones are marked.
  */
 
@@ -11,6 +11,7 @@ import type { ActorSnapshot } from '../../../../src/rounds/types';
 import { changeSummary } from '../components/Config';
 import { Grade } from '../components/Scores';
 import { TestsNav } from '../components/TestsNav';
+import { XyChart } from '../components/XyChart';
 import { recentTests, type Test } from '../data';
 import {
   cost,
@@ -45,11 +46,16 @@ const options = (
 interface AgentFilter {
   readonly role: string;
   readonly provider: string;
+  /** The CLI a provider drives (Ollama: claude or codex); none for the others. */
+  readonly cli: string;
   readonly model: string;
 }
 
 const isActive = (filter: AgentFilter): boolean =>
-  filter.role !== ALL || filter.provider !== ALL || filter.model !== ALL;
+  filter.role !== ALL ||
+  filter.provider !== ALL ||
+  filter.cli !== ALL ||
+  filter.model !== ALL;
 
 /** The agent matches every part of the filter that is set. */
 const matches = (
@@ -59,6 +65,7 @@ const matches = (
 ): boolean =>
   (filter.role === ALL || role === filter.role) &&
   (filter.provider === ALL || actor.provider.name === filter.provider) &&
+  (filter.cli === ALL || actor.provider.cli === filter.cli) &&
   (filter.model === ALL || actor.provider.model === filter.model);
 
 function Filter({
@@ -90,12 +97,19 @@ function Filter({
 export function IndexPage(): ReactNode {
   const [role, setRole] = useState(ALL);
   const [provider, setProvider] = useState(ALL);
+  const [cli, setCli] = useState(ALL);
   const [model, setModel] = useState(ALL);
-  const filter: AgentFilter = { role, provider, model };
+  const filter: AgentFilter = { role, provider, cli, model };
   const active = isActive(filter);
   const shown = recentTests.filter((test) =>
     agentsOf(test).some(([name, actor]) => matches(name, actor, filter)),
   );
+  // The CLIs of the chosen provider only; a provider without one has none.
+  const clis = options((_role, actor) =>
+    provider === ALL || actor.provider.name === provider
+      ? (actor.provider.cli ?? '')
+      : '',
+  ).filter((value) => value !== '');
   // The models of the chosen provider only.
   const models = options((_role, actor) =>
     provider === ALL || actor.provider.name === provider
@@ -111,6 +125,13 @@ export function IndexPage(): ReactNode {
       ),
     );
     if (value !== ALL && !keeps) setModel(ALL);
+    const keepsCli = recentTests.some((test) =>
+      agentsOf(test).some(
+        ([, actor]) =>
+          actor.provider.name === value && actor.provider.cli === cli,
+      ),
+    );
+    if (value !== ALL && !keepsCli) setCli(ALL);
   };
 
   return (
@@ -141,6 +162,9 @@ export function IndexPage(): ReactNode {
             values={options((_name, actor) => actor.provider.name)}
             onChange={chooseProvider}
           />
+          {clis.length > 0 && (
+            <Filter label="CLI" value={cli} values={clis} onChange={setCli} />
+          )}
           <Filter
             label="Modelo"
             value={model}
@@ -260,6 +284,16 @@ export function IndexPage(): ReactNode {
           <p className="note">Nenhum teste com esses filtros.</p>
         )}
       </section>
+
+      {shown.length > 0 && (
+        <section className="block" aria-labelledby="grafico">
+          <h2 id="grafico">Gráfico dos agentes do filtro</h2>
+          <XyChart
+            tests={shown}
+            matches={(name, actor) => matches(name, actor, filter)}
+          />
+        </section>
+      )}
     </main>
   );
 }

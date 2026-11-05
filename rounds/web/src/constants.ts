@@ -6,3 +6,16 @@
  * changes at a glance, few enough to fit in two rows on a laptop.
  */
 export const RECENT_TESTS = 5;
+
+/**
+ * The XY chart's drawing area, in SVG units (it scales to the page's width):
+ * 720 × 360 keeps a 2:1 shape that reads on a laptop and still fits a phone.
+ */
+export const CHART_WIDTH = 720;
+export const CHART_HEIGHT = 360;
+
+/**
+ * How many divisions each axis of the XY chart aims for: about 5 keeps the
+ * labels apart at phone width and still lets a value be read off the axis.
+ */
+export const CHART_TICKS = 5;
