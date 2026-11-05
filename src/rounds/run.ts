@@ -137,8 +137,12 @@ async function runOnce(
       said[step.actor] = answer;
     }
   } finally {
-    file = writeRound(record(), dir, project);
-    screen.write(`\nRodada guardada em ${file}`);
+    // A round that failed before any agent ran (no such tag, say) is not a
+    // round: nothing to record, and the error says what to fix.
+    if (steps.length > 0) {
+      file = writeRound(record(), dir, project);
+      screen.write(`\nRodada guardada em ${file}`);
+    }
   }
   return file;
 

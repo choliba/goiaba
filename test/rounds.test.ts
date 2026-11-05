@@ -1,4 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -417,6 +423,39 @@ test('noToolCallAsText acusa a chamada de ferramenta escrita como resposta', () 
       'Não respondeu com uma chamada de ferramenta escrita como texto.',
     ],
   ]);
+});
+
+test('runRound não grava registro quando falha antes do primeiro agente', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'goiaba-round-ws-'));
+  const dir = mkdtempSync(join(tmpdir(), 'goiaba-round-data-'));
+  try {
+    git(root, 'init', '-q');
+    writeFileSync(join(root, 'a.txt'), 'base');
+    git(root, 'add', '.');
+    git(root, 'commit', '-q', '-m', 'base');
+
+    await expect(
+      runRound(
+        defineRound({
+          id: 'teste',
+          goal: 'g',
+          start: { git: { root, tag: 'Os dois escrevem em um arquivo' } },
+          actors: {
+            analista: {
+              provider: new ScriptedProvider('ok'),
+              workspace: { type: 'bubblewrap', root },
+            },
+          },
+          flow: [{ actor: 'analista', prompt: () => ['Analise.'] }],
+        }),
+        { dir, project: root, screen: quiet },
+      ),
+    ).rejects.toThrow('não tem a tag Os dois escrevem em um arquivo');
+    expect(readdirSync(dir)).toEqual([]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git e grava um registro válido', async () => {
