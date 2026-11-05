@@ -20,6 +20,7 @@ import {
   noToolCallAsText,
   readOnlyRespected,
   runRound,
+  writableOf,
   validateRound,
   type RoundDefinition,
 } from '../src/rounds/index';
@@ -362,7 +363,10 @@ test('readOnlyRespected e noQuestions julgam cada passo', () => {
         asked: ['Posso?'],
       },
     ],
-    actors: { analista: { readOnly: true }, programador: { readOnly: false } },
+    actors: {
+      analista: { readOnly: true, writable: [] },
+      programador: { readOnly: false, writable: [] },
+    },
   };
 
   expect(readOnlyRespected().check(input)).toEqual([
@@ -370,7 +374,8 @@ test('readOnlyRespected e noQuestions julgam cada passo', () => {
       rule: 'read-only-respected',
       actor: 'analista',
       passed: false,
-      detail: 'Alterou arquivos mesmo com o pedido de não alterar:  M a.ts',
+      detail:
+        'Alterou arquivos fora do que a política libera para escrita:  M a.ts',
     },
   ]);
   expect(
@@ -381,6 +386,60 @@ test('readOnlyRespected e noQuestions julgam cada passo', () => {
     ['analista', true],
     ['programador', false],
   ]);
+});
+
+test('readOnlyRespected aceita o que a política libera para escrita, e só isso', () => {
+  const input = {
+    steps: [
+      {
+        actor: 'product-owner',
+        said: [],
+        changed: ['?? tickets/ticket-01.txt'],
+        asked: [],
+      },
+      {
+        actor: 'analista',
+        said: [],
+        changed: ['?? tickets/ticket-01.txt', ' M src/main.ts'],
+        asked: [],
+      },
+    ],
+    actors: {
+      'product-owner': { readOnly: true, writable: ['tickets/**'] },
+      analista: { readOnly: true, writable: ['tickets/**'] },
+    },
+  };
+  expect(
+    readOnlyRespected()
+      .check(input)
+      .map((r) => [r.actor, r.passed, r.detail]),
+  ).toEqual([
+    [
+      'product-owner',
+      true,
+      'Só alterou onde a política libera escrita (tickets/**): ?? tickets/ticket-01.txt',
+    ],
+    [
+      'analista',
+      false,
+      'Alterou arquivos fora do que a política libera para escrita:  M src/main.ts',
+    ],
+  ]);
+});
+
+test('writableOf: os caminhos com escrita na política, relativos ao workspace', () => {
+  expect(
+    writableOf({
+      default: 'deny',
+      allow: {
+        filesystem: [
+          { operations: ['read'], paths: ['/workspace/**'] },
+          { operations: ['write'], paths: ['/workspace/tickets/**'] },
+        ],
+      },
+    }),
+  ).toEqual(['tickets/**']);
+  expect(writableOf(null)).toEqual([]);
 });
 
 test('noToolCallAsText acusa a chamada de ferramenta escrita como resposta', () => {
@@ -402,8 +461,8 @@ test('noToolCallAsText acusa a chamada de ferramenta escrita como resposta', () 
       },
     ],
     actors: {
-      'product-owner': { readOnly: true },
-      analista: { readOnly: true },
+      'product-owner': { readOnly: true, writable: [] },
+      analista: { readOnly: true, writable: [] },
     },
   };
 

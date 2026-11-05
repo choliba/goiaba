@@ -43,7 +43,19 @@ export interface RuleInput {
     readonly changed: readonly string[];
     readonly asked: readonly string[];
   }[];
-  readonly actors: Readonly<Record<string, { readonly readOnly: boolean }>>;
+  readonly actors: Readonly<
+    Record<
+      string,
+      {
+        readonly readOnly: boolean;
+        /**
+         * Where its policy lets it write, relative to the workspace's root
+         * (`tickets/**`): what a read-only actor may still change.
+         */
+        readonly writable: readonly string[];
+      }
+    >
+  >;
 }
 
 /** A check made from outside the agents, after the round. */

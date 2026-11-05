@@ -11,6 +11,7 @@ import { createConsumer } from '../events/index';
 import type { Interaction } from '../interaction/index';
 import { Workspace } from '../workspace/index';
 import { NO_ONE_ANSWERS } from './constants';
+import { writableOf } from './rules';
 import type { RoundDefinition, RoundFlowStep } from './define';
 import { changes, linesAt, resetTo, tree, type Tree } from './git';
 import { checkReferences } from './references';
@@ -306,7 +307,10 @@ async function runOnce(
         actors: Object.fromEntries(
           names.map((name) => [
             name,
-            { readOnly: withDecisions[name].readOnly },
+            {
+              readOnly: withDecisions[name].readOnly,
+              writable: writableOf(withDecisions[name].policy),
+            },
           ]),
         ),
       }),
