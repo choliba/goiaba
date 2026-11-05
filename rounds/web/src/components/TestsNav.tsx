@@ -145,18 +145,16 @@ export function TestsNav({
         </button>
       </div>
       <nav className="recent" aria-label="Testes recentes">
-        {/* Also opens every test: "recent" is the start of the list. */}
-        <button
-          type="button"
+        {/* The index lists every test, with their latest rounds. */}
+        <a
           className="recent-label"
-          onClick={show}
-          aria-haspopup="dialog"
-          title="Ver todos os testes"
+          href={indexHref()}
+          aria-current={current === undefined ? 'page' : undefined}
         >
           {others > 0
             ? `Recentes (${String(recent.length)} de ${String(recentTests.length)})`
             : 'Recentes'}
-        </button>
+        </a>
         <ol>
           {recent.map((test) => (
             <li key={test.key}>
