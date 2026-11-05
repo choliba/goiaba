@@ -231,13 +231,14 @@ Os dois ficam na declaração e são copiados para cada registro (`criteria`), p
 anos depois:
 
 ```ts
+// Um exemplo: o id e os pontos não são de nenhuma declaração deste repositório.
 export default defineRound({
-  id: 'analise-programacao-revisao',
+  id: 'exemplo',
   // …
   expected: {
     // Cada entrada é um ponto: achado quando o texto aparece no que o agente disse.
-    analista: ['usuariosPadrao', 'Object.freeze', 'buscarPorId'],
-    programador: ['Object.freeze', 'teste'],
+    analista: ['<ponto 1>', '<ponto 2>', '<ponto 3>'],
+    programador: ['<ponto 1>'],
   },
   limits: {
     roundMs: 120_000, // a rodada inteira, no relógio
@@ -247,7 +248,13 @@ export default defineRound({
 });
 ```
 
-O gabarito é a peça que mais pesa na eficácia: sem ele, só as referências `arquivo:linha` avaliam o resultado. Escreva
+Um agente tem nota de eficácia, e com ela nota final, quando ao menos um destes tem o que medir:
+
+- **o gabarito** (`expected`) do agente: avalia o conteúdo da entrega;
+- **as referências `arquivo:linha`** que ele citou, quando a rodada parte de uma tag do git (`start.git`);
+- **o limite de tempo** do agente (`limits.actorMs`): avalia só se terminou no prazo.
+
+O gabarito é o único que diz se a entrega está certa. Sem ele, a eficácia fica nas referências e no prazo. Escreva
 pontos curtos e específicos, que só apareceriam numa resposta certa.
 
 ### Os números da rubrica
