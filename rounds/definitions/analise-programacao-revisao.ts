@@ -38,7 +38,6 @@ const TEAM = 'uma equipe de três agentes: analista, programador e revisor.';
 
 export default defineRound({
   id: 'analise-programacao-revisao',
-  title: 'Analista, programador e revisor',
   goal: 'Cada papel faz só a sua parte, e toda correção tem um teste que falha sem ela.',
   start: { git: { root, tag: 'rodada-base' } },
   actors: {

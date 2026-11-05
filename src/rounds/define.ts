@@ -63,11 +63,6 @@ export interface RoundStartGit {
 export interface RoundDefinition {
   /** `analise-programacao-revisao`: lowercase letters, digits and `-`. */
   readonly id: string;
-  /**
-   * Its name on the pages (`Tarefa do rodapé`); the id when absent. Only a
-   * label: changing it changes no configuration.
-   */
-  readonly title?: string;
   /** What the round wants to find out, in the user's language. */
   readonly goal: string;
   /**
@@ -95,7 +90,6 @@ const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const KNOWN_FIELDS = new Set([
   'id',
-  'title',
   'goal',
   'label',
   'start',
@@ -124,11 +118,6 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
   if (!ID.test(definition.id)) {
     throw new UsageError(
       `O id da rodada ("${definition.id}") deve ter só letras minúsculas, números e hífens, como analise-programacao-revisao.`,
-    );
-  }
-  if (definition.title?.trim().length === 0) {
-    throw new UsageError(
-      `${where} tem um title vazio: escreva um nome ou tire o campo.`,
     );
   }
   if (definition.label?.trim().length === 0) {

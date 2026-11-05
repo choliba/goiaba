@@ -312,7 +312,6 @@ async function runOnce(
       id: idOf(startedAt),
       definition: {
         id: definition.id,
-        ...(definition.title === undefined ? {} : { title: definition.title }),
         goal: definition.goal,
       },
       ...(label === undefined || label.trim().length === 0

@@ -17,7 +17,7 @@ export interface Test {
   readonly number: number;
   /** The declaration's id: the test's address. */
   readonly key: string;
-  /** The declaration's `title` in its last round, or its id. */
+  /** The declaration's id. */
   readonly title: string;
   /** The goal of its last round: a declaration may change it. */
   readonly goal: string;
@@ -69,7 +69,7 @@ for (const [id, group] of groups) {
   const test: Test = {
     number: built.length + 1,
     key: id,
-    title: last.definition.title ?? id,
+    title: id,
     goal: last.definition.goal,
     rounds,
     configurations: configurations.size,

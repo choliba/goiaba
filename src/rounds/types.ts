@@ -67,8 +67,6 @@ export interface RoundRecord {
 export interface RoundDefinitionRef {
   /** The declaration's id: `analise-programacao-revisao`. */
   readonly id: string;
-  /** Its name on the pages, when the declaration gives one; not in `configHash`. */
-  readonly title?: string;
   /** What the round wants to find out, in the user's language. */
   readonly goal: string;
 }

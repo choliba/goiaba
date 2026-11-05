@@ -3,7 +3,6 @@
   "id": "2026-11-05T00-18-31.171Z",
   "definition": {
     "id": "ollama-product-owner",
-    "title": "Tarefa do rodapé",
     "goal": "O product owner escreve a tarefa do rodapé e o analista define a implementação, sem alterar nenhum arquivo nem fazer perguntas."
   },
   "start": {

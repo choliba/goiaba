@@ -50,7 +50,6 @@ const workspace = {
 
 export default defineRound({
   id: 'so-analise',
-  title: 'Só a análise',
   goal: 'O analista aponta os problemas sem alterar nenhum arquivo.',
   start: { git: { root, tag: 'rodada-base' } },
   actors: {
@@ -82,7 +81,7 @@ export default defineRound({
 
 Rodadas com a mesma configuração (os mesmos agentes, com o mesmo objetivo) são comparáveis entre si, e as páginas tiram a
 média delas. Se você mudar os pedidos, mude o `goal`: os pedidos ficam fora dessa comparação, porque levam o que os
-agentes disseram. O `title` também fica fora: é só o nome do teste.
+agentes disseram.
 
 ## Rodar
 
@@ -95,7 +94,7 @@ agente que não existe) para antes de rodar, com uma mensagem dizendo o que corr
 
 ## Ver as páginas
 
-Nas páginas, cada declaração é um **teste** (o título é o `title` da declaração, ou o `id`), e cada execução dela é uma
+Nas páginas, cada declaração é um **teste**, com o nome do seu `id`, e cada execução dela é uma
 **rodada**, mude o que mudar entre uma e outra. Cada rodada diz o que mudou desde a anterior: modelo, CLI, política,
 pedidos. O topo mostra os últimos testes (`RECENT_TESTS`, em [`web/src/constants.ts`](web/src/constants.ts)), e um
 botão lista todos. As médias só juntam rodadas da mesma configuração.

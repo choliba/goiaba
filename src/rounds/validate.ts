@@ -263,7 +263,7 @@ const step = object({
 const roundRecord = object({
   schema: literal(ROUND_SCHEMA),
   id: nonEmpty,
-  definition: object({ id: nonEmpty, 'title?': nonEmpty, goal: nonEmpty }),
+  definition: object({ id: nonEmpty, goal: nonEmpty }),
   'label?': nonEmpty,
   start: nullable(object({ tag: nonEmpty, commit: nonEmpty })),
   repeat: object({ index: positive, total: positive }),
