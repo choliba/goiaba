@@ -145,11 +145,18 @@ export function TestsNav({
         </button>
       </div>
       <nav className="recent" aria-label="Testes recentes">
-        <span className="recent-label">
+        {/* Also opens every test: "recent" is the start of the list. */}
+        <button
+          type="button"
+          className="recent-label"
+          onClick={show}
+          aria-haspopup="dialog"
+          title="Ver todos os testes"
+        >
           {others > 0
             ? `Recentes (${String(recent.length)} de ${String(recentTests.length)})`
             : 'Recentes'}
-        </span>
+        </button>
         <ol>
           {recent.map((test) => (
             <li key={test.key}>

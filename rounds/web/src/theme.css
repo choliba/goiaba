@@ -220,9 +220,19 @@ a.brand:hover {
 }
 .recent-label {
   align-self: center;
-  font-size: 13px;
+  font: 13px var(--body);
   color: var(--muted);
   white-space: nowrap;
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.recent-label:hover,
+.recent-label:focus-visible {
+  color: var(--guava);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .recent ol {
   list-style: none;
