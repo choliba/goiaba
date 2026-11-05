@@ -86,7 +86,7 @@ a {
   outline-offset: 2px;
 }
 .page {
-  max-width: 1180px;
+  max-width: 1600px;
   margin: 0 auto;
   padding-block: 32px 64px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
