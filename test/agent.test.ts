@@ -695,6 +695,40 @@ test('tarefa que terminou ou prompt novo começam uma sessão nova', async () =>
   ]);
 });
 
+test('com awaitApprovals false, um comando negado não faz o agente esperar', async () => {
+  const store = Store.memory();
+  const root = process.cwd();
+  store.recordDecision({
+    session: 'sy',
+    provider: 'session',
+    root,
+    command: 'touch index.html',
+    decision: 'deny',
+    source: 'default',
+    reason: 'Nenhuma regra corresponde à ação.',
+  });
+  const provider = new SessionProvider('sy');
+  const written: string[] = [];
+
+  await new Agent({
+    conversation: false,
+    awaitApprovals: false,
+    name: 'teste',
+    prompt: 'crie o index',
+    provider,
+    workspace: new Workspace({ type: 'bubblewrap', root }),
+    interaction: { ask: unusedAsk, write: (value) => written.push(value) },
+    store,
+  }).run();
+
+  expect(provider.calls).toEqual([
+    { session: undefined, input: 'crie o index' },
+  ]);
+  expect(written.some((value) => value.includes('Aguardando aprovação'))).toBe(
+    false,
+  );
+});
+
 test('com comando negado pendente, espera a aprovação e continua sozinho', async () => {
   const store = Store.memory();
   const root = process.cwd();

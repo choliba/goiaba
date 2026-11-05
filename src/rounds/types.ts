@@ -30,6 +30,11 @@ export interface RoundRecord {
   readonly id: string;
   /** Which declaration ran, and what it wants to find out. */
   readonly definition: RoundDefinitionRef;
+  /**
+   * What changed in this run, in the words of whoever ran it (`troquei o
+   * modelo para o qwen3.5:4b`); absent when nobody said. Not in `configHash`.
+   */
+  readonly label?: string;
   /** Where the workspace started from; `null` when the round has no git start. */
   readonly start: RoundStart | null;
   /** This run among the repetitions of the same declaration. */

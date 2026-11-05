@@ -133,6 +133,7 @@ test.each([
   ['id com maiúsculas', { id: 'Teste' }, 'O id da rodada ("Teste")'],
   ['sem goal', { goal: ' ' }, 'não diz o que quer identificar'],
   ['title vazio', { title: ' ' }, 'tem um title vazio'],
+  ['label vazio', { label: ' ' }, 'tem um label vazio'],
   ['sem passos', { flow: [] }, 'não tem nenhum passo em flow'],
   [
     'passo com agente que não existe',
@@ -456,7 +457,7 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
         ],
         rules: [readOnlyRespected()],
       }),
-      { dir, project: root, screen: quiet },
+      { dir, project: root, screen: quiet, label: 'analista só lê' },
     );
 
     expect(programador.prompts).toEqual(['Corrija:\ndois problemas']);
@@ -466,6 +467,7 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
     );
 
     expect(round.start?.tag).toBe('rodada-base');
+    expect(round.label).toBe('analista só lê');
     expect(round.steps.map((s) => [s.actor, s.said, s.changed])).toEqual([
       ['analista', ['dois problemas'], []],
       ['programador', ['corrigi'], ['?? b.txt']],

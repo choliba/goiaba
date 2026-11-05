@@ -123,6 +123,8 @@ export class Agent {
   private keepOpen = false;
   private readonly approvalPollMs: number;
   private readonly thinkingTickMs: number;
+  /** See `AgentOptions.awaitApprovals`. */
+  private readonly awaitApprovals: boolean;
 
   public constructor({
     name,
@@ -137,6 +139,7 @@ export class Agent {
     approve,
     store,
     conversation = true,
+    awaitApprovals = true,
     resume = true,
     approvalPollMs = APPROVAL_POLL_MS,
     thinkingTickMs = THINKING_TICK_MS,
@@ -160,6 +163,7 @@ export class Agent {
     this.output = interaction;
     this.signal = signal;
     this.conversation = conversation;
+    this.awaitApprovals = awaitApprovals;
     this.resumes = resume;
     this.approvalPollMs = approvalPollMs;
     this.thinkingTickMs = thinkingTickMs;
@@ -736,7 +740,9 @@ export class Agent {
         }
 
         const waiting =
-          sessionId === undefined ? 0 : this.pendingDenials(sessionId);
+          sessionId === undefined || !this.awaitApprovals
+            ? 0
+            : this.pendingDenials(sessionId);
 
         pendingAnswer ??= typed?.submitted();
 

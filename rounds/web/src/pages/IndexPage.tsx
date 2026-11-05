@@ -227,6 +227,9 @@ export function IndexPage(): ReactNode {
                         <div className="muted">
                           {when(record.timing.startedAt)}
                         </div>
+                        {record.label !== undefined && (
+                          <div className="label">“{record.label}”</div>
+                        )}
                         <div className="muted">mudou: {changed}</div>
                       </td>
                       <td>{duration(record.timing.durationMs)}</td>

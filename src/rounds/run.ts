@@ -41,6 +41,8 @@ export interface RunRoundOptions {
   readonly screen?: Interaction;
   /** Stops the round; the runScript's Ctrl+C by default. */
   readonly signal?: AbortSignal;
+  /** What changed in this run, in your words; wins over the declaration's `label`. */
+  readonly label?: string;
   /**
    * The cost in USD of a request the CLI does not price, by the actor's
    * model; `null` when unknown (the default: no price table yet).
@@ -82,6 +84,7 @@ async function runOnce(
     project,
     screen = agentConversation(),
     signal,
+    label = definition.label,
     price = () => null,
   }: RunRoundOptions,
 ): Promise<string> {
@@ -203,6 +206,8 @@ async function runOnce(
         // Works until done and ends; never resumes an old task.
         conversation: false,
         resume: false,
+        // Nobody approves in a round: a denied command stays denied.
+        awaitApprovals: false,
         provider: actor.provider,
         workspace,
         ...(actor.permissions === undefined
@@ -295,6 +300,9 @@ async function runOnce(
         ...(definition.title === undefined ? {} : { title: definition.title }),
         goal: definition.goal,
       },
+      ...(label === undefined || label.trim().length === 0
+        ? {}
+        : { label: label.trim() }),
       start,
       repeat,
       timing: {

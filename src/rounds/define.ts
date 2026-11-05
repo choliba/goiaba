@@ -70,6 +70,12 @@ export interface RoundDefinition {
   readonly title?: string;
   /** What the round wants to find out, in the user's language. */
   readonly goal: string;
+  /**
+   * What changed since the last run, in your words (`troquei o modelo para
+   * o qwen3.5:4b`): recorded in every run until you change it. Only a note:
+   * it changes no configuration. `bun run rounds <id> --label "…"` wins.
+   */
+  readonly label?: string;
   readonly start?: { readonly git: RoundStartGit };
   readonly actors: Readonly<Record<string, RoundActor>>;
   readonly flow: readonly RoundFlowStep[];
@@ -84,6 +90,7 @@ const KNOWN_FIELDS = new Set([
   'id',
   'title',
   'goal',
+  'label',
   'start',
   'actors',
   'flow',
@@ -113,6 +120,11 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
   if (definition.title?.trim().length === 0) {
     throw new UsageError(
       `${where} tem um title vazio: escreva um nome ou tire o campo.`,
+    );
+  }
+  if (definition.label?.trim().length === 0) {
+    throw new UsageError(
+      `${where} tem um label vazio: descreva a mudança ou tire o campo.`,
     );
   }
   if (definition.goal.trim().length === 0) {

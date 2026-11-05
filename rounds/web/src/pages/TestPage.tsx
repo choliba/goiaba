@@ -138,8 +138,13 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                           `Rodada ${String(round.index)}`}
                       </a>
                     </th>
-                    <td className={changed ? 'changed' : 'muted'}>
-                      {changes(round)}
+                    <td>
+                      {round.record.label !== undefined && (
+                        <p className="label">“{round.record.label}”</p>
+                      )}
+                      <span className={changed ? 'changed' : 'muted'}>
+                        {changes(round)}
+                      </span>
                     </td>
                     <td>{duration(round.record.timing.durationMs)}</td>
                     <td>{tokensShort(roundTokens(round.record))}</td>

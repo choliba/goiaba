@@ -127,6 +127,12 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
         <p>
           <strong>Objetivo:</strong> {record.definition.goal}
         </p>
+        {record.label !== undefined && (
+          <p>
+            <strong>O que mudou, nas palavras de quem rodou:</strong> “
+            {record.label}”
+          </p>
+        )}
         {record.review !== undefined && <Rich text={record.review.summary} />}
         <p className="muted">
           {record.start === null

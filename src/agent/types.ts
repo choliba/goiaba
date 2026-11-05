@@ -58,6 +58,13 @@ export interface AgentOptions {
    */
   readonly conversation?: boolean;
   /**
+   * After a turn with commands the policy denied, waits for someone to
+   * approve them (`bun run approvals`, Ctrl+A) and continues. Default
+   * `true`; `false` ends instead: denied stays denied, for a run nobody
+   * watches (a round).
+   */
+  readonly awaitApprovals?: boolean;
+  /**
    * Continues on its own a task interrupted before (same prompt, stopped
    * with Ctrl+C) or with something approved for it since. Default `true`;
    * `false` starts every run anew. `resume()` still continues.

@@ -740,7 +740,12 @@ a.crumbs-test:hover {
 }
 
 /* What changed since the round before, in a test's table */
-td.changed {
+.changed {
   color: var(--guava);
   font-weight: 500;
+}
+.label {
+  margin: 0 0 4px;
+  font-style: italic;
+  color: var(--ink);
 }

@@ -46,7 +46,16 @@ await runCommand(
         required: true,
       },
     },
-    run: async ({ args }) => {
+    options: {
+      label: {
+        type: 'string',
+        short: 'l',
+        value: 'texto',
+        description:
+          'O que mudou nesta execução, nas suas palavras; vale mais que o label da declaração',
+      },
+    },
+    run: async ({ args, options }) => {
       const file = join(DEFINITIONS, `${args.rodada}.ts`);
       if (!pathExists(file)) {
         throw new UsageError(
@@ -63,7 +72,11 @@ await runCommand(
           `${file} deve exportar por padrão uma rodada: export default defineRound({ … }).`,
         );
       }
-      await runRound(definition, { dir: DATA, project: PROJECT });
+      await runRound(definition, {
+        dir: DATA,
+        project: PROJECT,
+        ...(options.label === undefined ? {} : { label: options.label }),
+      });
     },
   }),
 );
