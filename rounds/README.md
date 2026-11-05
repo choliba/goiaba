@@ -16,7 +16,7 @@ registro em JSON, e as páginas em [`web/`](web/) comparam uma execução com as
   - [Eficiência: o que custou entregar](#eficiência-o-que-custou-entregar)
   - [Eliminatórias](#eliminatórias)
   - [A nota da rodada](#a-nota-da-rodada)
-  - [Gabarito e limites](#gabarito-e-limites)
+  - [Instruções e limites](#instruções-e-limites)
   - [Os números da rubrica](#os-números-da-rubrica)
 
 ## Onde fica cada coisa
@@ -76,8 +76,8 @@ export default defineRound({
 - `rules`: o que se confere de fora depois da execução (`readOnlyRespected`, `noQuestions`).
 - `repeat`: quantas vezes rodar a mesma configuração. Uma execução só não basta para comparar configurações.
 - `label`: o que mudou desde a última execução, nas suas palavras. `bun run rounds <id> --label "…"` vale mais.
-- `expected` e `limits`: o gabarito e os limites, que entram nas notas (veja
-  [Gabarito e limites](#gabarito-e-limites)).
+- `instructions` e `limits`: as instruções do prompt que a rodada confere sozinha e os limites, que entram nas notas
+  (veja [Instruções e limites](#instruções-e-limites)).
 
 Rodadas com a mesma configuração (os mesmos agentes, com o mesmo objetivo) são comparáveis entre si, e as páginas tiram a
 média delas. Se você mudar os pedidos, mude o `goal`: os pedidos ficam fora dessa comparação, porque levam o que os
@@ -115,14 +115,15 @@ continuam iguais quando registros entram ou saem de `data/`.
 As rodadas de 03/11, anteriores às declarações (`agents/02.ts`), não tinham objetivo: o `goal` delas é vazio, e a página
 mostra "sem objetivo declarado".
 
-O formato está em [`../src/rounds/types.ts`](../src/rounds/types.ts) (`RoundRecord`, `schema: 3`). Cada registro guarda:
+O formato está em [`../src/rounds/types.ts`](../src/rounds/types.ts) (`RoundRecord`, `schema: 4`). Cada registro guarda:
 
 - a configuração de cada agente: provider, workspace, regras de rede, o que a rede decidiu de fato e a política;
 - o pedido de cada passo, as falas, as perguntas, as ferramentas, o diff e as referências `arquivo:linha` conferidas;
 - o tempo e os tokens em três níveis: cada passo (`steps[i].span`, `steps[i].totals`), cada agente
   (`timing.actors`, `totals.actors`) e a rodada (`timing`, `totals.round`);
 - os tokens novos (`fresh`) em cada um desses níveis: o que o modelo leu fora do cache, mais o que escreveu;
-- o resultado das regras, o gabarito e os limites declarados (`criteria`), e o `label`;
+- o resultado das regras, das instruções conferidas em cada passo (só o veredito, não o arquivo) e os limites declarados
+  (`criteria`), e o `label`;
 
 Cada passo tem uma chave estável, `agente#n` (o n-ésimo passo daquele agente): é por ela que rodadas diferentes são
 comparadas, e por ela que um gráfico junta "o passo do analista" de todas as rodadas, mesmo que o `flow` mude.
@@ -135,11 +136,11 @@ informa tokens quando a rodada tem regras de rede (`permissions`).
 
 Cada agente recebe três notas, de 0 a 5: eficácia, eficiência e a nota final, que junta as duas.
 
-|           | Eficácia                                        | Eficiência                                                                    |
-| --------- | ----------------------------------------------- | ----------------------------------------------------------------------------- |
-| Pergunta  | atingiu o objetivo?                             | quanto gastou, e desperdiçou, para chegar lá?                                 |
-| Olha para | o resultado, independentemente dos recursos     | os meios: tempo, tokens e processo                                            |
-| Exemplo   | entregou o que o gabarito pede, mesmo demorando | entregou com menos tempo e tokens que o normal, sem erros nem passos refeitos |
+|           | Eficácia                                                         | Eficiência                                                                    |
+| --------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Pergunta  | atingiu o objetivo?                                              | quanto gastou, e desperdiçou, para chegar lá?                                 |
+| Olha para | o resultado, independentemente dos recursos                      | os meios: tempo, tokens e processo                                            |
+| Exemplo   | fez o que o prompt pediu, dentro das permissões, mesmo demorando | entregou com menos tempo e tokens que o normal, sem erros nem passos refeitos |
 
 A nota final resume; eficácia e eficiência continuam aparecendo ao lado dela, porque só elas mostram em que direção uma
 mudança empurrou a rodada: melhorou o resultado, ou só barateou? Cada rodada cai num destes quadrantes: eficaz e
@@ -157,7 +158,7 @@ nota final = 60% × eficácia + 40% × base da eficiência
 - O resultado pesa mais que os meios (60/40): entregar importa mais que entregar barato.
 
 As notas são calculadas pela rubrica, em [`../src/rounds/score.ts`](../src/rounds/score.ts), a partir dos fatos do
-registro. A rubrica tem versão (`RUBRIC_VERSION`, hoje **2**), e a página mostra qual foi usada. Mudou um critério, a
+registro. A rubrica tem versão (`RUBRIC_VERSION`, hoje **3**), e a página mostra qual foi usada. Mudou um critério, a
 versão sobe, e todas as rodadas, antigas e novas, passam a ser avaliadas do mesmo jeito.
 
 Um critério sem o que medir fica **não avaliado** (`—` na página), e não `0`: a média de uma dimensão é a média dos
@@ -165,25 +166,28 @@ critérios avaliados. Uma dimensão sem nenhum critério avaliado fica sem nota.
 
 ### Eficácia: o que foi entregue
 
-A nota de eficácia de um agente é a média destes critérios:
+Eficácia é o agente ter feito o que o prompt pediu, dentro das permissões que a política dá. A nota é a média destes
+critérios:
 
-| Critério                 | Como é medido                                                                                                                                                         | Nota                                                       | Quando não é avaliado                                     |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------- |
-| **Completude**           | cada ponto do gabarito do agente (`expected`) aparece no que ele disse, sem diferenciar maiúsculas                                                                    | `5 × achados ÷ pontos`. Achou 2 de 3: 3,3                  | sem gabarito para o agente                                |
-| **Referências corretas** | cada `arquivo:linha` (ou `arquivo:início-fim`) que ele citou existe no workspace como estava no início da rodada (a tag de partida), e a linha está dentro do arquivo | `5 × válidas ÷ citadas`                                    | sem ponto de partida no git, ou nenhuma referência citada |
-| **Limite de tempo**      | o tempo gasto pelo agente (a soma dos seus passos) contra o limite declarado (`limits.actorMs`)                                                                       | dentro: 5; acima: 0. Estourar o prazo é não atingir a meta | sem limite declarado                                      |
+| Critério                 | Como é medido                                                                                                                                                                       | Nota                                                             | Quando não é avaliado                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------- |
+| **Instruções do prompt** | as instruções conferíveis do agente (`instructions`), checadas no workspace ao fim do passo dele: o arquivo existe e, se pedido, contém o trecho (sem diferenciar maiúsculas)       | `5 × cumpridas ÷ instruções`. Cumpriu 2 de 3: 3,3                | nenhuma instrução declarada para o agente                 |
+| **Permissões**           | não alterou nada fora do que a política libera para escrita (quando é `readOnly`) e não tentou destinos de rede que a política nega (os que o próprio provider bloqueia não contam) | alterou fora: 0; senão, começa em 5 e perde 1 por destino negado | o agente não tem política nem `readOnly`                  |
+| **Referências corretas** | cada `arquivo:linha` (ou `arquivo:início-fim`) que ele citou existe no workspace como estava no início da rodada (a tag de partida), e a linha está dentro do arquivo               | `5 × válidas ÷ citadas`                                          | sem ponto de partida no git, ou nenhuma referência citada |
+| **Limite de tempo**      | o tempo gasto pelo agente (a soma dos seus passos) contra o limite declarado (`limits.actorMs`)                                                                                     | dentro: 5; acima: 0. Estourar o prazo é não atingir a meta       | sem limite declarado                                      |
 
+A eficácia não lê o que o agente disse: confere o que ficou no workspace, o que a política registrou e o que ele citou.
 As referências são conferidas contra o início da rodada: uma linha que o próprio agente acrescentou depois não conta.
 
 ### Eficiência: o que custou entregar
 
 A eficiência tem duas partes de peso igual:
 
-| Parte        | Critério                     | Como é medido                                                                                                                                                    | Nota                                        |
-| ------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| **Recursos** | **Tempo gasto**              | o tempo do agente (a soma dos seus passos), não o decorrido da rodada                                                                                            | contra a referência (abaixo)                |
-|              | **Tokens novos**             | o que o agente leu fora do cache, mais o que escreveu (`fresh`), não o total                                                                                     | contra a referência (abaixo)                |
-| **Processo** | **Processo sem desperdício** | perguntas numa rodada em que ninguém responde, ferramentas que falharam e destinos de rede negados pela política (os que o próprio provider bloqueia não contam) | começa em 5 e perde 1 por ocorrência, até 0 |
+| Parte        | Critério                     | Como é medido                                                                                                                                    | Nota                                        |
+| ------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| **Recursos** | **Tempo gasto**              | o tempo do agente (a soma dos seus passos), não o decorrido da rodada                                                                            | contra a referência (abaixo)                |
+|              | **Tokens novos**             | o que o agente leu fora do cache, mais o que escreveu (`fresh`), não o total                                                                     | contra a referência (abaixo)                |
+| **Processo** | **Processo sem desperdício** | perguntas numa rodada em que ninguém responde e ferramentas que falharam (as tentativas negadas pela política contam em Permissões, na eficácia) | começa em 5 e perde 1 por ocorrência, até 0 |
 
 **A referência** é a mediana do mesmo agente nas rodadas anteriores do mesmo teste. Contra ela:
 
@@ -206,7 +210,7 @@ eficiência = base × eficácia ÷ 5
 ```
 
 Quem gasta pouco e entrega metade fica com metade da base; quem não entrega nada, com zero. Sem nota de eficácia (sem
-gabarito nem referências), a eficiência fica sem nota, e a página mostra só a base.
+instruções, política nem referências), a eficiência fica sem nota, e a página mostra só a base.
 
 ### Eliminatórias
 
@@ -225,37 +229,54 @@ A eficácia da rodada é a média das eficácias dos agentes avaliados, mais os 
 rodada é a média das eficiências dos agentes. A nota final da rodada usa a mesma conta da do agente: 60% da eficácia
 da rodada mais 40% da média das bases de eficiência dos agentes. A página diz quantos agentes foram avaliados.
 
-### Gabarito e limites
+### Instruções e limites
 
-Os dois ficam na declaração e são copiados para cada registro (`criteria`), para que uma rodada possa ser avaliada sozinha,
-anos depois:
+As instruções são as partes do prompt que a rodada confere sozinha, sem interpretar texto. Escreva uma para cada pedido
+do prompt que deixa (ou não deixa) algo no workspace, ao lado do prompt que a pede. O registro guarda só o veredito de
+cada uma (o que foi conferido, se cumpriu e por quê), nunca o conteúdo do arquivo.
+
+Uma instrução tem até três partes:
+
+| Parte                  | O que é                                                                                                                         | Quando é conferida                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `check`                | o que tem que ser verdade: um arquivo (`file`), com um trecho (`contains`) ou não, ou `{ unchanged: true }`, "não alterou nada" | no fim do passo do agente                  |
+| `when` (opcional)      | a condição para o `check` valer: um arquivo, com ou sem trecho                                                                  | no início do passo, antes de o agente agir |
+| `otherwise` (opcional) | o que tem que ser verdade se a condição não valeu                                                                               | no fim do passo                            |
+
+Sem `when`, o `check` vale sempre. Com `when` e sem `otherwise`, se a condição não valeu, a instrução não se aplica
+e não conta. `otherwise` sem `when` é recusado.
 
 ```ts
-// Um exemplo: o id e os pontos não são de nenhuma declaração deste repositório.
 export default defineRound({
-  id: 'exemplo',
   // …
-  expected: {
-    // Cada entrada é um ponto: achado quando o texto aparece no que o agente disse.
-    analista: ['<ponto 1>', '<ponto 2>', '<ponto 3>'],
-    programador: ['<ponto 1>'],
+  instructions: {
+    // "Escreva um arquivo tickets/ticket-01.txt…"
+    'product-owner': [{ check: { file: 'tickets/ticket-01.txt' } }],
+    analista: [
+      {
+        // "O product owner entregou um ticket em tickets/ticket-01.txt"
+        when: { file: 'tickets/ticket-01.txt' },
+        // "…insira uma seção no arquivo com o título ANÁLISE TÉCNICA."
+        check: { file: 'tickets/ticket-01.txt', contains: 'ANÁLISE TÉCNICA' },
+        // "Se o arquivo não existir, feche a rodada": não alterou nada
+        otherwise: { unchanged: true },
+      },
+    ],
   },
   limits: {
-    roundMs: 120_000, // a rodada inteira, no relógio
-    actorMs: { analista: 45_000 }, // cada agente, a soma dos seus passos
-    costUsd: 0.5, // a rodada inteira
+    roundMs: 600_000, // a rodada inteira, no relógio
+    actorMs: { analista: 300_000 }, // cada agente, a soma dos seus passos
   },
 });
 ```
 
-Um agente tem nota de eficácia, e com ela nota final, quando ao menos um destes tem o que medir:
+- `file`: relativo à raiz do workspace.
+- `contains`: um trecho, sem diferenciar maiúsculas.
+- Um limite estourado dá 0 naquele critério da eficácia. Escolha limites que o modelo consegue cumprir quando acerta:
+  um limite apertado demais mede o modelo lento, não a entrega.
 
-- **o gabarito** (`expected`) do agente: avalia o conteúdo da entrega;
-- **as referências `arquivo:linha`** que ele citou, quando a rodada parte de uma tag do git (`start.git`);
-- **o limite de tempo** do agente (`limits.actorMs`): avalia só se terminou no prazo.
-
-O gabarito é o único que diz se a entrega está certa. Sem ele, a eficácia fica nas referências e no prazo. Escreva
-pontos curtos e específicos, que só apareceriam numa resposta certa.
+Um agente tem nota de eficácia, e com ela nota final, quando ao menos um critério de eficácia tem o que medir: as
+instruções, a política (ou `readOnly`), as referências `arquivo:linha` (com `start.git`) ou o limite de tempo.
 
 ### Os números da rubrica
 

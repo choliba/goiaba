@@ -3,7 +3,8 @@
  * without other modules' runtime code, so the pages score with it too.
  *
  * Per agent, 0 to 5 (rounds/README.md):
- * - effectiveness (what): did it reach the goal, whatever it cost;
+ * - effectiveness (what): did it do what its prompt asked, within its
+ *   permissions, whatever it cost;
  * - efficiency (how): what it spent and wasted to get there, scaled by the
  *   share of the goal it reached (most result for least resources);
  * - final: effectiveness and efficiency weighed together (`RUBRIC.weights`),
@@ -18,9 +19,11 @@
  */
 
 import { RUBRIC } from './constants';
+import { wildmatch } from '../policy/wildmatch';
+import { statusPath, writableOf } from './permissions';
 import type { RoundRecord, RoundStep } from './types';
 
-export const RUBRIC_VERSION = '2';
+export const RUBRIC_VERSION = '3';
 
 /** One criterion's score, and why. */
 export interface CriterionScore {
@@ -133,33 +136,80 @@ function eliminations(record: RoundRecord, actor: string): string[] {
   return reasons;
 }
 
-function completeness(record: RoundRecord, actor: string): CriterionScore {
-  const points = entry(record.criteria?.expected, actor);
-  const label = 'Completude';
-  if (points === undefined) {
+/** The checkable instructions of its prompt, as checked at the end of each step. */
+function instructions(record: RoundRecord, actor: string): CriterionScore {
+  const label = 'Instruções do prompt';
+  const results = stepsOf(record, actor).flatMap((step) => step.instructions);
+  if (results.length === 0) {
     return {
-      id: 'completeness',
+      id: 'instructions',
       label,
       score: null,
-      detail: 'Sem gabarito (expected) para este agente.',
+      detail:
+        'Nenhuma instrução conferível declarada (instructions) para este agente.',
     };
   }
-  const said = stepsOf(record, actor)
-    .flatMap((step) => step.said)
-    .join('\n')
-    .toLocaleLowerCase('pt-BR');
-  const missing = points.filter(
-    (point) => !said.includes(point.toLocaleLowerCase('pt-BR')),
-  );
-  const found = points.length - missing.length;
+  const met = results.filter((result) => result.met).length;
+  const missed = results.filter((result) => !result.met);
   return {
-    id: 'completeness',
+    id: 'instructions',
     label,
-    score: round1((5 * found) / points.length),
+    score: round1((5 * met) / results.length),
     detail:
-      missing.length === 0
-        ? `Achou os ${String(points.length)} pontos do gabarito.`
-        : `Achou ${String(found)} de ${String(points.length)} pontos do gabarito; faltou: ${missing.join('; ')}.`,
+      missed.length === 0
+        ? `Cumpriu as ${String(results.length)} instruções: ${results.map((r) => r.detail).join(' ')}`
+        : `Cumpriu ${String(met)} de ${String(results.length)}. ${missed.map((r) => r.detail).join(' ')}`,
+  };
+}
+
+/**
+ * Stayed within what its policy allows: changed nothing outside where it may
+ * write (when told not to change files) and tried no destination the policy
+ * denies. Not evaluated for an agent with neither a policy nor `readOnly`.
+ */
+function permissions(record: RoundRecord, actor: string): CriterionScore {
+  const label = 'Permissões';
+  const snapshot = entry(record.actors, actor);
+  if (
+    snapshot === undefined ||
+    (snapshot.policy === null && !snapshot.readOnly)
+  ) {
+    return {
+      id: 'permissions',
+      label,
+      score: null,
+      detail: 'Sem política nem readOnly para conferir.',
+    };
+  }
+  const writable = writableOf(snapshot.policy);
+  const outside =
+    snapshot.readOnly && record.start !== null
+      ? stepsOf(record, actor)
+          .flatMap((step) => step.changed)
+          .filter(
+            (line) =>
+              !writable.some((pattern) => wildmatch(statusPath(line), pattern)),
+          )
+      : [];
+  const denied = snapshot.network.decisions.filter(
+    (d) => d.decision === 'deny' && d.decidedBy !== 'provider',
+  );
+  if (outside.length > 0) {
+    return {
+      id: 'permissions',
+      label,
+      score: 0,
+      detail: `Alterou fora do que a política libera para escrita: ${outside.join(', ')}.`,
+    };
+  }
+  return {
+    id: 'permissions',
+    label,
+    score: Math.max(0, 5 - denied.length * RUBRIC.wastePenalty),
+    detail:
+      denied.length === 0
+        ? 'Ficou dentro da política: nada alterado fora do permitido, nenhum destino negado.'
+        : `${String(denied.length)} destino(s) de rede negado(s) pela política: ${denied.map((d) => d.destination).join(', ')}.`,
   };
 }
 
@@ -255,15 +305,11 @@ function process(record: RoundRecord, actor: string): CriterionScore {
       total + step.tools.filter((tool) => tool.outcome === 'error').length,
     0,
   );
-  const denied =
-    entry(record.actors, actor)?.network.decisions.filter(
-      (d) => d.decision === 'deny' && d.decidedBy !== 'provider',
-    ).length ?? 0;
-  const waste = questions + errors + denied;
+  // Denied attempts are the policy's: scored in Permissões, not here.
+  const waste = questions + errors;
   const parts = [
     questions > 0 ? `${String(questions)} pergunta(s)` : '',
     errors > 0 ? `${String(errors)} ferramenta(s) com erro` : '',
-    denied > 0 ? `${String(denied)} destino(s) de rede negado(s)` : '',
   ].filter(Boolean);
   return {
     id: 'process',
@@ -271,7 +317,7 @@ function process(record: RoundRecord, actor: string): CriterionScore {
     score: Math.max(0, 5 - waste * RUBRIC.wastePenalty),
     detail:
       parts.length === 0
-        ? 'Nenhum desperdício: sem perguntas, erros ou tentativas negadas.'
+        ? 'Nenhum desperdício: sem perguntas nem ferramentas com erro.'
         : `${parts.join(', ')}.`,
   };
 }
@@ -283,7 +329,8 @@ function actorScore(
 ): ActorScore {
   const eliminated = eliminations(record, actor);
   const effectivenessCriteria = [
-    completeness(record, actor),
+    instructions(record, actor),
+    permissions(record, actor),
     references(record, actor),
     limit(
       'time-limit',

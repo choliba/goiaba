@@ -136,7 +136,7 @@ function definition(overrides: Partial<RoundDefinition> = {}): RoundDefinition {
   };
 }
 
-test.each([
+test.each<[string, Partial<RoundDefinition>, string]>([
   ['id com maiúsculas', { id: 'Teste' }, 'O id da rodada ("Teste")'],
   ['sem goal', { goal: ' ' }, 'não diz o que quer identificar'],
   ['label vazio', { label: ' ' }, 'tem um label vazio'],
@@ -152,6 +152,27 @@ test.each([
     'o passo 1 usa by "chefe"',
   ],
   ['repeat zero', { repeat: 0 }, 'repeat deve ser um inteiro a partir de 1'],
+  [
+    'instrução com caminho absoluto',
+    { instructions: { analista: [{ check: { file: '/etc/passwd' } }] } },
+    'use um caminho relativo à raiz do workspace',
+  ],
+  [
+    'otherwise sem when',
+    {
+      instructions: {
+        analista: [
+          { check: { file: 'a.txt' }, otherwise: { unchanged: true } },
+        ],
+      },
+    },
+    'tem otherwise sem when',
+  ],
+  [
+    'instrução de agente que não existe',
+    { instructions: { revisor: [{ check: { file: 'a.txt' } }] } },
+    'instructions fala de "revisor"',
+  ],
 ])('defineRound recusa %s', (_name, overrides, message) => {
   expect(() => defineRound(definition(overrides))).toThrow(message);
 });
@@ -555,6 +576,25 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
           },
         ],
         rules: [readOnlyRespected()],
+        instructions: {
+          programador: [
+            { check: { file: 'b.txt', contains: 'NOVO' } },
+            { check: { file: 'c.txt' } },
+            // b.txt did not exist when the programmer started: otherwise applies.
+            {
+              when: { file: 'b.txt' },
+              check: { file: 'b.txt', contains: 'velho' },
+              otherwise: { unchanged: true },
+            },
+            // a.txt existed: the check applies; no otherwise needed.
+            {
+              when: { file: 'a.txt' },
+              check: { file: 'a.txt', contains: 'base' },
+            },
+          ],
+          // The analyst: a.txt existed, it changed nothing.
+          analista: [{ when: { file: 'zzz.txt' }, check: { file: 'zzz.txt' } }],
+        },
       }),
       { dir, project: root, screen: quiet, label: 'analista só lê' },
     );
@@ -567,6 +607,35 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
 
     expect(round.start?.tag).toBe('rodada-base');
     expect(round.label).toBe('analista só lê');
+    // Checked against the workspace at the end of the step: only the verdict.
+    expect(round.steps[1]?.instructions).toEqual([
+      {
+        check: 'b.txt contém "NOVO"',
+        when: null,
+        met: true,
+        detail: 'b.txt contém "NOVO".',
+      },
+      {
+        check: 'c.txt existe',
+        when: null,
+        met: false,
+        detail: 'c.txt não existe.',
+      },
+      {
+        check: 'não alterou nada',
+        when: { check: 'b.txt existe', held: false },
+        met: false,
+        detail: 'Alterou: ?? b.txt.',
+      },
+      {
+        check: 'a.txt contém "base"',
+        when: { check: 'a.txt existe', held: true },
+        met: true,
+        detail: 'a.txt contém "base".',
+      },
+    ]);
+    // A condition that did not hold, with no otherwise: the instruction does not apply.
+    expect(round.steps[0]?.instructions).toEqual([]);
     expect(round.steps.map((s) => [s.actor, s.said, s.changed])).toEqual([
       ['analista', ['dois problemas'], []],
       ['programador', ['corrigi'], ['?? b.txt']],

@@ -1,5 +1,5 @@
 {
-  "schema": 3,
+  "schema": 4,
   "id": "2026-11-03T16-24-47.383Z",
   "definition": {
     "id": "analise-programacao-revisao",
@@ -217,11 +217,7 @@
       ],
       "changed": [],
       "diff": "",
-      "references": {
-        "cited": 7,
-        "valid": 7,
-        "invalid": []
-      },
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": 70459,
@@ -232,6 +228,11 @@
         },
         "fresh": 8799,
         "costUsd": null
+      },
+      "references": {
+        "cited": 7,
+        "valid": 7,
+        "invalid": []
       }
     },
     {
@@ -316,11 +317,7 @@
         " M src/usuarios.ts"
       ],
       "diff": "diff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..dfffe9a 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -37,3 +37,13 @@ test(\"descreverAtivos lista nomes ou avisa quando não há ativos\", () => {\n   assert.equal(descreverAtivos(usuariosPadrao), \"Usuários ativos: Ana, Carla\");\n   assert.equal(descreverAtivos([]), \"Nenhum usuário ativo.\");\n });\n+\n+test(\"usuariosPadrao não pode ser alterado em tempo de execução\", () => {\n+  const lista = usuariosPadrao as Usuario[];\n+  assert.throws(() => lista.push({ id: 4, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: true }), TypeError);\n+  assert.throws(() => {\n+    (lista[1] as { ativo: boolean }).ativo = true;\n+  }, TypeError);\n+  assert.equal(usuariosPadrao.length, 3);\n+  assert.equal(descreverAtivos(usuariosPadrao), \"Usuários ativos: Ana, Carla\");\n+});\ndiff --git a/src/usuarios.ts b/src/usuarios.ts\nindex c86eda5..39fbd2d 100644\n--- a/src/usuarios.ts\n+++ b/src/usuarios.ts\n@@ -5,11 +5,11 @@ export interface Usuario {\n   readonly ativo: boolean;\n }\n \n-export const usuariosPadrao: ReadonlyArray<Usuario> = [\n-  { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n-  { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n-  { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n-];\n+export const usuariosPadrao: ReadonlyArray<Usuario> = Object.freeze([\n+  Object.freeze({ id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true }),\n+  Object.freeze({ id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false }),\n+  Object.freeze({ id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true }),\n+]);\n \n export function buscarPorId(\n   usuarios: ReadonlyArray<Usuario>,\n",
-      "references": {
-        "cited": 0,
-        "valid": 0,
-        "invalid": []
-      },
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": 77252,
@@ -331,6 +328,11 @@
         },
         "fresh": 11133,
         "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
       }
     },
     {
@@ -583,11 +585,7 @@
       ],
       "changed": [],
       "diff": "",
-      "references": {
-        "cited": 0,
-        "valid": 0,
-        "invalid": []
-      },
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": null,
@@ -598,6 +596,11 @@
         },
         "fresh": null,
         "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
       }
     }
   ],

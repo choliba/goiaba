@@ -9,7 +9,7 @@ import type { AgentProvider } from '../agent/types';
 import { UsageError } from '../errors';
 import type { AgentPolicy } from '../policy/policy.interface';
 import type { WorkspaceOptions } from '../workspace/index';
-import type { RoundLimits, RuleResult } from './types';
+import type { RoundInstruction, RoundLimits, RuleResult } from './types';
 
 /** One agent of the round. */
 export interface RoundActor {
@@ -88,10 +88,11 @@ export interface RoundDefinition {
   readonly flow: readonly RoundFlowStep[];
   readonly rules?: readonly RoundRule[];
   /**
-   * The answer key, by actor: what its answer must contain, one point per
-   * entry. Scores the completeness of its work (see rounds/README.md).
+   * By actor, the instructions of its prompt the round can check by itself:
+   * a file that must be there at the end of its step, holding a passage.
+   * Score whether it did what it was asked (see rounds/README.md).
    */
-  readonly expected?: Readonly<Record<string, readonly string[]>>;
+  readonly instructions?: Readonly<Record<string, readonly RoundInstruction[]>>;
   /** Limits set before the run (time, cost): meeting them is part of the goal. */
   readonly limits?: RoundLimits;
   /** How many times it runs, each run its own record; 1 by default. */
@@ -109,7 +110,7 @@ const KNOWN_FIELDS = new Set([
   'flow',
   'rules',
   'repeat',
-  'expected',
+  'instructions',
   'limits',
 ]);
 
@@ -162,7 +163,7 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
     }
   });
   for (const [field, names] of [
-    ['expected', Object.keys(definition.expected ?? {})],
+    ['instructions', Object.keys(definition.instructions ?? {})],
     ['limits.actorMs', Object.keys(definition.limits?.actorMs ?? {})],
   ] as const) {
     for (const name of names) {
@@ -173,14 +174,42 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
       }
     }
   }
-  for (const [name, points] of Object.entries(definition.expected ?? {})) {
-    if (
-      points.length === 0 ||
-      points.some((point) => point.trim().length === 0)
-    ) {
-      throw new UsageError(
-        `${where}: expected.${name} precisa de ao menos um ponto, e nenhum vazio.`,
+  for (const [name, list] of Object.entries(definition.instructions ?? {})) {
+    for (const instruction of list) {
+      const files = [
+        instruction.when,
+        instruction.check,
+        instruction.otherwise,
+      ].filter(
+        (
+          check,
+        ): check is { readonly file: string; readonly contains?: string } =>
+          check !== undefined && 'file' in check,
       );
+      for (const { file, contains } of files) {
+        if (
+          file.trim().length === 0 ||
+          file.startsWith('/') ||
+          file.split('/').includes('..')
+        ) {
+          throw new UsageError(
+            `${where}: instructions.${name} tem o arquivo "${file}"; use um caminho relativo à raiz do workspace, como tickets/ticket-01.txt.`,
+          );
+        }
+        if (contains?.trim().length === 0) {
+          throw new UsageError(
+            `${where}: instructions.${name} tem um contains vazio em ${file}: escreva o trecho ou tire o campo.`,
+          );
+        }
+      }
+      if (
+        instruction.otherwise !== undefined &&
+        instruction.when === undefined
+      ) {
+        throw new UsageError(
+          `${where}: instructions.${name} tem otherwise sem when: o otherwise vale quando a condição (when) não vale.`,
+        );
+      }
     }
   }
   const { roundMs, costUsd, actorMs = {} } = definition.limits ?? {};

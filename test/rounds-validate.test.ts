@@ -106,6 +106,14 @@ function round(): RoundRecord {
         ],
         changed: [],
         diff: '',
+        instructions: [
+          {
+            check: 'tickets/ticket-01.txt contém "ANÁLISE TÉCNICA"',
+            when: { check: 'tickets/ticket-01.txt existe', held: true },
+            met: true,
+            detail: 'tickets/ticket-01.txt contém "ANÁLISE TÉCNICA".',
+          },
+        ],
         totals: {
           tokens: { ...noTokens, input: 2200, output: 130, cacheRead: 900 },
           fresh: 1430,
@@ -222,7 +230,7 @@ test.each([
     (r: Record<string, unknown>) => {
       r['schema'] = 1;
     },
-    '$.schema: esperava 3, veio 1',
+    '$.schema: esperava 4, veio 1',
   ],
   [
     'campo obrigatório faltando',

@@ -35,6 +35,7 @@ function step(
     tools: [],
     changed: [],
     diff: '',
+    instructions: [],
     totals: { tokens: none, fresh: null, costUsd: null },
     references: null,
     ...extra,
@@ -49,7 +50,7 @@ function round(
   extra: Partial<RoundRecord> = {},
 ): RoundRecord {
   return {
-    schema: 3,
+    schema: 4,
     id: 'r',
     definition: { id: 'teste', goal: 'g' },
     start: null,
@@ -92,7 +93,7 @@ function round(
           decisions: [],
         },
         policy: null,
-        readOnly: true,
+        readOnly: false,
         configHash: 'a',
       },
     },
@@ -158,21 +159,33 @@ test('nota de recurso: 5 até 75% da referência, 3 nela, 0 no dobro', () => {
   ).toEqual([5, 5, 4, 3, 1.5, 0, 0]);
 });
 
-test('eficácia pelo gabarito, e eficiência escalada por ela', () => {
+const result = (met: boolean, check = 'tickets/ticket-01.txt existe') => ({
+  check,
+  when: null,
+  met,
+  detail: met ? 'ok.' : 'faltou.',
+});
+test('eficácia pelas instruções do prompt, e eficiência escalada por ela', () => {
   const history = [round(['x'], 20_000, 1000), round(['x'], 40_000, 3000)];
-  const current = round(['Achei usuariosPadrao e o FREEZE.'], 30_000, 2000, {
-    criteria: {
-      expected: { analista: ['usuariosPadrao', 'Object.freeze', 'freeze'] },
-    },
+  const current = round(['feito'], 30_000, 2000, {
+    steps: [
+      step('analista', ['feito'], {
+        instructions: [
+          result(true),
+          result(true, 'tickets/ticket-01.txt contém "ANÁLISE TÉCNICA"'),
+          result(false, 'tickets/ticket-01.txt contém "testes"'),
+        ],
+      }),
+    ],
   });
   const score = scoreRound(current, history);
   const analista = score.actors['analista'];
 
   expect(score.version).toBe(RUBRIC_VERSION);
-  // 2 of 3 points: 3,3.
+  // 2 of 3 instructions met: 3,3.
   expect(analista.effectiveness.score).toBe(3.3);
   expect(analista.effectiveness.criteria[0]?.detail).toBe(
-    'Achou 2 de 3 pontos do gabarito; faltou: Object.freeze.',
+    'Cumpriu 2 de 3. faltou.',
   );
   // Time and tokens at the median (3 each), no waste (5): base 4; × 3,3/5.
   expect(analista.efficiency.base).toBe(4);
@@ -182,7 +195,44 @@ test('eficácia pelo gabarito, e eficiência escalada por ela', () => {
   expect(score.round.final).toBe(3.6);
 });
 
-test('sem gabarito nem referências, a eficácia não é avaliada, e a eficiência fica sem nota', () => {
+/** The Permissões criterion of the analyst. */
+const permissionsOf = (record: RoundRecord) =>
+  scoreRound(record, []).actors['analista'].effectiveness.criteria.find(
+    (c) => c.id === 'permissions',
+  );
+
+test('permissões: dentro do que a política libera dá 5; fora dela, 0', () => {
+  const policy = {
+    default: 'deny' as const,
+    allow: {
+      filesystem: [
+        { operations: ['read' as const], paths: ['/workspace/**'] },
+        { operations: ['write' as const], paths: ['/workspace/tickets/**'] },
+      ],
+    },
+  };
+  const withChange = (changed: string[]): RoundRecord => {
+    const base = round(['ok'], 30_000, null);
+    return {
+      ...base,
+      start: { tag: 'rodada-tickets', commit: 'c' },
+      steps: [step('analista', ['ok'], { changed })],
+      actors: {
+        analista: { ...base.actors['analista'], policy, readOnly: true },
+      },
+    };
+  };
+  expect(permissionsOf(withChange(['?? tickets/ticket-01.txt']))?.score).toBe(
+    5,
+  );
+  expect(permissionsOf(withChange([' M src/main.ts']))).toMatchObject({
+    score: 0,
+    detail:
+      'Alterou fora do que a política libera para escrita:  M src/main.ts.',
+  });
+});
+
+test('sem instruções, política nem referências, a eficácia não é avaliada, e a eficiência fica sem nota', () => {
   const score = scoreRound(round(['ok'], 30_000, null), []);
   expect(score.actors['analista'].effectiveness.score).toBeNull();
   expect(score.actors['analista'].efficiency.base).toBe(5);

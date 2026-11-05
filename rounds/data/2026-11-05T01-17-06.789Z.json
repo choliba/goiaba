@@ -1,5 +1,5 @@
 {
-  "schema": 3,
+  "schema": 4,
   "id": "2026-11-05T01-17-06.789Z",
   "definition": {
     "id": "ollama-product-owner",
@@ -255,6 +255,7 @@
       ],
       "changed": [],
       "diff": "",
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": 65341,
@@ -452,6 +453,7 @@
       ],
       "changed": [],
       "diff": "",
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": 146766,

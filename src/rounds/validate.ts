@@ -254,6 +254,14 @@ const step = object({
   ),
   changed: list(string),
   diff: string,
+  instructions: list(
+    object({
+      check: nonEmpty,
+      when: nullable(object({ check: nonEmpty, held: boolean })),
+      met: boolean,
+      detail: string,
+    }),
+  ),
   totals: usageTotal,
   references: nullable(
     object({ cited: count, valid: count, invalid: list(nonEmpty) }),
@@ -317,7 +325,6 @@ const roundRecord = object({
     }),
   ),
   'criteria?': object({
-    'expected?': record(list(nonEmpty)),
     'limits?': object({
       'roundMs?': positive,
       'actorMs?': record(positive),

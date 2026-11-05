@@ -1,5 +1,5 @@
 {
-  "schema": 3,
+  "schema": 4,
   "id": "2026-11-03T14-56-29.299Z",
   "definition": {
     "id": "analise-programacao-revisao",
@@ -233,7 +233,7 @@
       ],
       "changed": [],
       "diff": "",
-      "references": null,
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": 117464,
@@ -244,7 +244,8 @@
         },
         "fresh": 8108,
         "costUsd": null
-      }
+      },
+      "references": null
     },
     {
       "key": "programador#1",
@@ -390,7 +391,7 @@
       ],
       "changed": [],
       "diff": "",
-      "references": null,
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": 177436,
@@ -401,7 +402,8 @@
         },
         "fresh": 12538,
         "costUsd": null
-      }
+      },
+      "references": null
     },
     {
       "key": "revisor#1",
@@ -636,7 +638,7 @@
       ],
       "changed": [],
       "diff": "",
-      "references": null,
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": null,
@@ -647,7 +649,8 @@
         },
         "fresh": null,
         "costUsd": null
-      }
+      },
+      "references": null
     }
   ],
   "usage": [

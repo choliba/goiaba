@@ -1,5 +1,5 @@
 {
-  "schema": 3,
+  "schema": 4,
   "id": "2026-11-04T23-05-04.265Z",
   "definition": {
     "id": "ollama-product-owner",
@@ -147,11 +147,7 @@
       "tools": [],
       "changed": [],
       "diff": "",
-      "references": {
-        "cited": 0,
-        "valid": 0,
-        "invalid": []
-      },
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": null,
@@ -162,6 +158,11 @@
         },
         "fresh": null,
         "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
       }
     },
     {
@@ -194,11 +195,7 @@
       "tools": [],
       "changed": [],
       "diff": "",
-      "references": {
-        "cited": 0,
-        "valid": 0,
-        "invalid": []
-      },
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": null,
@@ -209,6 +206,11 @@
         },
         "fresh": null,
         "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
       }
     }
   ],

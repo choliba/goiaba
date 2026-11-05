@@ -11,9 +11,10 @@ import { createConsumer } from '../events/index';
 import type { Interaction } from '../interaction/index';
 import { Workspace } from '../workspace/index';
 import { NO_ONE_ANSWERS } from './constants';
-import { writableOf } from './rules';
+import { writableOf } from './permissions';
 import type { RoundDefinition, RoundFlowStep } from './define';
 import { changes, linesAt, resetTo, tree, type Tree } from './git';
+import { checkInstructions, conditionsAt } from './instructions';
 import { checkReferences } from './references';
 import { spanOf, StepRecorder } from './measures';
 import { measuresOf, sanitize, writeRound } from './record';
@@ -188,6 +189,9 @@ async function runOnce(
       gitCheckMs: null,
     });
     const before = await check(clock);
+    // The instructions' conditions, before the agent acts.
+    const stepInstructions = definition.instructions?.[name] ?? [];
+    const conditions = conditionsAt(stepInstructions, workspace.root);
 
     // The conversation's screen, without reading the keyboard: a question
     // of the agent is answered here, as if someone had typed it.
@@ -280,6 +284,12 @@ async function runOnce(
       usage: measured.usage,
       changed,
       diff,
+      instructions: checkInstructions(
+        stepInstructions,
+        conditions,
+        workspace.root,
+        changed,
+      ),
       totals: totalOf(measured.usage),
       references,
     };
@@ -366,18 +376,9 @@ async function runOnce(
         ]),
       ),
       violations: rules,
-      ...(definition.expected === undefined && definition.limits === undefined
+      ...(definition.limits === undefined
         ? {}
-        : {
-            criteria: {
-              ...(definition.expected === undefined
-                ? {}
-                : { expected: definition.expected }),
-              ...(definition.limits === undefined
-                ? {}
-                : { limits: definition.limits }),
-            },
-          }),
+        : { criteria: { limits: definition.limits } }),
     };
   }
 }

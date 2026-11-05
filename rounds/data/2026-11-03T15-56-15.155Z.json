@@ -1,5 +1,5 @@
 {
-  "schema": 3,
+  "schema": 4,
   "id": "2026-11-03T15-56-15.155Z",
   "definition": {
     "id": "analise-programacao-revisao",
@@ -237,11 +237,7 @@
       ],
       "changed": [],
       "diff": "",
-      "references": {
-        "cited": 6,
-        "valid": 6,
-        "invalid": []
-      },
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": 93686,
@@ -252,6 +248,11 @@
         },
         "fresh": 6206,
         "costUsd": null
+      },
+      "references": {
+        "cited": 6,
+        "valid": 6,
+        "invalid": []
       }
     },
     {
@@ -340,11 +341,7 @@
         " M src/usuarios.ts"
       ],
       "diff": "diff --git a/.gitignore b/.gitignore\nindex b947077..9e63e4e 100644\n--- a/.gitignore\n+++ b/.gitignore\n@@ -1,2 +1,3 @@\n node_modules/\n dist/\n+dist-test/\ndiff --git a/package.json b/package.json\nindex de566ab..9934cfb 100644\n--- a/package.json\n+++ b/package.json\n@@ -7,10 +7,10 @@\n     \"node\": \">=22\"\n   },\n   \"scripts\": {\n-    \"clean\": \"node -e \\\"require('node:fs').rmSync('dist', { recursive: true, force: true })\\\"\",\n+    \"clean\": \"node -e \\\"for (const d of ['dist', 'dist-test']) require('node:fs').rmSync(d, { recursive: true, force: true })\\\"\",\n     \"build\": \"npm run clean && tsc -p tsconfig.build.json\",\n     \"start\": \"npm run build && node dist/main.js\",\n-    \"test\": \"npm run clean && tsc && node --test \\\"dist/**/*.test.js\\\"\"\n+    \"test\": \"npm run clean && tsc --outDir dist-test && node --test \\\"dist-test/**/*.test.js\\\"\"\n   },\n   \"devDependencies\": {\n     \"@types/node\": \"^22.0.0\",\ndiff --git a/src/main.ts b/src/main.ts\nindex 7522c9c..bbcfb32 100644\n--- a/src/main.ts\n+++ b/src/main.ts\n@@ -3,6 +3,8 @@ import { buscarPorId, descreverAtivos, saudacao, usuariosPadrao } from \"./usuari\n const usuario = buscarPorId(usuariosPadrao, 1);\n if (usuario) {\n   console.log(saudacao(usuario));\n+} else {\n+  console.error(\"Usuário 1 não encontrado.\");\n }\n \n console.log(descreverAtivos(usuariosPadrao));\ndiff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..dabe4dd 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -28,6 +28,16 @@ test(\"listarAtivos retorna apenas usuários ativos\", () => {\n   );\n });\n \n+test(\"listarAtivos retorna lista vazia quando não há ativos\", () => {\n+  assert.deepEqual(listarAtivos([]), []);\n+  assert.deepEqual(listarAtivos(usuariosPadrao.filter((u) => !u.ativo)), []);\n+});\n+\n+test(\"usuariosPadrao é imutável em tempo de execução\", () => {\n+  assert.ok(Object.isFrozen(usuariosPadrao));\n+  assert.ok(usuariosPadrao.every((u) => Object.isFrozen(u)));\n+});\n+\n test(\"saudacao monta a mensagem com o nome\", () => {\n   const usuario: Usuario = { id: 9, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: true };\n   assert.equal(saudacao(usuario), \"Olá, Davi!\");\ndiff --git a/src/usuarios.ts b/src/usuarios.ts\nindex c86eda5..0c83d35 100644\n--- a/src/usuarios.ts\n+++ b/src/usuarios.ts\n@@ -5,11 +5,13 @@ export interface Usuario {\n   readonly ativo: boolean;\n }\n \n-export const usuariosPadrao: ReadonlyArray<Usuario> = [\n-  { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n-  { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n-  { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n-];\n+export const usuariosPadrao: ReadonlyArray<Usuario> = Object.freeze(\n+  [\n+    { id: 1, nome: \"Ana\", email: \"ana@exemplo.com\", ativo: true },\n+    { id: 2, nome: \"Bruno\", email: \"bruno@exemplo.com\", ativo: false },\n+    { id: 3, nome: \"Carla\", email: \"carla@exemplo.com\", ativo: true },\n+  ].map((u) => Object.freeze(u)),\n+);\n \n export function buscarPorId(\n   usuarios: ReadonlyArray<Usuario>,\n",
-      "references": {
-        "cited": 0,
-        "valid": 0,
-        "invalid": []
-      },
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": 77801,
@@ -355,6 +352,11 @@
         },
         "fresh": 11936,
         "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
       }
     },
     {
@@ -622,11 +624,7 @@
       ],
       "changed": [],
       "diff": "",
-      "references": {
-        "cited": 0,
-        "valid": 0,
-        "invalid": []
-      },
+      "instructions": [],
       "totals": {
         "tokens": {
           "input": null,
@@ -637,6 +635,11 @@
         },
         "fresh": null,
         "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
       }
     }
   ],
