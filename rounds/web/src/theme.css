@@ -801,3 +801,12 @@ a.crumbs-test:hover {
   margin: 0;
   white-space: pre-wrap;
 }
+
+.actor h3.final {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.actor h3.final .grade {
+  font-size: 15px;
+}

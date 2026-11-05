@@ -133,7 +133,7 @@ informa tokens quando a rodada tem regras de rede (`permissions`).
 
 ## Avaliação: as notas de cada rodada
 
-Cada agente recebe duas notas, de 0 a 5, e elas nunca são somadas numa só:
+Cada agente recebe três notas, de 0 a 5: eficácia, eficiência e a nota final, que junta as duas.
 
 |           | Eficácia                                        | Eficiência                                                                    |
 | --------- | ----------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -141,11 +141,23 @@ Cada agente recebe duas notas, de 0 a 5, e elas nunca são somadas numa só:
 | Olha para | o resultado, independentemente dos recursos     | os meios: tempo, tokens e processo                                            |
 | Exemplo   | entregou o que o gabarito pede, mesmo demorando | entregou com menos tempo e tokens que o normal, sem erros nem passos refeitos |
 
-Manter as duas separadas mostra em que direção uma mudança empurrou a rodada: melhorou o resultado, ou só barateou?
-Cada rodada cai num destes quadrantes: eficaz e eficiente; eficaz e cara; barata e ineficaz; nem uma nem outra.
+A nota final resume; eficácia e eficiência continuam aparecendo ao lado dela, porque só elas mostram em que direção uma
+mudança empurrou a rodada: melhorou o resultado, ou só barateou? Cada rodada cai num destes quadrantes: eficaz e
+eficiente; eficaz e cara; barata e ineficaz; nem uma nem outra.
+
+```
+nota final = 60% × eficácia + 40% × base da eficiência
+```
+
+- Entra a **base** da eficiência (recursos e processo, antes da escala pela eficácia, explicada abaixo): a eficiência
+  escalada já leva a eficácia dentro, e ela contaria duas vezes.
+- Sem eficácia, não há nota final: sem saber se o agente entregou, não há o que resumir.
+- Com eficácia e sem base, a nota final é a eficácia.
+- Uma eliminatória zera as três notas.
+- O resultado pesa mais que os meios (60/40): entregar importa mais que entregar barato.
 
 As notas são calculadas pela rubrica, em [`../src/rounds/score.ts`](../src/rounds/score.ts), a partir dos fatos do
-registro. A rubrica tem versão (`RUBRIC_VERSION`, hoje **1**), e a página mostra qual foi usada. Mudou um critério, a
+registro. A rubrica tem versão (`RUBRIC_VERSION`, hoje **2**), e a página mostra qual foi usada. Mudou um critério, a
 versão sobe, e todas as rodadas, antigas e novas, passam a ser avaliadas do mesmo jeito.
 
 Um critério sem o que medir fica **não avaliado** (`—` na página), e não `0`: a média de uma dimensão é a média dos
@@ -198,7 +210,7 @@ gabarito nem referências), a eficiência fica sem nota, e a página mostra só 
 
 ### Eliminatórias
 
-Se o agente violou uma destas, as duas notas dele são 0, e a página diz por quê:
+Se o agente violou uma destas, as três notas dele são 0, e a página diz por quê:
 
 | Eliminatória                                                             | Vem de                                                  |
 | ------------------------------------------------------------------------ | ------------------------------------------------------- |
@@ -210,7 +222,8 @@ Se o agente violou uma destas, as duas notas dele são 0, e a página diz por qu
 
 A eficácia da rodada é a média das eficácias dos agentes avaliados, mais os limites da rodada, quando declarados
 (`limits.roundMs`, o tempo decorrido, e `limits.costUsd`, o custo total: dentro dá 5, acima dá 0). A eficiência da
-rodada é a média das eficiências dos agentes. A página diz quantos agentes entraram na média.
+rodada é a média das eficiências dos agentes. A nota final da rodada usa a mesma conta da do agente: 60% da eficácia
+da rodada mais 40% da média das bases de eficiência dos agentes. A página diz quantos agentes foram avaliados.
 
 ### Gabarito e limites
 
@@ -241,10 +254,11 @@ pontos curtos e específicos, que só apareceriam numa resposta certa.
 
 Ficam em [`../src/rounds/constants.ts`](../src/rounds/constants.ts) (`RUBRIC`), cada um com o motivo do valor:
 
-| Número         | Valor | O que é                                    |
-| -------------- | ----- | ------------------------------------------ |
-| `best`         | 0,75  | até 75% da referência, nota 5              |
-| `worst`        | 2     | o dobro da referência, ou mais, nota 0     |
-| `wastePenalty` | 1     | pontos tirados do processo por desperdício |
+| Número         | Valor     | O que é                                                 |
+| -------------- | --------- | ------------------------------------------------------- |
+| `best`         | 0,75      | até 75% da referência, nota 5                           |
+| `worst`        | 2         | o dobro da referência, ou mais, nota 0                  |
+| `wastePenalty` | 1         | pontos tirados do processo por desperdício              |
+| `weights`      | 0,6 e 0,4 | pesos da eficácia e da base da eficiência na nota final |
 
 Mudou um desses, ou um critério, suba `RUBRIC_VERSION` em `score.ts`.

@@ -2,12 +2,16 @@
  * The rubric: how a round is scored, from what its record holds. Pure and
  * without other modules' runtime code, so the pages score with it too.
  *
- * Two scores per agent, 0 to 5, never averaged into one (rounds/README.md):
+ * Per agent, 0 to 5 (rounds/README.md):
  * - effectiveness (what): did it reach the goal, whatever it cost;
  * - efficiency (how): what it spent and wasted to get there, scaled by the
- *   share of the goal it reached (most result for least resources).
- * An eliminatory rule broken makes both 0. A criterion with nothing to
- * measure is `null` (not evaluated), never 0.
+ *   share of the goal it reached (most result for least resources);
+ * - final: effectiveness and efficiency weighed together (`RUBRIC.weights`),
+ *   efficiency before the scaling, or effectiveness would count twice.
+ * The two are still shown apart: the final hides which way a change pushed.
+ * An eliminatory rule broken makes all three 0. A criterion with nothing to
+ * measure is `null` (not evaluated), never 0; without effectiveness there is
+ * no final.
  *
  * Changing a criterion changes `RUBRIC_VERSION`: every round, old or new,
  * is scored by the same rubric, and the pages say which.
@@ -16,7 +20,7 @@
 import { RUBRIC } from './constants';
 import type { RoundRecord, RoundStep } from './types';
 
-export const RUBRIC_VERSION = '1';
+export const RUBRIC_VERSION = '2';
 
 /** One criterion's score, and why. */
 export interface CriterionScore {
@@ -40,6 +44,11 @@ export interface EfficiencyScore extends DimensionScore {
 }
 
 export interface ActorScore {
+  /**
+   * `weights.effectiveness × effectiveness + weights.efficiency × efficiency
+   * base`; `null` without effectiveness.
+   */
+  readonly final: number | null;
   /** The eliminatory rules it broke; any makes both scores 0. */
   readonly eliminated: readonly string[];
   readonly effectiveness: DimensionScore;
@@ -53,6 +62,8 @@ export interface RoundScore {
   readonly round: {
     readonly effectiveness: DimensionScore;
     readonly efficiency: { readonly score: number | null };
+    /** The round's effectiveness and its agents' mean efficiency base, weighed. */
+    readonly final: number | null;
   };
 }
 
@@ -304,6 +315,7 @@ function actorScore(
   if (eliminated.length > 0) {
     return {
       eliminated,
+      final: 0,
       effectiveness: { score: 0, criteria: effectivenessCriteria },
       efficiency: { score: 0, base: 0, criteria: efficiencyCriteria },
     };
@@ -316,6 +328,7 @@ function actorScore(
   ]);
   return {
     eliminated,
+    final: finalOf(effectiveness, base),
     effectiveness: { score: effectiveness, criteria: effectivenessCriteria },
     efficiency: {
       base,
@@ -326,6 +339,20 @@ function actorScore(
       criteria: efficiencyCriteria,
     },
   };
+}
+
+/** The final score: effectiveness and efficiency (its base) weighed. */
+export function finalOf(
+  effectiveness: number | null,
+  base: number | null,
+): number | null {
+  if (effectiveness === null) return null;
+  const { weights } = RUBRIC;
+  // Without an efficiency base, effectiveness alone.
+  if (base === null) return effectiveness;
+  return round1(
+    weights.effectiveness * effectiveness + weights.efficiency * base,
+  );
 }
 
 /**
@@ -360,18 +387,17 @@ export function scoreRound(
     ),
   ];
   const scores = Object.values(actors);
+  const effectiveness = mean([
+    ...scores.map((s) => s.effectiveness.score),
+    ...roundCriteria.map((c) => c.score),
+  ]);
   return {
     version: RUBRIC_VERSION,
     actors,
     round: {
-      effectiveness: {
-        score: mean([
-          ...scores.map((s) => s.effectiveness.score),
-          ...roundCriteria.map((c) => c.score),
-        ]),
-        criteria: roundCriteria,
-      },
+      effectiveness: { score: effectiveness, criteria: roundCriteria },
       efficiency: { score: mean(scores.map((s) => s.efficiency.score)) },
+      final: finalOf(effectiveness, mean(scores.map((s) => s.efficiency.base))),
     },
   };
 }

@@ -170,6 +170,7 @@ export function IndexPage(): ReactNode {
                   <th scope="col">Custo</th>
                   <th scope="col">Arquivos</th>
                   <th scope="col">Regras</th>
+                  <th scope="col">Nota</th>
                   <th scope="col">Eficácia</th>
                   <th scope="col">Eficiência</th>
                 </tr>
@@ -239,6 +240,9 @@ export function IndexPage(): ReactNode {
                       <td>{cost(record.totals.round.costUsd)}</td>
                       <td>{changedFiles(record) ?? '—'}</td>
                       <td>{rulesOf(record)}</td>
+                      <td>
+                        <Grade score={last.score.round.final} />
+                      </td>
                       <td>
                         <Grade score={last.score.round.effectiveness.score} />
                       </td>

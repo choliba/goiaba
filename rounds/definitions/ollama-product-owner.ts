@@ -25,7 +25,7 @@ const workspace: WorkspaceOptions = {
   type: 'bubblewrap',
   // image: 'FROM busybox:latest',
   root,
-  hostState: 'none',
+  // hostState: 'none',
 };
 
 /**

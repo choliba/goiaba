@@ -120,6 +120,7 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                 <th scope="col">Custo</th>
                 <th scope="col">Arquivos alterados</th>
                 <th scope="col">Regras</th>
+                <th scope="col">Nota</th>
                 <th scope="col">Eficácia</th>
                 <th scope="col">Eficiência</th>
               </tr>
@@ -154,6 +155,9 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                     <td>{changedFiles(round.record) ?? 'não conferido'}</td>
                     <td>{rulesOf(round.record)}</td>
                     <td>
+                      <Grade score={round.score.round.final} />
+                    </td>
+                    <td>
                       <Grade score={round.score.round.effectiveness.score} />
                     </td>
                     <td>
@@ -171,6 +175,12 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
                   <td />
                   <Averages rounds={rounds} />
                   <td />
+                  <td>
+                    {ranged(
+                      rounds.map((r) => r.score.round.final),
+                      grade,
+                    )}
+                  </td>
                   <td>
                     {ranged(
                       rounds.map((r) => r.score.round.effectiveness.score),

@@ -177,6 +177,9 @@ test('eficácia pelo gabarito, e eficiência escalada por ela', () => {
   // Time and tokens at the median (3 each), no waste (5): base 4; × 3,3/5.
   expect(analista.efficiency.base).toBe(4);
   expect(analista.efficiency.score).toBe(2.6);
+  // Final: 60% × 3,3 + 40% × 4 (the base, not the scaled 2,6).
+  expect(analista.final).toBe(3.6);
+  expect(score.round.final).toBe(3.6);
 });
 
 test('sem gabarito nem referências, a eficácia não é avaliada, e a eficiência fica sem nota', () => {
@@ -184,6 +187,8 @@ test('sem gabarito nem referências, a eficácia não é avaliada, e a eficiênc
   expect(score.actors['analista'].effectiveness.score).toBeNull();
   expect(score.actors['analista'].efficiency.base).toBe(5);
   expect(score.actors['analista'].efficiency.score).toBeNull();
+  // Without effectiveness, no final.
+  expect(score.actors['analista'].final).toBeNull();
 });
 
 test('uma eliminatória zera as duas notas, e dizer nada também', () => {
@@ -199,6 +204,7 @@ test('uma eliminatória zera as duas notas, e dizer nada também', () => {
   });
   expect(scoreRound(broke, []).actors['analista']).toMatchObject({
     eliminated: ['respondeu com uma chamada de ferramenta escrita como texto'],
+    final: 0,
     effectiveness: { score: 0 },
     efficiency: { score: 0 },
   });

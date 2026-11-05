@@ -58,7 +58,10 @@ function ActorCard({
 }): ReactNode {
   return (
     <article className="actor">
-      <h3>{title(name)}</h3>
+      <h3 className="final">
+        {title(name)} <span className="muted">nota</span>{' '}
+        <Grade score={score.final} />
+      </h3>
       {score.eliminated.length > 0 && (
         <p className="note warn">
           Eliminado: {score.eliminated.join('; ')}. As duas notas ficam 0.
@@ -99,9 +102,11 @@ export function Scores({ score }: { readonly score: RoundScore }): ReactNode {
       <p className="note">
         Rubrica {score.version}: os critérios estão em rounds/README.md.
         Eficácia é o que foi entregue; eficiência, o que custou entregar.
-        Rodada: eficácia <Grade score={score.round.effectiveness.score} />,
-        eficiência <Grade score={score.round.efficiency.score} /> (médias dos
-        agentes avaliados: {evaluated} de {actors.length}).
+        Rodada: nota <Grade score={score.round.final} />, eficácia{' '}
+        <Grade score={score.round.effectiveness.score} />, eficiência{' '}
+        <Grade score={score.round.efficiency.score} /> (agentes avaliados:{' '}
+        {evaluated} de {actors.length}). Nota = 60% eficácia + 40% eficiência
+        (antes da escala).
       </p>
       {roundCriteria.length > 0 && <Criteria criteria={roundCriteria} />}
       <div className="actors">

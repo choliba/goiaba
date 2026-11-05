@@ -33,5 +33,12 @@ export const NO_ONE_ANSWERS =
  * - the reference itself scores 3: as good as usual, not better.
  * `wastePenalty`: points off the process score (from 5) for each question,
  * tool error or denied attempt: five wasted steps and it is 0.
+ * `weights`: of the final score. The result weighs more than the means
+ * (60/40): delivering matters more than how cheaply; the two add up to 1.
  */
-export const RUBRIC = { best: 0.75, worst: 2, wastePenalty: 1 } as const;
+export const RUBRIC = {
+  best: 0.75,
+  worst: 2,
+  wastePenalty: 1,
+  weights: { effectiveness: 0.6, efficiency: 0.4 },
+} as const;
