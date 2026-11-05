@@ -28,11 +28,11 @@ function Chip({
   );
   // The goal on hover: tests of the same declaration differ there.
   return current ? (
-    <span aria-current="page" title={test.definition.goal}>
+    <span aria-current="page" title={test.goal}>
       {content}
     </span>
   ) : (
-    <a href={testHref(test.key)} title={test.definition.goal}>
+    <a href={testHref(test.key)} title={test.goal}>
       {content}
     </a>
   );
@@ -49,7 +49,7 @@ function AllTests({
   const words = query.toLocaleLowerCase('pt-BR').split(/\s+/).filter(Boolean);
   const shown = recentTests.filter((test) => {
     const text =
-      `${String(test.number)} ${test.title} ${test.definition.goal} ${test.definition.id}`.toLocaleLowerCase(
+      `${String(test.number)} ${test.title} ${test.goal} ${test.key}`.toLocaleLowerCase(
         'pt-BR',
       );
     return words.every((word) => text.includes(word));
@@ -89,7 +89,7 @@ function AllTests({
                 {when(lastRun(test))}
               </small>
               <b>{test.title}</b>
-              <span>{test.definition.goal}</span>
+              <span>{test.goal}</span>
             </a>
           </li>
         ))}

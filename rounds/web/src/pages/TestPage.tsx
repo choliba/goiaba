@@ -1,22 +1,16 @@
 /**
- * A test: one configuration and every round it ran. The measures of all its
- * rounds side by side (one round alone says little), how each agent was
- * configured, what changed since the test before, and a link to each round.
+ * A test: a declaration and every round it ran, in order. Each round says
+ * what changed since the one before (model, CLI, policy, prompts…); rounds
+ * with the same configuration are averaged together, and only those.
  */
 
 import type { ReactNode } from 'react';
 
 import type { RoundRecord } from '../../../../src/rounds/types';
-
-import {
-  ActorConfigs,
-  configChanges,
-  promptChanges,
-} from '../components/Config';
-import { Rich } from '../components/Rich';
+import { ActorConfigs, changeSummary } from '../components/Config';
 import { TestRounds } from '../components/TestRounds';
 import { TestsNav } from '../components/TestsNav';
-import type { Test } from '../data';
+import type { Round, Test } from '../data';
 import {
   cost,
   count,
@@ -26,25 +20,68 @@ import {
   tokensShort,
   when,
 } from '../format';
-import { roundHref, testHref } from '../route';
+import { roundHref } from '../route';
 import {
   changedFiles,
   decimal,
   ranged,
   roundTokens,
   rulesOf,
-  testRules,
 } from '../summary';
 
+/** What changed since the round before, for the table. */
+function changes(round: Round): string {
+  if (round.previous === undefined) return 'primeira rodada';
+  const parts = changeSummary(round.record, round.previous);
+  return parts.length === 0 ? 'nada: mesma configuração' : parts.join(', ');
+}
+
+/** `rodada 3`, `rodadas 3 e 4`, `rodadas 2, 3 e 5`. */
+function roundList(rounds: readonly Round[]): string {
+  const numbers = rounds.map((round) => String(round.index));
+  const last = numbers.pop() ?? '';
+  return numbers.length === 0
+    ? `rodada ${last}`
+    : `rodadas ${numbers.join(', ')} e ${last}`;
+}
+
+function Averages({
+  rounds,
+}: {
+  readonly rounds: readonly Round[];
+}): ReactNode {
+  const records = rounds.map((round) => round.record);
+  return (
+    <>
+      <td>
+        {ranged(
+          records.map((r) => r.timing.durationMs),
+          duration,
+        )}
+      </td>
+      <td>{ranged(records.map(roundTokens), tokensShort)}</td>
+      <td>
+        {ranged(
+          records.map((r) => r.totals.round.costUsd),
+          cost,
+        )}
+      </td>
+      <td>{ranged(records.map(changedFiles), decimal)}</td>
+    </>
+  );
+}
+
 export function TestPage({ test }: { readonly test: Test }): ReactNode {
-  const records = test.rounds.map((round) => round.record);
-  const first = records[0];
-  if (first === undefined) return null;
-  const previous = test.previous?.rounds[0]?.record;
-  const changes = previous === undefined ? [] : configChanges(first, previous);
-  const prompts = previous === undefined ? [] : promptChanges(first, previous);
-  const several = records.length > 1;
-  /** One value per round. */
+  const last = test.rounds.at(-1);
+  if (last === undefined) return null;
+  const byConfiguration = [
+    ...Map.groupBy(test.rounds, (round) => round.configuration).entries(),
+  ].filter(([, rounds]) => rounds.length > 1);
+  const current = test.rounds.filter(
+    (round) => round.configuration === last.configuration,
+  );
+  const records = current.map((round) => round.record);
+  /** One value per round of the current configuration. */
   const of = <T,>(pick: (record: RoundRecord) => T): T[] => records.map(pick);
 
   return (
@@ -55,14 +92,18 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
 
       <header>
         <span className="eyebrow">
-          {test.definition.id} · teste {test.number} ·{' '}
-          {count(records.length, 'rodada', 'rodadas')}
+          {test.key} · teste {test.number} ·{' '}
+          {count(test.rounds.length, 'rodada', 'rodadas')} ·{' '}
+          {count(test.configurations, 'configuração', 'configurações')}
         </span>
         <h1>{test.title}</h1>
         <p>
-          <strong>Objetivo:</strong> {test.definition.goal}
+          <strong>Objetivo:</strong> {test.goal}
         </p>
-        {first.review !== undefined && <Rich text={first.review.summary} />}
+        <p className="muted">
+          Cada execução é uma rodada, e cada rodada diz o que mudou desde a
+          anterior. As médias só juntam rodadas da mesma configuração.
+        </p>
       </header>
 
       <section className="block" aria-labelledby="rodadas">
@@ -72,7 +113,7 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
             <thead>
               <tr>
                 <th scope="col">Rodada</th>
-                <th scope="col">Data</th>
+                <th scope="col">O que mudou desde a anterior</th>
                 <th scope="col">Tempo</th>
                 <th scope="col">Tokens</th>
                 <th scope="col">Custo</th>
@@ -81,51 +122,53 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
               </tr>
             </thead>
             <tbody>
-              {test.rounds.map((round) => (
-                <tr key={round.record.id}>
+              {test.rounds.map((round) => {
+                const changed =
+                  round.previous !== undefined &&
+                  changeSummary(round.record, round.previous).length > 0;
+                return (
+                  <tr key={round.record.id}>
+                    <th scope="row">
+                      <a href={roundHref(round.record.id)}>
+                        <small>
+                          Rodada {round.index} · config. {round.configuration} ·{' '}
+                          {when(round.record.timing.startedAt)}
+                        </small>
+                        {round.record.review?.title ??
+                          `Rodada ${String(round.index)}`}
+                      </a>
+                    </th>
+                    <td className={changed ? 'changed' : 'muted'}>
+                      {changes(round)}
+                    </td>
+                    <td>{duration(round.record.timing.durationMs)}</td>
+                    <td>{tokensShort(roundTokens(round.record))}</td>
+                    <td>{cost(round.record.totals.round.costUsd)}</td>
+                    <td>{changedFiles(round.record) ?? 'não conferido'}</td>
+                    <td>{rulesOf(round.record)}</td>
+                  </tr>
+                );
+              })}
+              {byConfiguration.map(([configuration, rounds]) => (
+                <tr key={`media-${String(configuration)}`} className="total">
                   <th scope="row">
-                    <a href={roundHref(round.record.id)}>
-                      <small>{round.label}</small>
-                      {round.record.review?.title ??
-                        `Rodada ${String(round.index)}`}
-                    </a>
+                    Média da config. {configuration}
+                    <small>{roundList(rounds)} · menor – maior</small>
                   </th>
-                  <td>{when(round.record.timing.startedAt)}</td>
-                  <td>{duration(round.record.timing.durationMs)}</td>
-                  <td>{tokensShort(roundTokens(round.record))}</td>
-                  <td>{cost(round.record.totals.round.costUsd)}</td>
-                  <td>{changedFiles(round.record) ?? 'não conferido'}</td>
-                  <td>{rulesOf(round.record)}</td>
+                  <td />
+                  <Averages rounds={rounds} />
+                  <td />
                 </tr>
               ))}
-              {several && (
-                <tr className="total">
-                  <th scope="row">Média (menor – maior)</th>
-                  <td />
-                  <td>
-                    {ranged(
-                      records.map((r) => r.timing.durationMs),
-                      duration,
-                    )}
-                  </td>
-                  <td>{ranged(records.map(roundTokens), tokensShort)}</td>
-                  <td>
-                    {ranged(
-                      records.map((r) => r.totals.round.costUsd),
-                      cost,
-                    )}
-                  </td>
-                  <td>{ranged(records.map(changedFiles), decimal)}</td>
-                  <td>{testRules(test)}</td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
       </section>
 
       <section className="block" aria-labelledby="agentes">
-        <h2 id="agentes">Cada agente{several ? ', em média' : ''}</h2>
+        <h2 id="agentes">
+          Cada agente, na configuração atual ({roundList(current)})
+        </h2>
         <div className="table-wrap">
           <table>
             <thead>
@@ -140,92 +183,68 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
               </tr>
             </thead>
             <tbody>
-              {Object.entries(first.actors).map(([name, actor]) => {
-                return (
-                  <tr key={name}>
-                    <th scope="row">
-                      {title(name)}
-                      <small>{providerOf(actor)}</small>
-                    </th>
-                    <td>
-                      {ranged(
-                        of((r) => r.timing.actors[name]?.durationMs ?? null),
-                        duration,
-                      )}
-                    </td>
-                    <td>
-                      {ranged(
-                        of((r) => r.measures[name]?.turns ?? null),
-                        decimal,
-                      )}
-                    </td>
-                    <td>
-                      {ranged(
-                        of((r) => r.measures[name]?.tools ?? null),
-                        decimal,
-                      )}
-                    </td>
-                    <td>
-                      {ranged(
-                        of((r) => r.measures[name]?.questions ?? null),
-                        decimal,
-                      )}
-                    </td>
-                    <td>
-                      {ranged(
-                        of((r) => {
-                          const tokens = r.totals.actors[name]?.tokens;
-                          return tokens === undefined ||
-                            (tokens.input === null && tokens.output === null)
-                            ? null
-                            : (tokens.input ?? 0) + (tokens.output ?? 0);
-                        }),
-                        tokensShort,
-                      )}
-                    </td>
-                    <td>
-                      {ranged(
-                        of((r) => r.totals.actors[name]?.costUsd ?? null),
-                        cost,
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {Object.entries(last.record.actors).map(([name, actor]) => (
+                <tr key={name}>
+                  <th scope="row">
+                    {title(name)}
+                    <small>{providerOf(actor)}</small>
+                  </th>
+                  <td>
+                    {ranged(
+                      of((r) => r.timing.actors[name]?.durationMs ?? null),
+                      duration,
+                    )}
+                  </td>
+                  <td>
+                    {ranged(
+                      of((r) => r.measures[name]?.turns ?? null),
+                      decimal,
+                    )}
+                  </td>
+                  <td>
+                    {ranged(
+                      of((r) => r.measures[name]?.tools ?? null),
+                      decimal,
+                    )}
+                  </td>
+                  <td>
+                    {ranged(
+                      of((r) => r.measures[name]?.questions ?? null),
+                      decimal,
+                    )}
+                  </td>
+                  <td>
+                    {ranged(
+                      of((r) => {
+                        const tokens = r.totals.actors[name]?.tokens;
+                        return tokens === undefined ||
+                          (tokens.input === null && tokens.output === null)
+                          ? null
+                          : (tokens.input ?? 0) + (tokens.output ?? 0);
+                      }),
+                      tokensShort,
+                    )}
+                  </td>
+                  <td>
+                    {ranged(
+                      of((r) => r.totals.actors[name]?.costUsd ?? null),
+                      cost,
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </section>
 
       <section className="block" aria-labelledby="configuracao">
-        <h2 id="configuracao">Configuração de cada agente</h2>
-        <ActorConfigs round={first} />
-        {test.previous !== undefined && (
-          <div className="changes">
-            <h3>
-              O que mudou desde o{' '}
-              <a href={testHref(test.previous.key)}>
-                teste {test.previous.number}
-              </a>
-            </h3>
-            {changes.length === 0 && prompts.length === 0 ? (
-              <p className="note">Nada além do objetivo.</p>
-            ) : (
-              <ul>
-                {changes.map((change) => (
-                  <li key={change}>
-                    <code>{change}</code>
-                  </li>
-                ))}
-                {prompts.map((actor) => (
-                  <li key={actor}>
-                    o pedido ao <b>{actor}</b> mudou
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+        <h2 id="configuracao">Configuração atual de cada agente</h2>
+        <p className="note">
+          A da rodada {last.index}. O que mudou em cada rodada está na página
+          dela.
+        </p>
+        <ActorConfigs round={last.record} />
       </section>
     </main>
   );

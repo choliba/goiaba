@@ -132,6 +132,7 @@ function definition(overrides: Partial<RoundDefinition> = {}): RoundDefinition {
 test.each([
   ['id com maiúsculas', { id: 'Teste' }, 'O id da rodada ("Teste")'],
   ['sem goal', { goal: ' ' }, 'não diz o que quer identificar'],
+  ['title vazio', { title: ' ' }, 'tem um title vazio'],
   ['sem passos', { flow: [] }, 'não tem nenhum passo em flow'],
   [
     'passo com agente que não existe',

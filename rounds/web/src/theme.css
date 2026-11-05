@@ -738,3 +738,9 @@ a.crumbs-test:hover {
 .agent.dim {
   opacity: 0.45;
 }
+
+/* What changed since the round before, in a test's table */
+td.changed {
+  color: var(--guava);
+  font-weight: 500;
+}

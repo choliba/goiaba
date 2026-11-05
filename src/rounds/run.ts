@@ -290,7 +290,11 @@ async function runOnce(
     return {
       schema: ROUND_SCHEMA,
       id: idOf(startedAt),
-      definition: { id: definition.id, goal: definition.goal },
+      definition: {
+        id: definition.id,
+        ...(definition.title === undefined ? {} : { title: definition.title }),
+        goal: definition.goal,
+      },
       start,
       repeat,
       timing: {

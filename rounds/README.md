@@ -43,6 +43,7 @@ const workspace = {
 
 export default defineRound({
   id: 'so-analise',
+  title: 'Só a análise',
   goal: 'O analista aponta os problemas sem alterar nenhum arquivo.',
   start: { git: { root, tag: 'rodada-base' } },
   actors: {
@@ -69,9 +70,9 @@ export default defineRound({
 - `rules`: o que se confere de fora depois da execução (`readOnlyRespected`, `noQuestions`).
 - `repeat`: quantas vezes rodar a mesma configuração. Uma execução só não basta para comparar configurações.
 
-Execuções com a mesma configuração (os mesmos agentes, com o mesmo id e o mesmo objetivo) contam como repetições
-umas das outras. Se você mudar os pedidos, mude o `goal`: os pedidos ficam fora dessa comparação, porque levam o que
-os agentes disseram.
+Rodadas com a mesma configuração (os mesmos agentes, com o mesmo objetivo) são comparáveis entre si, e as páginas tiram a
+média delas. Se você mudar os pedidos, mude o `goal`: os pedidos ficam fora dessa comparação, porque levam o que os
+agentes disseram. O `title` também fica fora: é só o nome do teste.
 
 ## Rodar
 
@@ -84,9 +85,10 @@ agente que não existe) para antes de rodar, com uma mensagem dizendo o que corr
 
 ## Ver as páginas
 
-Nas páginas, cada configuração é um **teste**, e cada execução dele é uma **rodada**. O topo mostra os últimos testes
-(`RECENT_TESTS`, em [`web/src/constants.ts`](web/src/constants.ts)), e um botão lista todos. A página de um teste
-junta as suas rodadas (média, menor e maior) e tem um link para cada uma.
+Nas páginas, cada declaração é um **teste** (o título é o `title` da declaração, ou o `id`), e cada execução dela é uma
+**rodada**, mude o que mudar entre uma e outra. Cada rodada diz o que mudou desde a anterior: modelo, CLI, política,
+pedidos. O topo mostra os últimos testes (`RECENT_TESTS`, em [`web/src/constants.ts`](web/src/constants.ts)), e um
+botão lista todos. As médias só juntam rodadas da mesma configuração.
 
 ```sh
 cd rounds/web && bun install   # uma vez

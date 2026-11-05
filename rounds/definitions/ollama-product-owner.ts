@@ -70,6 +70,7 @@ const NO_CHANGES =
 
 export default defineRound({
   id: 'ollama-product-owner',
+  title: 'Tarefa do rodapé',
   goal: 'O product owner escreve a tarefa do rodapé e o analista define a implementação, sem alterar nenhum arquivo nem fazer perguntas.',
   start: { git: { root, tag: 'rodada-base' } },
   actors: {

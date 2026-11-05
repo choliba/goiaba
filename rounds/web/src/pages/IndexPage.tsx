@@ -1,18 +1,19 @@
 /**
- * Every test, newest first: how many rounds each ran and their means (one
- * round alone says little: the same configuration changed 2 files once and
- * 5 the next time). Filtered by declaration and by agent: a test shows when
- * one of its agents matches the role, provider and model chosen, all at once;
- * the matching agents are marked.
+ * Every test, newest first: how many rounds and configurations it ran, and
+ * its last round. Filtered by agent: a test shows when one of its agents, in
+ * any round, matches the role, provider and model chosen, all at once; in
+ * the last round's agents, the matching ones are marked.
  */
 
 import { useState, type ReactNode } from 'react';
 
 import type { ActorSnapshot } from '../../../../src/rounds/types';
+import { changeSummary } from '../components/Config';
 import { TestsNav } from '../components/TestsNav';
-import { lastRun, recentTests, type Test } from '../data';
+import { recentTests, type Test } from '../data';
 import {
   cost,
+  count,
   duration,
   providerOf,
   title,
@@ -20,19 +21,13 @@ import {
   when,
 } from '../format';
 import { roundHref, testHref } from '../route';
-import {
-  changedFiles,
-  decimal,
-  ranged,
-  roundTokens,
-  testRules,
-} from '../summary';
+import { changedFiles, roundTokens, rulesOf } from '../summary';
 
 const ALL = '';
 
-/** Each agent of a test, by role (the same in every round of a test). */
+/** Every agent of every round of a test, by role. */
 const agentsOf = (test: Test): [string, ActorSnapshot][] =>
-  Object.entries(test.rounds[0]?.record.actors ?? {});
+  test.rounds.flatMap((round) => Object.entries(round.record.actors));
 
 /** The distinct values over every agent of every test, sorted. */
 const options = (
@@ -45,10 +40,6 @@ const options = (
       ),
     ),
   ].toSorted();
-
-const definitionOptions = [
-  ...new Set(recentTests.map((test) => test.definition.id)),
-].toSorted();
 
 interface AgentFilter {
   readonly role: string;
@@ -96,16 +87,13 @@ function Filter({
 }
 
 export function IndexPage(): ReactNode {
-  const [definition, setDefinition] = useState(ALL);
   const [role, setRole] = useState(ALL);
   const [provider, setProvider] = useState(ALL);
   const [model, setModel] = useState(ALL);
   const filter: AgentFilter = { role, provider, model };
   const active = isActive(filter);
-  const shown = recentTests.filter(
-    (test) =>
-      (definition === ALL || test.definition.id === definition) &&
-      agentsOf(test).some(([name, actor]) => matches(name, actor, filter)),
+  const shown = recentTests.filter((test) =>
+    agentsOf(test).some(([name, actor]) => matches(name, actor, filter)),
   );
   // The models of the chosen provider only.
   const models = options((_role, actor) =>
@@ -123,15 +111,6 @@ export function IndexPage(): ReactNode {
     );
     if (value !== ALL && !keeps) setModel(ALL);
   };
-  const matching = [
-    ...new Set(
-      shown.flatMap((test) =>
-        agentsOf(test)
-          .filter(([name, actor]) => matches(name, actor, filter))
-          .map(([name]) => name),
-      ),
-    ),
-  ];
 
   return (
     <main className="page">
@@ -140,21 +119,15 @@ export function IndexPage(): ReactNode {
         <span className="eyebrow">bun run rounds · rounds/data</span>
         <h1>Testes</h1>
         <p>
-          Um teste é uma configuração: os mesmos agentes, com o mesmo objetivo.
-          Cada execução dele é uma rodada. Os números de cada teste são a média
-          das suas rodadas; entre parênteses, a menor e a maior.
+          Um teste é uma declaração em <code>rounds/definitions</code>. Cada vez
+          que ela roda é uma rodada, e cada rodada diz o que mudou desde a
+          anterior: modelo, CLI, política, pedidos.
         </p>
       </header>
 
       <section className="block" aria-labelledby="todos">
         <h2 id="todos">Todos os testes, do mais recente</h2>
         <div className="filters">
-          <Filter
-            label="Rodada declarada"
-            value={definition}
-            values={definitionOptions}
-            onChange={setDefinition}
-          />
           <Filter
             label="Agente"
             value={role}
@@ -180,10 +153,7 @@ export function IndexPage(): ReactNode {
             : `${String(shown.length)} de ${String(recentTests.length)} testes`}
           {active &&
             shown.length > 0 &&
-            ` · agentes que casam com o filtro: ${matching.join(', ')} (destacados)`}
-          {active &&
-            shown.length === recentTests.length &&
-            ' · todos os testes têm um agente assim'}
+            ' · os agentes que casam com o filtro estão destacados'}
         </p>
         {shown.length > 0 && (
           <div className="table-wrap">
@@ -192,25 +162,36 @@ export function IndexPage(): ReactNode {
                 <tr>
                   <th scope="col">Teste</th>
                   <th scope="col">Rodadas</th>
-                  <th scope="col">Agentes</th>
+                  <th scope="col">Agentes na última rodada</th>
+                  <th scope="col">Última rodada</th>
                   <th scope="col">Tempo</th>
                   <th scope="col">Tokens</th>
                   <th scope="col">Custo</th>
-                  <th scope="col">Arquivos alterados</th>
+                  <th scope="col">Arquivos</th>
                   <th scope="col">Regras</th>
                 </tr>
               </thead>
               <tbody>
                 {shown.map((test) => {
-                  const records = test.rounds.map((round) => round.record);
-                  const first = records[0];
+                  const last = test.rounds.at(-1);
+                  if (last === undefined) return null;
+                  const { record } = last;
+                  const changed =
+                    last.previous === undefined
+                      ? 'primeira rodada'
+                      : changeSummary(record, last.previous).join(', ') ||
+                        'nada: mesma configuração';
                   return (
                     <tr key={test.key}>
                       <th scope="row">
                         <a href={testHref(test.key)}>
                           <small>
-                            Teste {test.number} · última em{' '}
-                            {when(lastRun(test))}
+                            Teste {test.number} ·{' '}
+                            {count(
+                              test.configurations,
+                              'configuração',
+                              'configurações',
+                            )}
                           </small>
                           {test.title}
                         </a>
@@ -225,38 +206,34 @@ export function IndexPage(): ReactNode {
                         ))}
                       </td>
                       <td>
-                        {first !== undefined &&
-                          Object.entries(first.actors).map(([name, actor]) => (
-                            <div
-                              key={name}
-                              className={
-                                active
-                                  ? matches(name, actor, filter)
-                                    ? 'agent match'
-                                    : 'agent dim'
-                                  : 'agent'
-                              }
-                            >
-                              {title(name)}:{' '}
-                              <span className="muted">{providerOf(actor)}</span>
-                            </div>
-                          ))}
+                        {Object.entries(record.actors).map(([name, actor]) => (
+                          <div
+                            key={name}
+                            className={
+                              active
+                                ? matches(name, actor, filter)
+                                  ? 'agent match'
+                                  : 'agent dim'
+                                : 'agent'
+                            }
+                          >
+                            {title(name)}:{' '}
+                            <span className="muted">{providerOf(actor)}</span>
+                          </div>
+                        ))}
                       </td>
                       <td>
-                        {ranged(
-                          records.map((r) => r.timing.durationMs),
-                          duration,
-                        )}
+                        <a href={roundHref(record.id)}>Rodada {last.index}</a>
+                        <div className="muted">
+                          {when(record.timing.startedAt)}
+                        </div>
+                        <div className="muted">mudou: {changed}</div>
                       </td>
-                      <td>{ranged(records.map(roundTokens), tokensShort)}</td>
-                      <td>
-                        {ranged(
-                          records.map((r) => r.totals.round.costUsd),
-                          cost,
-                        )}
-                      </td>
-                      <td>{ranged(records.map(changedFiles), decimal)}</td>
-                      <td>{testRules(test)}</td>
+                      <td>{duration(record.timing.durationMs)}</td>
+                      <td>{tokensShort(roundTokens(record))}</td>
+                      <td>{cost(record.totals.round.costUsd)}</td>
+                      <td>{changedFiles(record) ?? '—'}</td>
+                      <td>{rulesOf(record)}</td>
                     </tr>
                   );
                 })}

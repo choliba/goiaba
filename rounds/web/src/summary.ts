@@ -1,7 +1,6 @@
 /** What the index and a test's page say about several rounds at once. */
 
 import type { RoundRecord } from '../../../src/rounds/types';
-import type { Test } from './data';
 import { NOT_MEASURED, spread, sumTokens } from './format';
 
 /** `27 s (22 s – 34 s)`: the mean, and the range when it varies. */
@@ -40,14 +39,4 @@ export function rulesOf(record: RoundRecord): string {
   return failed === 0
     ? `${String(record.violations.length)} cumpridas`
     : `${String(failed)} violada(s)`;
-}
-
-/** The rules of every round of a test: how many passed, of how many checked. */
-export function testRules(test: Test): string {
-  const checked = test.rounds.filter((round) => round.record.start !== null);
-  if (checked.length === 0) return 'não conferidas';
-  const results = checked.flatMap((round) => round.record.violations);
-  if (results.length === 0) return 'nenhuma declarada';
-  const passed = results.filter((v) => v.passed).length;
-  return `${String(passed)} de ${String(results.length)} cumpridas`;
 }

@@ -118,8 +118,8 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
 
       <header>
         <span className="eyebrow">
-          {record.definition.id} · teste {test.number} · {label} ·{' '}
-          {when(record.timing.startedAt)}
+          {record.definition.id} · teste {test.number} · {label} · config.{' '}
+          {round.configuration} · {when(record.timing.startedAt)}
         </span>
         <h1>
           {record.review?.title ?? `Teste ${String(test.number)}, ${label}`}

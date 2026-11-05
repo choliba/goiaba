@@ -163,3 +163,52 @@ export function promptChanges(
     );
   });
 }
+
+/** What a configuration path is, in a few words. */
+function pieceOf(path: string): string {
+  if (path === 'provider.model') return 'modelo';
+  if (path === 'provider.cli') return 'CLI';
+  if (path.startsWith('provider')) return 'provider';
+  if (path.startsWith('workspace')) return 'workspace';
+  if (path.startsWith('network')) return 'rede';
+  if (path.startsWith('policy')) return 'política';
+  if (path === 'readOnly') return 'só leitura';
+  return path;
+}
+
+/**
+ * What changed from `previous` to `round`, in a few words: `modelo do
+ * analista, objetivo, pedido do revisor`. Empty when nothing did.
+ */
+export function changeSummary(
+  round: RoundRecord,
+  previous: RoundRecord,
+): string[] {
+  const parts: string[] = [];
+  if (round.definition.goal !== previous.definition.goal)
+    parts.push('objetivo');
+  const names = new Set([
+    ...Object.keys(previous.actors),
+    ...Object.keys(round.actors),
+  ]);
+  for (const name of names) {
+    const before = previous.actors[name];
+    const after = round.actors[name];
+    if (before === undefined || after === undefined) {
+      parts.push(`${name} ${before === undefined ? 'entrou' : 'saiu'}`);
+      continue;
+    }
+    const a = configuration(before);
+    const b = configuration(after);
+    const pieces = new Set(
+      [...new Set([...a.keys(), ...b.keys()])]
+        .filter((path) => a.get(path) !== b.get(path))
+        .map(pieceOf),
+    );
+    for (const piece of pieces) parts.push(`${piece} do ${name}`);
+  }
+  for (const actor of promptChanges(round, previous)) {
+    parts.push(`pedido do ${actor}`);
+  }
+  return parts;
+}
