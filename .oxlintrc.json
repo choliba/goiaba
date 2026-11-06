@@ -81,7 +81,13 @@
       }
     ]
   },
-  "ignorePatterns": ["storage/**", "node_modules/**", "logs/**", ".goiaba/**"],
+  "ignorePatterns": [
+    "storage/**",
+    "node_modules/**",
+    "logs/**",
+    ".goiaba/**",
+    "rounds/fixtures/**"
+  ],
   "overrides": [
     {
       "files": ["test/**/*.ts"],

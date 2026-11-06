@@ -81,5 +81,6 @@ O `.oxlintrc.json` tem a regra `no-restricted-imports`:
 | `node:readline`                            | `src/input`      |
 
 A regra vale para `src/`, `agents/`, `scripts/` e os exemplos dos cursos (`guides/`). Os testes (`test/`) estão fora
-da regra: montam arquivos e processos de teste à mão. As outras regras deste
+da regra: montam arquivos e processos de teste à mão. As fixtures das rodadas (`rounds/fixtures/`) ficam fora de todo o lint: são
+projetos à parte, o ponto de partida que os agentes analisam, com defeitos de propósito. As outras regras deste
 documento (`console`, `process`, o desacoplamento) ainda não são verificadas automaticamente.
