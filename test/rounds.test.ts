@@ -17,6 +17,8 @@ import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
 import type { Interaction } from '../src/interaction/index';
 import type { Provider, ProviderEvent } from '../src/providers/types';
 import {
+  captureDeclaration,
+  declarationSource,
   defineRound,
   findDefinition,
   listDefinitions,
@@ -979,5 +981,136 @@ test('findDefinition recusa a mesma rodada nos dois formatos', () => {
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+/** What `defineRound` returns, enough to read it back. */
+function isRoundDefinition(value: unknown): value is RoundDefinition {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'flow' in value &&
+    Array.isArray(value.flow)
+  );
+}
+
+test('a declaração vira dados e volta a ser um arquivo que declara a mesma rodada', async () => {
+  const original = defineRound({
+    id: 'ida-e-volta',
+    goal: 'O analista lê e o programador corrige',
+    start: { git: { root: '/tmp/rodada', tag: 'rodada-base' } },
+    actors: {
+      analista: {
+        provider: new ScriptedProvider('ok'),
+        workspace: {
+          type: 'bubblewrap',
+          root: '/tmp/rodada',
+          hostState: 'none',
+        },
+        permissions: {
+          default: 'deny',
+          allow: {
+            filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+          },
+        },
+        readOnly: true,
+      },
+      programador: {
+        provider: new ScriptedProvider('ok'),
+        workspace: {
+          type: 'bubblewrap',
+          root: '/tmp/rodada',
+          hostState: 'none',
+        },
+      },
+    },
+    flow: [
+      {
+        actor: 'analista',
+        by: 'programador',
+        prompt: () => ['Analise.', 'Cite `arquivo:linha`.'],
+      },
+      {
+        actor: 'programador',
+        prompt: ({ said }) => [
+          'Corrija:',
+          said['analista'] ?? '',
+          `Resumo: ${said['analista'] ?? ''}.`,
+        ],
+      },
+    ],
+    instructions: { analista: [{ check: { unchanged: true } }] },
+    limits: { roundMs: 60_000 },
+    rules: [readOnlyRespected(), noQuestions()],
+    repeat: 2,
+  });
+
+  const declaration = captureDeclaration(original, 'troquei o prompt');
+  expect(declaration.flow[1]?.prompt).toEqual([
+    'Corrija:',
+    '{{said:analista}}',
+    'Resumo: {{said:analista}}.',
+  ]);
+  expect(declaration.rules).toEqual(['read-only-respected', 'no-questions']);
+  expect(declaration.actors['analista']?.provider.name).toBe('scripted');
+
+  // A provider the generator knows, so the file loads: the scripted one is a test's.
+  const known = {
+    ...declaration,
+    actors: Object.fromEntries(
+      Object.entries(declaration.actors).map(([name, actor]) => [
+        name,
+        {
+          ...actor,
+          provider: { name: 'ollama', cli: 'claude', model: 'qwen3.5:4b' },
+        },
+      ]),
+    ),
+  };
+  const source = declarationSource(known);
+  expect(source).toContain(
+    'new OllamaProvider({"cli":"claude","model":"qwen3.5:4b"})',
+  );
+  expect(source).toContain('said["analista"] ?? \'\'');
+  expect(source).toContain('rules: [readOnlyRespected(), noQuestions()]');
+
+  // Written where declarations live, loaded, and captured again: the same.
+  const file = join(
+    import.meta.dir,
+    '..',
+    'rounds',
+    'definitions',
+    `zz-ida-e-volta-${String(process.pid)}.ts`,
+  );
+  try {
+    writeFileSync(file, source);
+    const loaded: unknown = await import(file);
+    const written =
+      typeof loaded === 'object' && loaded !== null && 'default' in loaded
+        ? loaded.default
+        : undefined;
+    if (!isRoundDefinition(written)) throw new Error('não exportou a rodada');
+    const again = captureDeclaration(written, 'troquei o prompt');
+    expect(again).toEqual(known);
+  } finally {
+    rmSync(file, { force: true });
+  }
+});
+
+test('o registro guarda a declaração com que rodou', async () => {
+  const { project, roundsDir, dir, cleanup } = fixtureSetup('site-vazio', {});
+  try {
+    const [file = ''] = await runRound(
+      fromFixture(join(roundsDir, 'teste'), new ScriptedProvider('ok')),
+      { dir, project, roundsDir, screen: quiet },
+    );
+    const round = validateRound(JSON.parse(readFileSync(file, 'utf8')));
+    expect(round.declaration?.start).toEqual({ fixture: 'site-vazio' });
+    expect(round.declaration?.flow).toEqual([
+      { actor: 'analista', by: null, prompt: ['Escreva.'] },
+    ]);
+  } finally {
+    cleanup();
   }
 });

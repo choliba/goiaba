@@ -16,6 +16,7 @@ import { Workspace } from '../workspace/index';
 import { FIXTURE_TAG, NO_ONE_ANSWERS } from './constants';
 import { writableOf } from './permissions';
 import type { RoundDefinition, RoundFlowStep } from './define';
+import { captureDeclaration } from './capture';
 import {
   assertApart,
   assertOwnRepository,
@@ -449,6 +450,7 @@ async function runOnce(
       ...(definition.limits === undefined
         ? {}
         : { criteria: { limits: definition.limits } }),
+      declaration: captureDeclaration(definition, label),
     };
   }
 }

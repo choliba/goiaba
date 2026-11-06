@@ -59,3 +59,9 @@ export const GRID_DENSITY = [1, 2, 10] as const;
  * character (11 px monospace, 0,6 em wide) and `x` between one and the next.
  */
 export const GRID_LABEL_GAP = { y: 18, x: 14, char: 6.6 } as const;
+
+/**
+ * How long, in milliseconds, "Definição copiada" stays on the button before
+ * it goes back to "Copiar definição": 2 s is time to read it.
+ */
+export const COPIED_MS = 2000;

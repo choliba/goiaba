@@ -161,6 +161,12 @@ O formato está em [`../src/rounds/types.ts`](../src/rounds/types.ts) (`RoundRec
 - o resultado das regras, das instruções conferidas em cada passo (só o veredito, não o arquivo) e os limites declarados
   (`criteria`), e o `label`;
 
+O registro também guarda a declaração com que a rodada rodou, em dados (`declaration`): o objetivo, a partida, cada
+agente (provider, CLI, modelo, workspace, política, `readOnly`), o `flow` com os pedidos (com `{{said:analista}}` no
+lugar do que outro agente disse), as instruções, os limites, as regras e a repetição. Não é preciso commitar a
+definição a cada mudança: na página da rodada, **Copiar definição** escreve de volta o arquivo de
+`rounds/definitions/<id>.ts` (`declarationSource`). Registros anteriores a isso não têm o bloco, e o botão não aparece.
+
 Cada passo tem uma chave estável, `agente#n` (o n-ésimo passo daquele agente): é por ela que rodadas diferentes são
 comparadas, e por ela que um gráfico junta "o passo do analista" de todas as rodadas, mesmo que o `flow` mude.
 

@@ -334,6 +334,12 @@ Um JSON por execução, em `rounds/data/<início>.json` (o formato está em `src
 `schema: 4`). Ele guarda a configuração de cada agente (provider, workspace, política, rede), a partida
 (`start.tag`, `start.commit`, `start.fixture`), cada passo e os totais.
 
+O registro também guarda a declaração com que a rodada rodou, em dados (`declaration`): o objetivo, a partida, cada
+agente (provider, CLI, modelo, workspace, política, `readOnly`), o `flow` com os pedidos (com `{{said:analista}}` no
+lugar do que outro agente disse), as instruções, os limites, as regras e a repetição. Não é preciso commitar a
+definição a cada mudança: na página da rodada, **Copiar definição** escreve de volta o arquivo de
+`rounds/definitions/<id>.ts` (`declarationSource`). Registros anteriores a isso não têm o bloco, e o botão não aparece.
+
 Cada passo tem uma chave estável, `agente#n` (o n-ésimo passo daquele agente): é por ela que execuções diferentes são
 comparadas, mesmo que o `flow` mude. Execuções com a mesma configuração (os mesmos agentes, com o mesmo objetivo) têm o
 mesmo `configHash`, e só essas entram juntas nas médias.

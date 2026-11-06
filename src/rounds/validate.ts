@@ -268,6 +268,42 @@ const step = object({
   ),
 });
 
+const declaredActor = object({
+  provider: object({
+    name: nonEmpty,
+    cli: nullable(nonEmpty),
+    model: nullable(nonEmpty),
+  }),
+  workspace: object({
+    type: oneOf(WORKSPACE_TYPES),
+    image: nullable(nonEmpty),
+    root: nonEmpty,
+    hostState: nullable(oneOf(HOST_STATES)),
+  }),
+  // Its shape is the policy module's to check.
+  permissions: nullable(anyObject),
+  readOnly: boolean,
+});
+
+const declaration = object({
+  id: nonEmpty,
+  goal: string,
+  'label?': nonEmpty,
+  start: nullable(anyObject),
+  actors: record(declaredActor),
+  flow: list(
+    object({
+      actor: nonEmpty,
+      by: nullable(nonEmpty),
+      prompt: nullable(list(string)),
+    }),
+  ),
+  rules: list(nonEmpty),
+  'instructions?': anyObject,
+  'limits?': anyObject,
+  repeat: positive,
+});
+
 const roundRecord = object({
   schema: literal(ROUND_SCHEMA),
   id: nonEmpty,
@@ -333,6 +369,7 @@ const roundRecord = object({
       'costUsd?': amount,
     }),
   }),
+  'declaration?': declaration,
 });
 
 /** Every agent the record names somewhere is one of `actors`. */

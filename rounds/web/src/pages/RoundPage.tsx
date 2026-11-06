@@ -11,6 +11,7 @@ import {
   configChanges,
   promptChanges,
 } from '../components/Config';
+import { CopyDeclaration } from '../components/CopyDeclaration';
 import { Flow } from '../components/Flow';
 import { Scores } from '../components/Scores';
 import { TestRounds } from '../components/TestRounds';
@@ -141,6 +142,9 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
               : `Partiu da fixture ${record.start.fixture} (tag ${record.start.tag}, ${record.start.commit}).`}{' '}
           Durou {duration(record.timing.durationMs)}.
         </p>
+        {record.declaration !== undefined && (
+          <CopyDeclaration declaration={record.declaration} />
+        )}
       </header>
 
       <Scores score={round.score} />

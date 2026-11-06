@@ -59,6 +59,63 @@ export interface RoundRecord {
    * alone. Absent when it set none.
    */
   readonly criteria?: RoundCriteria;
+  /**
+   * The declaration as it ran, as data: enough to write it back
+   * (`declarationSource`). Absent in records from before it was kept.
+   */
+  readonly declaration?: RoundDeclaration;
+}
+
+/**
+ * A round's declaration as data, captured when it runs: every option given,
+ * the prompts with the place of what another agent said marked
+ * (`{{said:analista}}`), the rules by id. Paths are cleaned like the rest of
+ * the record (`<projeto>`, `~`).
+ */
+export interface RoundDeclaration {
+  readonly id: string;
+  readonly goal: string;
+  readonly label?: string;
+  readonly start:
+    | { readonly fixture: string }
+    | { readonly git: { readonly root: string; readonly tag: string } }
+    | null;
+  readonly actors: Readonly<Record<string, DeclaredActor>>;
+  readonly flow: readonly DeclaredStep[];
+  /** Rule ids: `read-only-respected`. */
+  readonly rules: readonly string[];
+  readonly instructions?: Readonly<Record<string, readonly RoundInstruction[]>>;
+  readonly limits?: RoundLimits;
+  readonly repeat: number;
+}
+
+export interface DeclaredActor {
+  readonly provider: {
+    /** `ollama`, `claude`, `cursor`, `codex`: what `describe()` says. */
+    readonly name: string;
+    readonly cli: string | null;
+    readonly model: string | null;
+  };
+  readonly workspace: {
+    readonly type: RoundWorkspaceType;
+    /** Docker only. */
+    readonly image: string | null;
+    readonly root: string;
+    /** As declared; `null` when left to the default. */
+    readonly hostState: RoundHostState | null;
+  };
+  readonly permissions: AgentPolicy | null;
+  readonly readOnly: boolean;
+}
+
+export interface DeclaredStep {
+  readonly actor: string;
+  readonly by: string | null;
+  /**
+   * The prompt's lines, with `{{said:<actor>}}` where it puts what that
+   * actor said; `null` when the prompt could not be read that way.
+   */
+  readonly prompt: readonly string[] | null;
 }
 
 export interface RoundDefinitionRef {
