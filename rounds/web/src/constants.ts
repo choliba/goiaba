@@ -40,3 +40,22 @@ export const RECENT_ROUNDS_IN_TABLE = 3;
  * name on a laptop, and the rest are one click away in the modal.
  */
 export const RECENT_ROUNDS_IN_BAR = 8;
+
+/**
+ * The XY chart's grid densities, as multiples of `CHART_TICKS`, one option
+ * each: both axes are cut in that many equal parts (5, 10 or 50). For a
+ * score (0 to 5) the lines fall every 1, 0,5 and 0,1: down to tenths, the
+ * precision scores are given in. Only these nest (every 0,5 is a line at
+ * 0,1 steps; 0,2 or 0,25 steps miss it), so the values written on a coarser
+ * grid stay written on the finer one. Every line is drawn the same; only
+ * the ones with room for it get their value written.
+ */
+export const GRID_DENSITY = [1, 2, 10] as const;
+
+/**
+ * The room, in SVG units, the XY chart's grid values need: a line closer to
+ * the next than that is drawn without its value. Vertically, 18 fits a line
+ * of text. Horizontally, values sit side by side: each takes `char` per
+ * character (11 px monospace, 0,6 em wide) and `x` between one and the next.
+ */
+export const GRID_LABEL_GAP = { y: 18, x: 14, char: 6.6 } as const;

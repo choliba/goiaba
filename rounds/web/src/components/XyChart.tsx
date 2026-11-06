@@ -7,18 +7,21 @@
  * never drawn as 0.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 import type { ActorSnapshot, RoundRecord } from '../../../../src/rounds/types';
 import {
   CHART_HEIGHT,
   CHART_TICKS,
   CHART_WIDTH,
+  GRID_DENSITY,
+  GRID_LABEL_GAP,
   HOVER_CLOSE_MS,
 } from '../constants';
 import type { Round, Test } from '../data';
 import {
   cost,
+  count,
   duration,
   providerOf,
   sumTokens,
@@ -34,9 +37,26 @@ interface Metric {
   /** `null` when not measured. */
   readonly value: (round: Round, name: string) => number | null;
   readonly show: (value: number) => string;
+  /**
+   * A grid line's label, when it needs more precision than `show` (a score
+   * shows 3,5, but a line can be at 3,25); `show` by default.
+   */
+  readonly tick?: (value: number) => string;
+  /**
+   * The unit an axis rounds its end in (60 000 ms: whole minutes), so its
+   * steps read round (10 min, 5 min, 1 min) and not 3 min 20 s.
+   */
+  readonly unit?: number;
   /** Scores always span 0–5, whatever the points. */
   readonly domain?: readonly [number, number];
 }
+
+/** `3,25`: a grid line's value, up to two decimals. */
+const fine = (value: number): string =>
+  value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+
+/** A minute, in milliseconds: time axes end on whole minutes. */
+const MINUTE_MS = 60 * 1000;
 
 const measure =
   (pick: (record: RoundRecord, name: string) => number | undefined) =>
@@ -60,6 +80,7 @@ const METRICS = {
     label: 'Nota',
     value: (round, name) => round.score.actors[name]?.final ?? null,
     show: grade,
+    tick: fine,
     domain: [0, 5],
   },
   eficacia: {
@@ -67,18 +88,28 @@ const METRICS = {
     value: (round, name) =>
       round.score.actors[name]?.effectiveness.score ?? null,
     show: grade,
+    tick: fine,
     domain: [0, 5],
   },
   eficiencia: {
     label: 'Eficiência',
     value: (round, name) => round.score.actors[name]?.efficiency.score ?? null,
     show: grade,
+    tick: fine,
     domain: [0, 5],
   },
   tempo: {
     label: 'Tempo gasto',
     value: measure((r, name) => r.timing.actors[name]?.durationMs ?? undefined),
     show: duration,
+    // Grid lines fall on whole minutes: `10 min`, not `10 min 0 s`.
+    tick: (ms) =>
+      ms === 0
+        ? '0'
+        : ms % MINUTE_MS === 0
+          ? `${String(ms / MINUTE_MS)} min`
+          : duration(ms),
+    unit: MINUTE_MS,
   },
   tokens: {
     label: 'Tokens',
@@ -97,21 +128,25 @@ const METRICS = {
     label: 'Turnos',
     value: measure((r, name) => r.measures[name]?.turns),
     show: decimal,
+    tick: fine,
   },
   ferramentas: {
     label: 'Ferramentas',
     value: measure((r, name) => r.measures[name]?.tools),
     show: decimal,
+    tick: fine,
   },
   perguntas: {
     label: 'Perguntas',
     value: measure((r, name) => r.measures[name]?.questions),
     show: decimal,
+    tick: fine,
   },
   arquivos: {
     label: 'Arquivos alterados',
     value: measure((r, name) => r.measures[name]?.changedFiles),
     show: decimal,
+    tick: fine,
   },
 } satisfies Record<string, Metric>;
 
@@ -121,23 +156,26 @@ const METRIC_KEYS = Object.keys(METRICS).filter(
 );
 const metricOf = (key: MetricKey): Metric => METRICS[key];
 
-/** One color per provider, in order of appearance: the theme's actor hues. */
+/** One color per group, in order of appearance: the theme's hues. */
 const COLORS = [
   'var(--guava)',
   'var(--violet)',
   'var(--leaf)',
   'var(--amber)',
   'var(--sky)',
+  'var(--warn)',
+  'var(--you)',
 ];
 
 /**
- * The margin a cropped axis leaves past its extreme values, as a share of
- * their range: 10% keeps the outermost points off the frame.
+ * The margin an axis leaves past its highest value (and a date past both
+ * ends), as a share of the range: 10% keeps the outermost points off the
+ * frame.
  */
 const CROP_MARGIN = 0.1;
 
 /** Room for the axes' labels, inside the drawing area. */
-const MARGIN = { top: 16, right: 20, bottom: 44, left: 72 };
+const MARGIN = { top: 16, right: 44, bottom: 44, left: 72 };
 
 interface Point {
   readonly round: Round;
@@ -147,59 +185,121 @@ interface Point {
   readonly y: number;
 }
 
-/** Round numbers across `[min, max]`, about `CHART_TICKS` of them. */
-function ticks(min: number, max: number): number[] {
-  const raw = (max - min) / CHART_TICKS;
-  const power = 10 ** Math.floor(Math.log10(raw));
-  const step =
-    [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= raw) ?? raw;
-  const values: number[] = [];
-  for (let v = Math.ceil(min / step) * step; v <= max + step / 1e6; v += step) {
-    values.push(v);
-  }
-  return values;
+/**
+ * The round number an axis ends at: the first of 1, 2, 2,5, 5 or 10 times a
+ * power of ten that reaches `value`. Divided in 5, 10 or 50 equal parts, it
+ * gives round steps too (0,5 → 0,1, 0,05 and 0,01).
+ */
+function roundEnd(value: number): number {
+  if (value <= 0) return 1;
+  const power = 10 ** Math.floor(Math.log10(value));
+  return (
+    [1, 2, 2.5, 5, 10].map((m) => m * power).find((end) => end >= value) ??
+    value
+  );
 }
 
+/** `0,1`: the distance between two lines of an axis. */
+function stepText(metric: Metric, lines: readonly number[]): string {
+  const [first, second] = lines;
+  if (first === undefined || second === undefined) return '';
+  const step = second - first;
+  // A date's step is a span of time, not a date.
+  const show =
+    metric === METRICS.data ? duration : (metric.tick ?? metric.show);
+  return show(step);
+}
+
+/** A day, in milliseconds: an empty date axis spans one. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
- * The axis span. Cropped (the default): from the lowest to the highest
- * value, with a margin, so close scenarios (notes 3,8 and 4,3) spread out
- * instead of sharing a sliver of 0–5. Full: a score's whole 0–5, and
- * counts and amounts from 0. Dates are always cropped: 0 is 1970.
+ * The axis span, fixed: a score's whole 0–5; counts and amounts from 0 to a
+ * round number past the highest point (with a margin), so that the same
+ * divisions as the other axis fall on round values. Dates go from the
+ * first to the last point: their 0 is 1970. With no value at all, an empty
+ * ruler: 0 to 1, or the last day for a date.
  */
 function domainOf(
   metric: Metric,
   values: readonly number[],
-  crop: boolean,
-): [number, number] {
-  if (!crop && metric.domain !== undefined) return [...metric.domain];
-  let min = Math.min(...values);
-  let max = Math.max(...values);
-  if (!crop && metric !== METRICS.data && min >= 0) min = 0;
-  const pad =
-    min === max
-      ? max === 0
-        ? 1
-        : Math.abs(max) * CROP_MARGIN
-      : crop
-        ? (max - min) * CROP_MARGIN
-        : 0;
-  min -= pad;
-  max += pad;
-  // A cropped score still stays inside 0–5.
-  if (metric.domain !== undefined) {
-    min = Math.max(min, metric.domain[0]);
-    max = Math.min(max, metric.domain[1]);
+): readonly [number, number] {
+  if (metric.domain !== undefined) return metric.domain;
+  if (values.length === 0) {
+    const now = Date.now();
+    return metric === METRICS.data ? [now - DAY_MS, now] : [0, 1];
   }
-  return [min, max];
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  if (metric === METRICS.data) {
+    const pad = low === high ? DAY_MS / 2 : (high - low) * CROP_MARGIN;
+    return [low - pad, high + pad];
+  }
+  const reach = high * (1 + CROP_MARGIN);
+  // In its unit only when it reaches one: 40 s stays in seconds.
+  const unit =
+    metric.unit !== undefined && reach >= metric.unit ? metric.unit : 1;
+  return [Math.min(0, low), roundEnd(reach / unit) * unit];
+}
+
+/** A value as an integer key: 0,1 + 0,2 and 0,3 must meet. */
+const sameValue = (value: number): number => Math.round(value * 1e6);
+
+/** Vertical values stack: a line of text apart, whatever they say. */
+const yGap = (): number => GRID_LABEL_GAP.y;
+
+/** How many equal parts an axis is cut in at density `level`. */
+const parts = (level: number): number =>
+  CHART_TICKS * (GRID_DENSITY[level] ?? 1);
+
+/**
+ * The grid of one axis: the span cut in `CHART_TICKS` × density equal
+ * parts, the same count on both axes, and a value written on a line only
+ * where values have room (`minGap` apart): the coarsest lines always, the
+ * finer ones as long as they fit. The counts nest (5, 10, 50), so a line
+ * written at one density is a line at the next.
+ */
+function grid(
+  span: readonly [number, number],
+  level: number,
+  length: number,
+  /** The room the values of these lines need, from one to the next. */
+  minGap: (values: readonly number[]) => number,
+): { readonly lines: number[]; readonly labeled: Set<number> } {
+  const [min, max] = span;
+  const at = (l: number): number[] =>
+    Array.from(
+      { length: parts(l) + 1 },
+      (_, i) => min + ((max - min) * i) / parts(l),
+    );
+  let labelLevel = 0;
+  for (let l = level; l > 0; l -= 1) {
+    if (length / parts(l) >= minGap(at(l))) {
+      labelLevel = l;
+      break;
+    }
+  }
+  const lines = at(level);
+  const wanted = new Set(at(labelLevel).map(sameValue));
+  return {
+    lines,
+    labeled: new Set(lines.filter((v) => wanted.has(sameValue(v)))),
+  };
 }
 
 function AxisSelect({
   label,
   value,
+  taken,
   onChange,
 }: {
   readonly label: string;
   readonly value: MetricKey;
+  /**
+   * The other axis's measure: not offered, since the same one on both axes
+   * only puts every point on the diagonal.
+   */
+  readonly taken: MetricKey;
   readonly onChange: (value: MetricKey) => void;
 }): ReactNode {
   return (
@@ -213,7 +313,7 @@ function AxisSelect({
         }}
       >
         {METRIC_KEYS.map((key) => (
-          <option key={key} value={key}>
+          <option key={key} value={key} disabled={key === taken}>
             {metricOf(key).label}
           </option>
         ))}
@@ -283,6 +383,35 @@ function PointCard({
   );
 }
 
+/**
+ * Why the chart has no point, saying which measure is missing: `Não há
+ * pontos para Nota × Custo: nenhum agente tem registro de custo.`
+ */
+function emptyText(
+  candidates: readonly {
+    readonly x: number | null;
+    readonly y: number | null;
+  }[],
+  x: Metric,
+  y: Metric,
+): string {
+  const pair = `Não há pontos para ${y.label} × ${x.label}`;
+  if (candidates.length === 0) return `${pair}: nenhum agente nesta seleção.`;
+  const noX = candidates.every((c) => c.x === null);
+  const noY = candidates.every((c) => c.y === null);
+  const missing =
+    noX && noY
+      ? `${y.label.toLowerCase()} nem de ${x.label.toLowerCase()}`
+      : noX
+        ? x.label.toLowerCase()
+        : noY
+          ? y.label.toLowerCase()
+          : '';
+  return missing === ''
+    ? `${pair}: nenhum agente tem as duas medidas na mesma rodada.`
+    : `${pair}: nenhum agente tem registro de ${missing}.`;
+}
+
 export function XyChart({
   tests,
   matches = () => true,
@@ -293,7 +422,10 @@ export function XyChart({
 }): ReactNode {
   const [xKey, setXKey] = useState<MetricKey>('data');
   const [yKey, setYKey] = useState<MetricKey>('nota');
-  const [crop, setCrop] = useState(true);
+  /** How many lines the grid has, on both axes: an index into `GRID_DENSITY`. */
+  const [level, setLevel] = useState(0);
+  /** The options' group, one per chart: radios share it by name. */
+  const gridName = useId();
   /** The point whose card is open: `<round id>-<agent>`. */
   const [selected, setSelected] = useState<string | null>(null);
   /** The point under the mouse: its card shows while no other is clicked. */
@@ -326,26 +458,42 @@ export function XyChart({
     x === null || y === null ? [] : [{ ...rest, x, y }],
   );
   const missing = candidates.length - points.length;
-  const providers = [...new Set(points.map((p) => p.provider))];
-  const colorOf = (provider: string): string =>
-    COLORS[providers.indexOf(provider) % COLORS.length] ?? COLORS[0] ?? '';
+  const groupOf = (p: Point): string => p.provider;
+  const groups = [...new Set(points.map(groupOf))];
+  const colorOf = (group: string): string =>
+    COLORS[groups.indexOf(group) % COLORS.length] ?? COLORS[0] ?? '';
+  const rounds = new Set(points.map((p) => p.round.record.id)).size;
+  const testsShown = new Set(points.map((p) => p.round.test.key)).size;
 
   const plotW = CHART_WIDTH - MARGIN.left - MARGIN.right;
   const plotH = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
-  const [x0, x1] = domainOf(
+  // Without points, each axis still spans the values it has alone: an
+  // empty chart keeps the ruler of the measure that was taken.
+  const valuesOf = (pick: (c: (typeof candidates)[number]) => number | null) =>
+    (points.length > 0 ? points : candidates)
+      .map(pick)
+      .filter((v) => v !== null);
+  const xSpan = domainOf(
     xMetric,
-    points.map((p) => p.x),
-    crop,
+    valuesOf((c) => c.x),
   );
-  const [y0, y1] = domainOf(
+  const ySpan = domainOf(
     yMetric,
-    points.map((p) => p.y),
-    crop,
+    valuesOf((c) => c.y),
   );
+  const [x0, x1] = xSpan;
+  const [y0, y1] = ySpan;
   const sx = (v: number): number =>
     MARGIN.left + ((v - x0) / (x1 - x0)) * plotW;
   const sy = (v: number): number =>
     MARGIN.top + (1 - (v - y0) / (y1 - y0)) * plotH;
+  // Horizontal values sit side by side: as wide as the widest, plus a gap.
+  const xGap = (values: readonly number[]): number =>
+    Math.max(...values.map((v) => (xMetric.tick ?? xMetric.show)(v).length)) *
+      GRID_LABEL_GAP.char +
+    GRID_LABEL_GAP.x;
+  const yGrid = grid(ySpan, level, plotH, yGap);
+  const xGrid = grid(xSpan, level, plotW, xGap);
   const keyOf = (p: Point): string => `${p.round.record.id}-${p.name}`;
   const shown = selected ?? hovered;
   const open = points.find((p) => keyOf(p) === shown);
@@ -353,31 +501,45 @@ export function XyChart({
   return (
     <div className="xy-chart">
       <div className="filters">
-        <AxisSelect label="Eixo Y (vertical)" value={yKey} onChange={setYKey} />
+        <AxisSelect
+          label="Eixo Y (vertical)"
+          value={yKey}
+          taken={xKey}
+          onChange={setYKey}
+        />
         <AxisSelect
           label="Eixo X (horizontal)"
           value={xKey}
+          taken={yKey}
           onChange={setXKey}
         />
-        <label>
-          <span>Escala</span>
-          <select
-            value={crop ? 'recorte' : 'completa'}
-            onChange={(event) => setCrop(event.target.value === 'recorte')}
-          >
-            <option value="recorte">Recorte dos dados</option>
-            <option value="completa">Completa (nota de 0 a 5)</option>
-          </select>
-        </label>
+        {/* Each option says its step on the vertical axis: 1, 0,5 or 0,1 for a score. */}
+        <fieldset className="grid-steps">
+          <legend>Linhas da grade a cada</legend>
+          {GRID_DENSITY.map((_, option) => (
+            <label key={option}>
+              <input
+                type="radio"
+                name={gridName}
+                checked={option === level}
+                onChange={() => setLevel(option)}
+              />
+              <span>
+                {stepText(yMetric, grid(ySpan, option, plotH, yGap).lines)}
+              </span>
+            </label>
+          ))}
+        </fieldset>
       </div>
       <p className="note" aria-live="polite">
         {points.length === 0
-          ? 'Nenhum agente com as duas medidas.'
-          : `${String(points.length)} ponto(s): cada um é um agente em uma rodada`}
-        {missing > 0 &&
-          ` · ${String(missing)} sem uma das medidas, fora do gráfico`}
+          ? emptyText(candidates, xMetric, yMetric)
+          : `${count(points.length, 'ponto', 'pontos')} de ${count(rounds, 'rodada', 'rodadas')} em ${count(testsShown, 'teste', 'testes')}: um ponto por agente em cada rodada`}
+        {points.length > 0 &&
+          missing > 0 &&
+          ` · ${String(missing)} sem ${yMetric.label.toLowerCase()} ou ${xMetric.label.toLowerCase()}, fora do gráfico`}
       </p>
-      {points.length > 0 && (
+      {
         <>
           <div
             className="xy-plot"
@@ -391,7 +553,7 @@ export function XyChart({
               role="img"
               aria-label={`${yMetric.label} por ${xMetric.label}`}
             >
-              {ticks(y0, y1).map((v) => (
+              {yGrid.lines.map((v) => (
                 <g key={`y${String(v)}`} className="tick">
                   <line
                     x1={MARGIN.left}
@@ -399,17 +561,19 @@ export function XyChart({
                     y1={sy(v)}
                     y2={sy(v)}
                   />
-                  <text
-                    x={MARGIN.left - 8}
-                    y={sy(v)}
-                    textAnchor="end"
-                    dominantBaseline="middle"
-                  >
-                    {yMetric.show(v)}
-                  </text>
+                  {yGrid.labeled.has(v) && (
+                    <text
+                      x={MARGIN.left - 8}
+                      y={sy(v)}
+                      textAnchor="end"
+                      dominantBaseline="middle"
+                    >
+                      {(yMetric.tick ?? yMetric.show)(v)}
+                    </text>
+                  )}
                 </g>
               ))}
-              {ticks(x0, x1).map((v) => (
+              {xGrid.lines.map((v) => (
                 <g key={`x${String(v)}`} className="tick">
                   <line
                     x1={sx(v)}
@@ -417,13 +581,16 @@ export function XyChart({
                     y1={MARGIN.top}
                     y2={MARGIN.top + plotH}
                   />
-                  <text
-                    x={sx(v)}
-                    y={MARGIN.top + plotH + 18}
-                    textAnchor="middle"
-                  >
-                    {xMetric.show(v)}
-                  </text>
+                  {xGrid.labeled.has(v) && (
+                    <text
+                      x={sx(v)}
+                      y={MARGIN.top + plotH + 18}
+                      // The last value ends at the frame instead of past it.
+                      textAnchor="middle"
+                    >
+                      {(xMetric.tick ?? xMetric.show)(v)}
+                    </text>
+                  )}
                 </g>
               ))}
               <line
@@ -482,7 +649,7 @@ export function XyChart({
                     cx={sx(p.x)}
                     cy={sy(p.y)}
                     r={6}
-                    fill={colorOf(p.provider)}
+                    fill={colorOf(groupOf(p))}
                   />
                 </g>
               ))}
@@ -504,19 +671,21 @@ export function XyChart({
               />
             )}
           </div>
-          <ul className="legend">
-            {providers.map((provider) => (
-              <li key={provider}>
-                <span
-                  className="swatch"
-                  style={{ background: colorOf(provider) }}
-                />
-                {provider}
-              </li>
-            ))}
-          </ul>
+          {groups.length > 0 && (
+            <ul className="legend">
+              {groups.map((group) => (
+                <li key={group}>
+                  <span
+                    className="swatch"
+                    style={{ background: colorOf(group) }}
+                  />
+                  {group}
+                </li>
+              ))}
+            </ul>
+          )}
         </>
-      )}
+      }
     </div>
   );
 }

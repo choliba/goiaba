@@ -893,6 +893,62 @@ tr.row-link:hover th a {
 }
 
 /* XY chart */
+.grid-steps {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  align-items: end;
+  gap: 4px 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.grid-steps legend {
+  grid-column: 1 / -1;
+  padding: 0;
+  margin-bottom: 4px;
+  font: 500 12px/1 var(--mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.grid-steps label {
+  position: relative;
+}
+.grid-steps input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.grid-steps span {
+  display: block;
+  min-width: 4.5ch;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: 14px var(--body);
+  text-align: center;
+  cursor: pointer;
+}
+.grid-steps label:first-of-type span {
+  border-radius: 6px 0 0 6px;
+}
+.grid-steps label:last-of-type span {
+  border-radius: 0 6px 6px 0;
+}
+.grid-steps label + label span {
+  border-left: 0;
+}
+.grid-steps input:checked + span {
+  background: var(--guava);
+  border-color: var(--guava);
+  color: var(--surface);
+  font-weight: 600;
+}
+.grid-steps input:focus-visible + span {
+  outline: 2px solid var(--guava);
+  outline-offset: 2px;
+}
 .xy-chart svg {
   display: block;
   width: 100%;
