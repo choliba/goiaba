@@ -4,29 +4,12 @@
  * `site-vazio` fixture in its own folder (rounds.dir), and the git says
  * what it changed.
  */
-import {
-  OllamaProvider,
-  type AgentPolicy,
-  type WorkspaceOptions,
-} from '../../../src/index';
-import {
-  defineRound,
-  noQuestions,
-  roundDir,
-  // noToolCallAsText,
-} from '../../../src/rounds/index';
+import { OllamaProvider } from '../../../src/index';
+import { defineRound, noQuestions } from '../../../src/rounds/index';
+import { WRITE_WORKSPACE } from './policy';
+import { workspace } from './workspace';
 
-const id = 'ollama-product-owner';
-
-/** The round's own folder, in rounds.dir: recreated from the fixture on every run. */
-const root = roundDir(id);
-
-/** Every agent in its own sandbox, with nothing of the host's CLI state. */
-const workspace: WorkspaceOptions = {
-  type: 'bubblewrap',
-  root,
-  hostState: 'none',
-};
+const id: string = 'ollama-product-owner';
 
 /**
  * The model the agent runs on: it must call the CLI's tools for real.
@@ -36,42 +19,6 @@ const workspace: WorkspaceOptions = {
 const local = (): OllamaProvider =>
   new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' });
 
-/**
- * What the agent may do: read and write the workspace, and run a few
- * commands that only look; anything else is denied without asking (nobody
- * answers in a round). Any policy also gives the agent its network
- * boundary, which is what reads Ollama's traffic: without one, the tokens
- * are not measured.
- */
-const WRITE_WORKSPACE: AgentPolicy = {
-  default: 'deny',
-  allow: {
-    filesystem: [
-      {
-        operations: ['read', 'write'],
-        // Inside the sandbox the workspace is `/workspace` (singular), the
-        // only root the policy accepts. Writing is granted to the whole
-        // tree or to a folder that already exists, never to a lone file
-        // (`index.html` is refused).
-        paths: [`/workspace/**`],
-      },
-    ],
-    execution: [
-      {
-        commands: [
-          'ls *',
-          'cat *',
-          'find *',
-          'pwd',
-          'git status',
-          'git diff *',
-          'git log *',
-        ],
-      },
-    ],
-  },
-};
-
 export default defineRound({
   id,
   goal: 'O agente escreve um arquivo e sai, sem perguntar nem falar nada.',
@@ -80,7 +27,7 @@ export default defineRound({
     // Not readOnly: writing the file is the task.
     'product-owner': {
       provider: local(),
-      workspace,
+      workspace: workspace(id),
       permissions: WRITE_WORKSPACE,
     },
   },
