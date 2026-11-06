@@ -26,3 +26,17 @@ export const CHART_TICKS = 5;
  * and reach the card's links, and short enough to feel immediate.
  */
 export const HOVER_CLOSE_MS = 250;
+
+/**
+ * How many of a test's latest rounds the index's "Rodadas" column shows
+ * before "Mais (n)": three short links fit one line of that column on a
+ * laptop, and the latest few are what a change is compared against.
+ */
+export const RECENT_ROUNDS_IN_TABLE = 3;
+
+/**
+ * How many of a test's latest rounds the bar above a test's or a round's
+ * page shows before "Mais (n)": eight chips fit one line next to the test's
+ * name on a laptop, and the rest are one click away in the modal.
+ */
+export const RECENT_ROUNDS_IN_BAR = 8;

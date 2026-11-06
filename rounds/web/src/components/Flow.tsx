@@ -6,7 +6,7 @@
  * saw. Nobody writes anything here after the run.
  */
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 
 import type { RoundRecord, RoundStep } from '../../../../src/rounds/types';
 import {
@@ -106,6 +106,22 @@ function Facts({
   );
 }
 
+/**
+ * A click anywhere on a step's card opens or closes its details, as the
+ * summary does. Inside the details (the summary included, which toggles by
+ * itself) clicks are left alone, and so is a click that ends a text
+ * selection.
+ */
+function toggleDetails(event: MouseEvent<HTMLLIElement>): void {
+  const { target, currentTarget } = event;
+  if (!(target instanceof Element) || target.closest('details, a') !== null) {
+    return;
+  }
+  if ((window.getSelection()?.toString() ?? '') !== '') return;
+  const details = currentTarget.querySelector('details');
+  if (details !== null) details.open = !details.open;
+}
+
 export function Flow({ round }: { readonly round: RoundRecord }): ReactNode {
   const actors = [...new Set(round.steps.map((step) => step.actor))];
   const color = (lane: string): CSSProperties => ({
@@ -174,6 +190,7 @@ export function Flow({ round }: { readonly round: RoundRecord }): ReactNode {
                   ...color(step.actor),
                   gridColumn: String(column(step.actor)),
                 }}
+                onClick={toggleDetails}
               >
                 <div className="scene-head">
                   <span className="scene-num">passo {index + 1}</span>

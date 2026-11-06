@@ -6,12 +6,13 @@
  * current one is marked, not a link.
  */
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { RECENT_TESTS } from '../constants';
 import { lastRun, recentTests, type Test } from '../data';
 import { count, goalOf, when } from '../format';
 import { indexHref, testHref } from '../route';
+import { Modal } from './Modal';
 
 function Chip({
   test,
@@ -59,18 +60,7 @@ function AllTests({
     return words.every((word) => text.includes(word));
   });
   return (
-    <div className="dialog-body">
-      <div className="dialog-head">
-        <h2>Todos os testes</h2>
-        <button
-          type="button"
-          className="close"
-          onClick={onClose}
-          aria-label="Fechar"
-        >
-          ×
-        </button>
-      </div>
+    <>
       <input
         type="search"
         placeholder="Buscar pelo id ou pelo objetivo"
@@ -100,7 +90,7 @@ function AllTests({
       {shown.length === 0 && (
         <p className="note">Nenhum teste com essa busca.</p>
       )}
-    </div>
+    </>
   );
 }
 
@@ -110,15 +100,9 @@ export function TestsNav({
   /** The key of the test being shown; none on the index. */
   readonly current?: string;
 }): ReactNode {
-  const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
-  const show = (): void => {
-    setOpen(true);
-    dialog.current?.showModal();
-  };
-  const close = (): void => {
-    dialog.current?.close();
-  };
+  const show = (): void => setOpen(true);
+  const close = (): void => setOpen(false);
   const recent = recentTests.slice(0, RECENT_TESTS);
   const others = recentTests.length - recent.length;
 
@@ -163,17 +147,9 @@ export function TestsNav({
           ))}
         </ol>
       </nav>
-      <dialog
-        ref={dialog}
-        className="tests-dialog"
-        onClose={() => setOpen(false)}
-        onClick={(event) => {
-          // A click on the backdrop (the dialog itself, outside its body) closes it.
-          if (event.target === dialog.current) close();
-        }}
-      >
-        {open && <AllTests current={current} onClose={close} />}
-      </dialog>
+      <Modal title="Todos os testes" open={open} onClose={close}>
+        <AllTests current={current} onClose={close} />
+      </Modal>
     </header>
   );
 }

@@ -10,7 +10,9 @@ import { useState, type ReactNode } from 'react';
 import type { ActorSnapshot } from '../../../../src/rounds/types';
 import { changeSummary } from '../components/Config';
 import { Grade } from '../components/Scores';
+import { RecentRounds } from '../components/RecentRounds';
 import { TestsNav } from '../components/TestsNav';
+import { RECENT_ROUNDS_IN_TABLE } from '../constants';
 import { XyChart } from '../components/XyChart';
 import { recentTests, type Test } from '../data';
 import {
@@ -224,13 +226,12 @@ export function IndexPage(): ReactNode {
                         </a>
                       </th>
                       <td>
-                        {test.rounds.map((round) => (
-                          <div key={round.record.id}>
-                            <a href={roundHref(round.record.id)}>
-                              Rodada {round.index}
-                            </a>
-                          </div>
-                        ))}
+                        <div className="rounds-cell">
+                          <RecentRounds
+                            test={test}
+                            shown={RECENT_ROUNDS_IN_TABLE}
+                          />
+                        </div>
                       </td>
                       <td>
                         {Object.entries(record.actors).map(([name, actor]) => (

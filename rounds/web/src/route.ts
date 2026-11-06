@@ -53,7 +53,8 @@ export function rowLink(href: string): {
     onClick: ({ target }) => {
       if (
         target instanceof Element &&
-        target.closest('a, summary, button') !== null
+        // A modal opened from the row is inside it in the DOM: its clicks are its own.
+        target.closest('a, summary, button, dialog') !== null
       ) {
         return;
       }
