@@ -1,15 +1,21 @@
 /**
- * An XY chart of the agents the index's filter matches: each point is one
- * agent in one round, X on the horizontal axis and Y on the vertical, both
- * chosen from the same measures the tables show. A color per provider; a
- * point opens its round. What was not measured on either axis is left out
- * and counted, never drawn as 0.
+ * An XY chart of the agents a page shows (the index's filter, a test's
+ * rounds): each point is one agent in one round, X on the horizontal axis
+ * and Y on the vertical, both chosen from the same measures the tables
+ * show. A color per provider; a point opens a card with links to its test
+ * and round. What was not measured on either axis is left out and counted,
+ * never drawn as 0.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { ActorSnapshot, RoundRecord } from '../../../../src/rounds/types';
-import { CHART_HEIGHT, CHART_TICKS, CHART_WIDTH } from '../constants';
+import {
+  CHART_HEIGHT,
+  CHART_TICKS,
+  CHART_WIDTH,
+  HOVER_CLOSE_MS,
+} from '../constants';
 import type { Round, Test } from '../data';
 import {
   cost,
@@ -19,7 +25,7 @@ import {
   title,
   tokensShort,
 } from '../format';
-import { roundHref } from '../route';
+import { roundHref, testHref } from '../route';
 import { decimal } from '../summary';
 import { grade } from './Scores';
 
@@ -216,17 +222,90 @@ function AxisSelect({
   );
 }
 
+/**
+ * The card of a point, over the chart (on hover, or kept open by a click):
+ * what it is, its two values, and links to its test and its round. `x` and
+ * `y` are the point's place, from 0 to 1 of the chart; the card opens
+ * toward the side with room.
+ */
+function PointCard({
+  point,
+  x,
+  y,
+  lines,
+  onClose,
+  onHover,
+}: {
+  readonly point: Point;
+  readonly x: number;
+  readonly y: number;
+  readonly lines: readonly string[];
+  readonly onClose: () => void;
+  /** The mouse entered (true) or left (false) the card. */
+  readonly onHover: (inside: boolean) => void;
+}): ReactNode {
+  const { round } = point;
+  const shiftX = x < 0.25 ? '0%' : x > 0.75 ? '-100%' : '-50%';
+  const shiftY = y < 0.4 ? '14px' : 'calc(-100% - 14px)';
+  return (
+    <div
+      className="point-card"
+      role="dialog"
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+      aria-label={`Rodada ${String(round.index)} de ${round.test.title}`}
+      style={{
+        left: `${String(x * 100)}%`,
+        top: `${String(y * 100)}%`,
+        transform: `translate(${shiftX}, ${shiftY})`,
+      }}
+    >
+      <button
+        type="button"
+        className="close"
+        aria-label="Fechar"
+        onClick={onClose}
+      >
+        ×
+      </button>
+      {/* What has a page of its own is its link; the rest is text. */}
+      <strong>
+        <a href={testHref(round.test.key)}>{round.test.title}</a> ·{' '}
+        <a href={roundHref(round.record.id)}>Rodada {round.index}</a>
+      </strong>
+      <span className="muted">
+        {title(point.name)} · {point.provider}
+      </span>
+      {lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </div>
+  );
+}
+
 export function XyChart({
   tests,
-  matches,
+  matches = () => true,
 }: {
   readonly tests: readonly Test[];
-  /** The index's filter: whether this agent counts. */
-  readonly matches: (name: string, actor: ActorSnapshot) => boolean;
+  /** A page's filter: whether this agent counts; without one, every agent. */
+  readonly matches?: (name: string, actor: ActorSnapshot) => boolean;
 }): ReactNode {
   const [xKey, setXKey] = useState<MetricKey>('data');
   const [yKey, setYKey] = useState<MetricKey>('nota');
   const [crop, setCrop] = useState(true);
+  /** The point whose card is open: `<round id>-<agent>`. */
+  const [selected, setSelected] = useState<string | null>(null);
+  /** The point under the mouse: its card shows while no other is clicked. */
+  const [hovered, setHovered] = useState<string | null>(null);
+  const leaving = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const stay = (): void => clearTimeout(leaving.current);
+  // Not at once: the mouse crosses the gap between the point and its card.
+  const leave = (): void => {
+    stay();
+    leaving.current = setTimeout(() => setHovered(null), HOVER_CLOSE_MS);
+  };
+  useEffect(() => stay, []);
   const xMetric = metricOf(xKey);
   const yMetric = metricOf(yKey);
 
@@ -267,6 +346,9 @@ export function XyChart({
     MARGIN.left + ((v - x0) / (x1 - x0)) * plotW;
   const sy = (v: number): number =>
     MARGIN.top + (1 - (v - y0) / (y1 - y0)) * plotH;
+  const keyOf = (p: Point): string => `${p.round.record.id}-${p.name}`;
+  const shown = selected ?? hovered;
+  const open = points.find((p) => keyOf(p) === shown);
 
   return (
     <div className="xy-chart">
@@ -297,89 +379,131 @@ export function XyChart({
       </p>
       {points.length > 0 && (
         <>
-          <svg
-            viewBox={`0 0 ${String(CHART_WIDTH)} ${String(CHART_HEIGHT)}`}
-            role="img"
-            aria-label={`${yMetric.label} por ${xMetric.label}`}
+          <div
+            className="xy-plot"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setSelected(null);
+            }}
           >
-            {ticks(y0, y1).map((v) => (
-              <g key={`y${String(v)}`} className="tick">
-                <line
-                  x1={MARGIN.left}
-                  x2={MARGIN.left + plotW}
-                  y1={sy(v)}
-                  y2={sy(v)}
-                />
-                <text
-                  x={MARGIN.left - 8}
-                  y={sy(v)}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                >
-                  {yMetric.show(v)}
-                </text>
-              </g>
-            ))}
-            {ticks(x0, x1).map((v) => (
-              <g key={`x${String(v)}`} className="tick">
-                <line
-                  x1={sx(v)}
-                  x2={sx(v)}
-                  y1={MARGIN.top}
-                  y2={MARGIN.top + plotH}
-                />
-                <text x={sx(v)} y={MARGIN.top + plotH + 18} textAnchor="middle">
-                  {xMetric.show(v)}
-                </text>
-              </g>
-            ))}
-            <line
-              className="axis"
-              x1={MARGIN.left}
-              x2={MARGIN.left + plotW}
-              y1={MARGIN.top + plotH}
-              y2={MARGIN.top + plotH}
-            />
-            <line
-              className="axis"
-              x1={MARGIN.left}
-              x2={MARGIN.left}
-              y1={MARGIN.top}
-              y2={MARGIN.top + plotH}
-            />
-            <text
-              className="axis-label"
-              x={MARGIN.left + plotW / 2}
-              y={CHART_HEIGHT - 6}
-              textAnchor="middle"
+            <svg
+              onClick={() => setSelected(null)}
+              viewBox={`0 0 ${String(CHART_WIDTH)} ${String(CHART_HEIGHT)}`}
+              role="img"
+              aria-label={`${yMetric.label} por ${xMetric.label}`}
             >
-              {xMetric.label}
-            </text>
-            <text
-              className="axis-label"
-              transform={`translate(14 ${String(MARGIN.top + plotH / 2)}) rotate(-90)`}
-              textAnchor="middle"
-            >
-              {yMetric.label}
-            </text>
-            {points.map((p) => (
-              <a
-                key={`${p.round.record.id}-${p.name}`}
-                href={roundHref(p.round.record.id)}
+              {ticks(y0, y1).map((v) => (
+                <g key={`y${String(v)}`} className="tick">
+                  <line
+                    x1={MARGIN.left}
+                    x2={MARGIN.left + plotW}
+                    y1={sy(v)}
+                    y2={sy(v)}
+                  />
+                  <text
+                    x={MARGIN.left - 8}
+                    y={sy(v)}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                  >
+                    {yMetric.show(v)}
+                  </text>
+                </g>
+              ))}
+              {ticks(x0, x1).map((v) => (
+                <g key={`x${String(v)}`} className="tick">
+                  <line
+                    x1={sx(v)}
+                    x2={sx(v)}
+                    y1={MARGIN.top}
+                    y2={MARGIN.top + plotH}
+                  />
+                  <text
+                    x={sx(v)}
+                    y={MARGIN.top + plotH + 18}
+                    textAnchor="middle"
+                  >
+                    {xMetric.show(v)}
+                  </text>
+                </g>
+              ))}
+              <line
+                className="axis"
+                x1={MARGIN.left}
+                x2={MARGIN.left + plotW}
+                y1={MARGIN.top + plotH}
+                y2={MARGIN.top + plotH}
+              />
+              <line
+                className="axis"
+                x1={MARGIN.left}
+                x2={MARGIN.left}
+                y1={MARGIN.top}
+                y2={MARGIN.top + plotH}
+              />
+              <text
+                className="axis-label"
+                x={MARGIN.left + plotW / 2}
+                y={CHART_HEIGHT - 6}
+                textAnchor="middle"
               >
-                <circle
-                  cx={sx(p.x)}
-                  cy={sy(p.y)}
-                  r={6}
-                  fill={colorOf(p.provider)}
+                {xMetric.label}
+              </text>
+              <text
+                className="axis-label"
+                transform={`translate(14 ${String(MARGIN.top + plotH / 2)}) rotate(-90)`}
+                textAnchor="middle"
+              >
+                {yMetric.label}
+              </text>
+              {points.map((p) => (
+                <g
+                  key={keyOf(p)}
+                  className={keyOf(p) === shown ? 'point open' : 'point'}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${p.round.test.title}, rodada ${String(p.round.index)}, ${title(p.name)}: ${xMetric.label} ${xMetric.show(p.x)}, ${yMetric.label} ${yMetric.show(p.y)}`}
+                  onMouseEnter={() => {
+                    stay();
+                    setHovered(keyOf(p));
+                  }}
+                  onMouseLeave={leave}
+                  onClick={(event) => {
+                    // The chart's own click closes the card.
+                    event.stopPropagation();
+                    setSelected(keyOf(p) === selected ? null : keyOf(p));
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    setSelected(keyOf(p) === selected ? null : keyOf(p));
+                  }}
                 >
-                  <title>
-                    {`${p.round.test.title} · rodada ${String(p.round.index)}\n${title(p.name)} · ${p.provider}\n${xMetric.label}: ${xMetric.show(p.x)}\n${yMetric.label}: ${yMetric.show(p.y)}`}
-                  </title>
-                </circle>
-              </a>
-            ))}
-          </svg>
+                  <circle
+                    cx={sx(p.x)}
+                    cy={sy(p.y)}
+                    r={6}
+                    fill={colorOf(p.provider)}
+                  />
+                </g>
+              ))}
+            </svg>
+            {open !== undefined && (
+              <PointCard
+                point={open}
+                x={sx(open.x) / CHART_WIDTH}
+                y={sy(open.y) / CHART_HEIGHT}
+                lines={[
+                  `${xMetric.label}: ${xMetric.show(open.x)}`,
+                  `${yMetric.label}: ${yMetric.show(open.y)}`,
+                ]}
+                onClose={() => {
+                  setSelected(null);
+                  setHovered(null);
+                }}
+                onHover={(inside) => (inside ? stay() : leave())}
+              />
+            )}
+          </div>
           <ul className="legend">
             {providers.map((provider) => (
               <li key={provider}>

@@ -908,10 +908,55 @@ tr.row-link:hover th a {
   stroke: var(--surface);
   stroke-width: 1.5;
 }
-.xy-chart a:hover circle,
-.xy-chart a:focus circle {
+.xy-chart .point {
+  cursor: pointer;
+  outline: none;
+}
+.xy-chart .point:hover circle,
+.xy-chart .point:focus-visible circle,
+.xy-chart .point.open circle {
   fill-opacity: 1;
   stroke: var(--ink);
+  stroke-width: 2;
+}
+.xy-plot {
+  position: relative;
+}
+.point-card {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 12px 36px 12px 14px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.25);
+  font: 13px/1.4 var(--body);
+}
+.point-card a {
+  color: var(--guava);
+}
+.point-card .close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.point-card .close:hover {
+  background: var(--code-bg);
+  color: var(--ink);
 }
 .legend {
   display: flex;

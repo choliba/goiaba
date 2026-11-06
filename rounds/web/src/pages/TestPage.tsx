@@ -11,6 +11,7 @@ import { ActorConfigs, changeSummary } from '../components/Config';
 import { Grade, grade } from '../components/Scores';
 import { TestRounds } from '../components/TestRounds';
 import { TestsNav } from '../components/TestsNav';
+import { XyChart } from '../components/XyChart';
 import type { Round, Test } from '../data';
 import {
   cost,
@@ -106,6 +107,11 @@ export function TestPage({ test }: { readonly test: Test }): ReactNode {
           anterior. As médias só juntam rodadas da mesma configuração.
         </p>
       </header>
+
+      <section className="block" aria-labelledby="grafico">
+        <h2 id="grafico">Gráfico das rodadas</h2>
+        <XyChart tests={[test]} />
+      </section>
 
       <section className="block" aria-labelledby="rodadas">
         <h2 id="rodadas">Rodadas</h2>

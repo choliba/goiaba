@@ -19,3 +19,10 @@ export const CHART_HEIGHT = 360;
  * labels apart at phone width and still lets a value be read off the axis.
  */
 export const CHART_TICKS = 5;
+
+/**
+ * How long, in milliseconds, a point's card stays after the mouse leaves the
+ * point or the card: 250 ms is enough to cross the 14 px gap between them
+ * and reach the card's links, and short enough to feel immediate.
+ */
+export const HOVER_CLOSE_MS = 250;
