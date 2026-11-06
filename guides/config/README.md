@@ -2,15 +2,16 @@
 
 # Módulo config: para que ele existe
 
-Um projeto que usa o Goiaba tem **um arquivo de configuração**, o `goiaba.config.ts`. Ele define o log, o banco, os workspaces (a raiz padrão e os homes isolados deles) e as variáveis de ambiente.
+Um projeto que usa o Goiaba tem **um arquivo de configuração**, o `goiaba.config.ts`. Ele define o log, o banco, os workspaces (a raiz padrão e os homes isolados deles), onde as rodadas rodam e as variáveis de ambiente.
 
-| Opção        | O que é                                                                  | Sem ela                               |
-| ------------ | ------------------------------------------------------------------------ | ------------------------------------- |
-| `debug`      | grava também os registros de `debug` no log                              | `false`                               |
-| `logger`     | onde fica o log (`dir`) e qual pacote o escreve (`use`)                  | `.goiaba/logs`, em JSONL, sem pacote  |
-| `database`   | onde fica o banco SQLite (sessões, decisões, aprovações)                 | `.goiaba/goiaba.db`                   |
-| `workspaces` | a raiz padrão dos workspaces (`dir`) e os homes isolados deles (`homes`) | `.goiaba/workspaces`, `.goiaba/homes` |
-| `envs`       | variáveis de ambiente que o projeto usa                                  | nenhuma                               |
+| Opção        | O que é                                                                                       | Sem ela                                |
+| ------------ | --------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `debug`      | grava também os registros de `debug` no log                                                   | `false`                                |
+| `logger`     | onde fica o log (`dir`) e qual pacote o escreve (`use`)                                       | `.goiaba/logs`, em JSONL, sem pacote   |
+| `database`   | onde fica o banco SQLite (sessões, decisões, aprovações)                                      | `.goiaba/goiaba.db`                    |
+| `workspaces` | a raiz padrão dos workspaces (`dir`) e os homes isolados deles (`homes`)                      | `.goiaba/workspaces`, `.goiaba/homes`  |
+| `rounds`     | onde as rodadas rodam (`dir`), fora do projeto; veja o [curso de rounds](../rounds/README.md) | nenhum: obrigatório para rodar rodadas |
+| `envs`       | variáveis de ambiente que o projeto usa                                                       | nenhuma                                |
 
 É **dado do projeto**: não é a política de um agente (isso é a `AgentPolicy`, do módulo `policy`) nem o código de nenhum agente. O módulo `config` encontra o arquivo, **confere** o que ele diz, completa com os padrões e entrega o resultado já resolvido, com caminhos absolutos, para quem precisa: o logger, o banco, a tela de aprovações, o agente.
 
@@ -77,11 +78,12 @@ export default defineConfig({
 
 | Tipo                     | Forma                                                                                                |
 | ------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `GoiabaConfig`           | `{ debug?, logger?, database?, workspaces?, envs? }`                                                 |
+| `GoiabaConfig`           | `{ debug?, logger?, database?, workspaces?, rounds?, envs? }`                                        |
 | `GoiabaLoggerConfig`     | `{ dir?: string, use?: LoggerFactory }`                                                              |
 | `LoggerFactory`          | `(target: { dir, session }) => object`: cria a instância do pacote de log                            |
 | `GoiabaDatabaseConfig`   | `{ dir?: string, name?: string }`: `name` é só o nome do arquivo, sem barras                         |
 | `GoiabaWorkspacesConfig` | `{ dir?: string, homes?: string }`: a raiz padrão e a pasta dos homes; relativos ao arquivo ou `~/…` |
+| `GoiabaRoundsConfig`     | `{ dir?: string }`: onde as rodadas rodam; relativo ao arquivo ou `~/…`, recusado dentro do projeto  |
 | `GoiabaEnv`              | `{ [nome]: string \| boolean \| number \| undefined }`                                               |
 | `GoiabaConfigFactory`    | um `GoiabaConfig` ou uma função (até `async`) que o devolve                                          |
 
@@ -89,17 +91,18 @@ export default defineConfig({
 
 O que `loadConfig` e `getConfig` devolvem. Tudo já decidido: nada opcional, caminhos absolutos.
 
-| Campo              | Tipo                         | O que é                                          |
-| ------------------ | ---------------------------- | ------------------------------------------------ |
-| `logger.dir`       | `string`                     | diretório do log, absoluto                       |
-| `logger.use`       | `LoggerFactory \| undefined` | a fábrica do pacote, se houver                   |
-| `databasePath`     | `string`                     | caminho absoluto do arquivo do banco             |
-| `workspaces.dir`   | `string`                     | a raiz padrão dos workspaces, absoluta           |
-| `workspaces.homes` | `string`                     | diretório absoluto dos homes, um por workspace   |
-| `debug`            | `boolean`                    |                                                  |
-| `configPath`       | `string \| undefined`        | o arquivo lido; `undefined` sem arquivo          |
-| `env`              | `{ vars } \| undefined`      | o env ativo: o **primeiro** de `envs`            |
-| `envs`             | `{ vars }[]`                 | todos os envs; `vars` tem só os valores de texto |
+| Campo              | Tipo                         | O que é                                                  |
+| ------------------ | ---------------------------- | -------------------------------------------------------- |
+| `logger.dir`       | `string`                     | diretório do log, absoluto                               |
+| `logger.use`       | `LoggerFactory \| undefined` | a fábrica do pacote, se houver                           |
+| `databasePath`     | `string`                     | caminho absoluto do arquivo do banco                     |
+| `workspaces.dir`   | `string`                     | a raiz padrão dos workspaces, absoluta                   |
+| `workspaces.homes` | `string`                     | diretório absoluto dos homes, um por workspace           |
+| `rounds.dir`       | `string \| undefined`        | onde as rodadas rodam, absoluto; `undefined` sem a opção |
+| `debug`            | `boolean`                    |                                                          |
+| `configPath`       | `string \| undefined`        | o arquivo lido; `undefined` sem arquivo                  |
+| `env`              | `{ vars } \| undefined`      | o env ativo: o **primeiro** de `envs`                    |
+| `envs`             | `{ vars }[]`                 | todos os envs; `vars` tem só os valores de texto         |
 
 ### Funções
 
@@ -221,6 +224,7 @@ Saída real:
     "dir": "<projeto>/storage/workspaces",
     "homes": "<projeto>/storage/homes"
   },
+  "rounds": {},
   "debug": true,
   "configPath": "<projeto>/goiaba.config.ts",
   "envs": []
@@ -228,7 +232,8 @@ Saída real:
 ```
 
 - `storage/logs` e `storage/db` ficaram absolutos, **a partir do arquivo de config**.
-- `logger.use` e `env` não aparecem porque são `undefined` (o `JSON.stringify` não mostra campos `undefined`).
+- `logger.use`, `env` e `rounds.dir` não aparecem porque são `undefined` (o `JSON.stringify` não mostra campos
+  `undefined`).
 
 ### 2. Sem arquivo: os padrões
 
@@ -280,6 +285,7 @@ Saída real:
     "dir": "<diretório>/.goiaba/workspaces",
     "homes": "<diretório>/.goiaba/homes"
   },
+  "rounds": {},
   "debug": false,
   "envs": []
 }

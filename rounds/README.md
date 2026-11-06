@@ -309,7 +309,7 @@ export default defineRound({
   um limite apertado demais mede o modelo lento, não a entrega.
 
 Um agente tem nota de eficácia, e com ela nota final, quando ao menos um critério de eficácia tem o que medir: as
-instruções, a política (ou `readOnly`), as referências `arquivo:linha` (com `start.git`) ou o limite de tempo.
+instruções, a política (ou `readOnly`), as referências `arquivo:linha` (com `start`) ou o limite de tempo.
 
 ### Os números da rubrica
 

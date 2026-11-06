@@ -105,6 +105,7 @@ Cada módulo tem um curso em `guides/<modulo>/README.md`, com exemplos que rodam
 | [execute](guides/execute/README.md)         | rodar programas                                       |
 | [filesystem](guides/filesystem/README.md)   | disco e caminhos                                      |
 | [events](guides/events/README.md)           | eventos dentro do processo                            |
+| [rounds](guides/rounds/README.md)           | as rodadas: comparar agentes com fatos                |
 | [context](guides/context/README.md)         | quem está rodando                                     |
 | [config](guides/config/README.md)           | o `goiaba.config.ts`                                  |
 | [command](guides/command/README.md)         | comandos de linha de comando                          |
