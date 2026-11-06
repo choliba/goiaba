@@ -9,11 +9,23 @@
 import { Agent, agentConversation } from '../agent/agent';
 import { createConsumer } from '../events/index';
 import type { Interaction } from '../interaction/index';
+import { getConfig } from '../config/index';
+import { UsageError } from '../errors';
+import { join, realPathOfNearest } from '../filesystem/index';
 import { Workspace } from '../workspace/index';
-import { NO_ONE_ANSWERS } from './constants';
+import { FIXTURE_TAG, NO_ONE_ANSWERS } from './constants';
 import { writableOf } from './permissions';
 import type { RoundDefinition, RoundFlowStep } from './define';
-import { changes, linesAt, resetTo, tree, type Tree } from './git';
+import {
+  assertApart,
+  assertOwnRepository,
+  changes,
+  linesAt,
+  prepareFixture,
+  resetTo,
+  tree,
+  type Tree,
+} from './git';
 import { checkInstructions, conditionsAt } from './instructions';
 import { checkReferences } from './references';
 import { spanOf, StepRecorder } from './measures';
@@ -38,8 +50,13 @@ type StepRun = RoundStep & { readonly usage: readonly UsageRecord[] };
 export interface RunRoundOptions {
   /** Where the records go, one `<id>.json` per run. */
   readonly dir: string;
-  /** The project's path, written as `<projeto>` in the records. */
+  /**
+   * The project's path: written as `<projeto>` in the records, holds the
+   * fixtures (`rounds/fixtures`), and no round may run inside it.
+   */
   readonly project: string;
+  /** Where rounds started from a fixture run; `rounds.dir` by default. */
+  readonly roundsDir?: string;
   /** Where the agents show what they do; the agents' conversation on stdio by default. */
   readonly screen?: Interaction;
   /** Stops the round; the runScript's Ctrl+C by default. */
@@ -51,6 +68,48 @@ export interface RunRoundOptions {
    * model; `null` when unknown (the default: no price table yet).
    */
   readonly price?: (model: string, tokens: TokenCounts) => number | null;
+}
+
+/** Where a run starts: the folder, its tag, and the fixture it came from. */
+interface StartPlan {
+  readonly root: string;
+  readonly tag: string;
+  readonly fixture: string | null;
+  readonly roundsDir: string | undefined;
+}
+
+function startPlan(
+  definition: RoundDefinition,
+  roundsDir: string | undefined,
+): StartPlan | undefined {
+  const start = definition.start;
+  if (start === undefined) return undefined;
+  if ('git' in start) {
+    return { ...start.git, fixture: null, roundsDir: undefined };
+  }
+  if (roundsDir === undefined) {
+    throw new UsageError(
+      'Configure rounds.dir no goiaba.config.ts: uma pasta fora do projeto onde as rodadas rodam, como rounds: { dir: "~/.local/share/goiaba/rodadas" }.',
+    );
+  }
+  return {
+    root: join(roundsDir, definition.id),
+    tag: FIXTURE_TAG,
+    fixture: start.fixture,
+    roundsDir,
+  };
+}
+
+/** Every actor works in the folder the round starts and checks. */
+function assertActorsAt(definition: RoundDefinition, root: string): void {
+  const expected = realPathOfNearest(root);
+  for (const [name, actor] of Object.entries(definition.actors)) {
+    if (realPathOfNearest(actor.workspace.root) !== expected) {
+      throw new UsageError(
+        `A rodada ${definition.id}: o workspace de ${name} (${actor.workspace.root}) não é a pasta da rodada (${root}). Use root: roundDir('${definition.id}') (ou o root de start.git).`,
+      );
+    }
+  }
 }
 
 /** Runs every repetition of `definition`, in order; the records' paths. */
@@ -85,6 +144,7 @@ async function runOnce(
   {
     dir,
     project,
+    roundsDir = getConfig().rounds.dir,
     screen = agentConversation(),
     signal,
     label = definition.label,
@@ -92,7 +152,8 @@ async function runOnce(
   }: RunRoundOptions,
 ): Promise<string> {
   const startedAt = now();
-  const git = definition.start?.git;
+  const git = startPlan(definition, roundsDir);
+  if (git !== undefined) assertActorsAt(definition, git.root);
   const actors: Record<string, ActorSnapshot> = {};
   const decisions: Record<string, NetworkDecisionRecord[]> = {};
   const clocks: Record<string, ActorClock> = {};
@@ -122,7 +183,16 @@ async function runOnce(
 
   try {
     if (git !== undefined) {
-      start = { tag: git.tag, commit: await resetTo(git.root, git.tag) };
+      const commit =
+        git.fixture === null || git.roundsDir === undefined
+          ? await resetFrom(git.root, git.tag, project)
+          : await prepareFixture({
+              project,
+              fixture: git.fixture,
+              root: git.root,
+              roundsDir: git.roundsDir,
+            });
+      start = { tag: git.tag, commit, fixture: git.fixture };
       screen.write(
         `Workspace no ponto de partida: ${start.tag} (${start.commit})`,
       );
@@ -385,3 +455,14 @@ async function runOnce(
 
 /** `2026-11-03T16:50:30.759Z` → `2026-11-03T16-50-30.759Z`: a file name. */
 const idOf = (startedAt: string): string => startedAt.replaceAll(':', '-');
+
+/** A repository that already existed, checked before it is reset. */
+async function resetFrom(
+  root: string,
+  tag: string,
+  project: string,
+): Promise<string> {
+  assertApart(root, project);
+  await assertOwnRepository(root);
+  return resetTo(root, tag);
+}

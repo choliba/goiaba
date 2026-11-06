@@ -1,22 +1,25 @@
 /**
  * Three agents from start to end, without asking anything: the programmer
  * consults the analyst, fixes what it pointed out and consults the reviewer.
- * Every run starts from the workspace's `rodada-base` tag, and the git says
- * what each agent really changed.
+ * Every run starts from the `analise-base` fixture in its own folder
+ * (rounds.dir), and the git says what each agent really changed.
  */
 import {
   ClaudeProvider,
   CursorProvider,
-  getConfig,
   type WorkspaceOptions,
 } from '../../src/index';
 import {
   defineRound,
+  roundDir,
   noQuestions,
   readOnlyRespected,
 } from '../../src/rounds/index';
 
-const root = getConfig().workspaces.dir;
+const id = 'analise-programacao-revisao';
+
+/** The round's own folder, in rounds.dir: recreated from the fixture on every run. */
+const root = roundDir(id);
 
 /** Every agent in its own sandbox, with nothing of the host's CLI state. */
 const workspace: WorkspaceOptions = {
@@ -37,9 +40,9 @@ const EVERY_FIX_TESTED =
 const TEAM = 'uma equipe de três agentes: analista, programador e revisor.';
 
 export default defineRound({
-  id: 'analise-programacao-revisao',
+  id,
   goal: 'Cada papel faz só a sua parte, e toda correção tem um teste que falha sem ela.',
-  start: { git: { root, tag: 'rodada-base' } },
+  start: { fixture: 'analise-base' },
   actors: {
     analista: {
       provider: new ClaudeProvider({ model: 'claude-opus-5-5' }),

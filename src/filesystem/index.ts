@@ -1,6 +1,7 @@
 import {
   appendFileSync,
   closeSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -15,7 +16,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 
 /**
  * Disk access. Nothing else imports `node:fs`: what goes to the disk goes
@@ -63,6 +64,31 @@ export function realPath(path: string): string {
   return realpathSync(path);
 }
 
+/**
+ * `realPath` of a path that may not exist yet: the nearest existing
+ * ancestor resolved, with the missing rest appended as written.
+ */
+export function realPathOfNearest(path: string): string {
+  const missing: string[] = [];
+  let current = path;
+  while (!existsSync(current)) {
+    const parent = dirname(current);
+    if (parent === current) break;
+    missing.unshift(basename(current));
+    current = parent;
+  }
+  return join(realpathSync(current), ...missing);
+}
+
+/** Whether `path` is `dir` or inside it, by the text of both (absolute). */
+export function isWithin(path: string, dir: string): boolean {
+  const fromDir = relative(dir, path);
+  return (
+    fromDir === '' ||
+    (fromDir !== '..' && !fromDir.startsWith('../') && !isAbsolute(fromDir))
+  );
+}
+
 export function readText(path: string): string {
   return readFileSync(path, 'utf8');
 }
@@ -105,6 +131,11 @@ export function appendText(path: string, content: string, mode?: number): void {
 
 export function createSymlink(target: string, path: string): void {
   symlinkSync(target, path);
+}
+
+/** Copies a directory tree into `to`, which is created if missing. */
+export function copyDirectory(from: string, to: string): void {
+  cpSync(from, to, { recursive: true });
 }
 
 /** Removes a file or directory tree; missing paths are ignored. */

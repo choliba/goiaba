@@ -273,7 +273,9 @@ const roundRecord = object({
   id: nonEmpty,
   definition: object({ id: nonEmpty, goal: string }),
   'label?': nonEmpty,
-  start: nullable(object({ tag: nonEmpty, commit: nonEmpty })),
+  start: nullable(
+    object({ tag: nonEmpty, commit: nonEmpty, 'fixture?': nullable(nonEmpty) }),
+  ),
   repeat: object({ index: positive, total: positive }),
   timing: object({
     startedAt: isoDate,

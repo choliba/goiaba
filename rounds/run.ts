@@ -10,12 +10,16 @@ import {
   pathExists,
   resolve,
 } from '../src/filesystem/index';
+import {
+  ROUNDS_DATA_DIR,
+  ROUNDS_DEFINITIONS_DIR,
+} from '../src/rounds/constants';
 import { runRound, type RoundDefinition } from '../src/rounds/index';
 
 /** The Goiaba's root: the records leave its path out (`<projeto>`). */
 const PROJECT = resolve(import.meta.dir, '..');
-const DEFINITIONS = join(PROJECT, 'rounds', 'definitions');
-const DATA = join(PROJECT, 'rounds', 'data');
+const DEFINITIONS = join(PROJECT, ROUNDS_DEFINITIONS_DIR);
+const DATA = join(PROJECT, ROUNDS_DATA_DIR);
 
 const available = (): string =>
   listDirectory(DEFINITIONS)

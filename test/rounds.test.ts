@@ -1,4 +1,6 @@
 import {
+  existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -152,6 +154,21 @@ test.each<[string, Partial<RoundDefinition>, string]>([
     'o passo 1 usa by "chefe"',
   ],
   ['repeat zero', { repeat: 0 }, 'repeat deve ser um inteiro a partir de 1'],
+  [
+    'start com fixture e git juntos',
+    {
+      start: Object.assign(
+        { fixture: 'site-vazio' },
+        { git: { root: '/tmp', tag: 'rodada-base' } },
+      ),
+    },
+    'um dos dois',
+  ],
+  [
+    'fixture que não é um nome de pasta',
+    { start: { fixture: '../fora' } },
+    'start.fixture deve ser o nome de uma pasta',
+  ],
   [
     'instrução com caminho absoluto',
     { instructions: { analista: [{ check: { file: '/etc/passwd' } }] } },
@@ -508,6 +525,8 @@ test('noToolCallAsText acusa a chamada de ferramenta escrita como resposta', () 
 test('runRound não grava registro quando falha antes do primeiro agente', async () => {
   const root = mkdtempSync(join(tmpdir(), 'goiaba-round-ws-'));
   const dir = mkdtempSync(join(tmpdir(), 'goiaba-round-data-'));
+  // The Goiaba's project: apart from the round's folder, as required.
+  const project = mkdtempSync(join(tmpdir(), 'goiaba-round-project-'));
   try {
     git(root, 'init', '-q');
     writeFileSync(join(root, 'a.txt'), 'base');
@@ -528,19 +547,22 @@ test('runRound não grava registro quando falha antes do primeiro agente', async
           },
           flow: [{ actor: 'analista', prompt: () => ['Analise.'] }],
         }),
-        { dir, project: root, screen: quiet },
+        { dir, project, screen: quiet },
       ),
     ).rejects.toThrow('não tem a tag Os dois escrevem em um arquivo');
     expect(readdirSync(dir)).toEqual([]);
   } finally {
     rmSync(root, { recursive: true, force: true });
     rmSync(dir, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
   }
 });
 
 test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git e grava um registro válido', async () => {
   const root = mkdtempSync(join(tmpdir(), 'goiaba-round-ws-'));
   const dir = mkdtempSync(join(tmpdir(), 'goiaba-round-data-'));
+  // The Goiaba's project: apart from the round's folder, as required.
+  const project = mkdtempSync(join(tmpdir(), 'goiaba-round-project-'));
   try {
     git(root, 'init', '-q');
     writeFileSync(join(root, 'a.txt'), 'base');
@@ -596,7 +618,7 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
           analista: [{ when: { file: 'zzz.txt' }, check: { file: 'zzz.txt' } }],
         },
       }),
-      { dir, project: root, screen: quiet, label: 'analista só lê' },
+      { dir, project, screen: quiet, label: 'analista só lê' },
     );
 
     expect(programador.prompts).toEqual(['Corrija:\ndois problemas']);
@@ -666,7 +688,7 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
     expect(round.steps[0]?.tools.map((t) => [t.name, t.outcome])).toEqual([
       ['Bash', 'result'],
     ]);
-    expect(round.actors['analista']?.workspace.root).toBe('<projeto>');
+    expect(round.actors['analista']?.workspace.root).toBe(root);
     expect(round.measures['programador']).toMatchObject({
       turns: 1,
       tools: 1,
@@ -715,6 +737,207 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+/** A project with `rounds/fixtures/<name>` holding `files`, and a rounds.dir apart from it. */
+function fixtureSetup(
+  name: string,
+  files: Readonly<Record<string, string>>,
+): {
+  readonly project: string;
+  readonly roundsDir: string;
+  readonly dir: string;
+  readonly cleanup: () => void;
+} {
+  const project = mkdtempSync(join(tmpdir(), 'goiaba-round-project-'));
+  const roundsDir = mkdtempSync(join(tmpdir(), 'goiaba-round-dirs-'));
+  const dir = mkdtempSync(join(tmpdir(), 'goiaba-round-data-'));
+  const fixture = join(project, 'rounds', 'fixtures', name);
+  mkdirSync(fixture, { recursive: true });
+  for (const [file, content] of Object.entries(files)) {
+    writeFileSync(join(fixture, file), content);
+  }
+  return {
+    project,
+    roundsDir,
+    dir,
+    cleanup: () => {
+      for (const path of [project, roundsDir, dir]) {
+        rmSync(path, { recursive: true, force: true });
+      }
+    },
+  };
+}
+
+const fromFixture = (
+  root: string,
+  provider: Provider<string, string>,
+  fixture = 'site-vazio',
+): RoundDefinition =>
+  defineRound({
+    id: 'teste',
+    goal: 'g',
+    start: { fixture },
+    actors: {
+      analista: { provider, workspace: { type: 'bubblewrap', root } },
+    },
+    flow: [{ actor: 'analista', prompt: () => ['Escreva.'] }],
+  });
+
+test('runRound de uma fixture cria a pasta com repositório e tag, e cada execução recomeça limpa', async () => {
+  const { project, roundsDir, dir, cleanup } = fixtureSetup('site-vazio', {
+    'README.md': 'base\n',
+  });
+  const root = join(roundsDir, 'teste');
+  try {
+    const first = await runRound(
+      fromFixture(root, new ScriptedProvider('ok', 'b.txt')),
+      { dir, project, roundsDir, screen: quiet },
+    );
+    const record = validateRound(
+      JSON.parse(readFileSync(first[0] ?? '', 'utf8')),
+    );
+    expect(record.start).toMatchObject({
+      tag: 'rodada-base',
+      fixture: 'site-vazio',
+    });
+    expect(record.steps[0]?.changed).toEqual(['?? b.txt']);
+    expect(git(root, 'tag').trim()).toBe('rodada-base');
+    expect(git(root, 'rev-parse', '--show-toplevel').trim()).toEndWith('teste');
+
+    // What the first run left is gone: the folder is recreated.
+    await runRound(fromFixture(root, new ScriptedProvider('ok')), {
+      dir,
+      project,
+      roundsDir,
+      screen: quiet,
+    });
+    expect(existsSync(join(root, 'b.txt'))).toBe(false);
+    expect(readFileSync(join(root, 'README.md'), 'utf8')).toBe('base\n');
+  } finally {
+    cleanup();
+  }
+});
+
+test('runRound de uma fixture que não existe diz quais existem', async () => {
+  const { project, roundsDir, dir, cleanup } = fixtureSetup('site-vazio', {});
+  try {
+    await expect(
+      runRound(fromFixture(join(roundsDir, 'teste'), fakeProvider, 'outra'), {
+        dir,
+        project,
+        roundsDir,
+        screen: quiet,
+      }),
+    ).rejects.toThrow('As que existem: site-vazio');
+  } finally {
+    cleanup();
+  }
+});
+
+test('runRound de uma fixture sem rounds.dir pede para configurar', async () => {
+  const { project, dir, cleanup } = fixtureSetup('site-vazio', {});
+  try {
+    await expect(
+      runRound(fromFixture('/tmp/teste', fakeProvider), {
+        dir,
+        project,
+        roundsDir: undefined,
+        screen: quiet,
+      }),
+    ).rejects.toThrow('Configure rounds.dir');
+  } finally {
+    cleanup();
+  }
+});
+
+test('runRound recusa um ator que trabalha fora da pasta da rodada', async () => {
+  const { project, roundsDir, dir, cleanup } = fixtureSetup('site-vazio', {});
+  try {
+    await expect(
+      runRound(fromFixture(join(roundsDir, 'outra-pasta'), fakeProvider), {
+        dir,
+        project,
+        roundsDir,
+        screen: quiet,
+      }),
+    ).rejects.toThrow('não é a pasta da rodada');
+  } finally {
+    cleanup();
+  }
+});
+
+test('runRound recusa uma pasta sem .git próprio e não toca no repositório em volta', async () => {
+  const outer = mkdtempSync(join(tmpdir(), 'goiaba-round-outer-'));
+  const project = mkdtempSync(join(tmpdir(), 'goiaba-round-project-'));
+  const dir = mkdtempSync(join(tmpdir(), 'goiaba-round-data-'));
+  const root = join(outer, 'ws');
+  try {
+    git(outer, 'init', '-q');
+    writeFileSync(join(outer, 'a.txt'), 'base');
+    git(outer, 'add', '.');
+    git(outer, 'commit', '-q', '-m', 'base');
+    git(outer, 'tag', 'rodada-base');
+    writeFileSync(join(outer, 'pendente.txt'), 'não commitado');
+    mkdirSync(root);
+
+    await expect(
+      runRound(
+        defineRound({
+          id: 'teste',
+          goal: 'g',
+          start: { git: { root, tag: 'rodada-base' } },
+          actors: {
+            analista: {
+              provider: fakeProvider,
+              workspace: { type: 'bubblewrap', root },
+            },
+          },
+          flow: [{ actor: 'analista', prompt: () => ['Analise.'] }],
+        }),
+        { dir, project, screen: quiet },
+      ),
+    ).rejects.toThrow('não é a raiz de um repositório git');
+    // The reset never reached the repository around it.
+    expect(readFileSync(join(outer, 'pendente.txt'), 'utf8')).toBe(
+      'não commitado',
+    );
+  } finally {
+    for (const path of [outer, project, dir]) {
+      rmSync(path, { recursive: true, force: true });
+    }
+  }
+});
+
+test('runRound recusa start.git no próprio projeto', async () => {
+  const project = mkdtempSync(join(tmpdir(), 'goiaba-round-project-'));
+  const dir = mkdtempSync(join(tmpdir(), 'goiaba-round-data-'));
+  try {
+    git(project, 'init', '-q');
+    git(project, 'commit', '-q', '--allow-empty', '-m', 'base');
+    git(project, 'tag', 'rodada-base');
+    await expect(
+      runRound(
+        defineRound({
+          id: 'teste',
+          goal: 'g',
+          start: { git: { root: project, tag: 'rodada-base' } },
+          actors: {
+            analista: {
+              provider: fakeProvider,
+              workspace: { type: 'bubblewrap', root: project },
+            },
+          },
+          flow: [{ actor: 'analista', prompt: () => ['Analise.'] }],
+        }),
+        { dir, project, screen: quiet },
+      ),
+    ).rejects.toThrow('se sobrepõem');
+  } finally {
+    rmSync(project, { recursive: true, force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });

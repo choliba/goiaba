@@ -135,7 +135,10 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
         <p className="muted">
           {record.start === null
             ? 'Sem ponto de partida no git.'
-            : `Partiu da tag ${record.start.tag} (${record.start.commit}).`}{' '}
+            : record.start.fixture === undefined ||
+                record.start.fixture === null
+              ? `Partiu da tag ${record.start.tag} (${record.start.commit}).`
+              : `Partiu da fixture ${record.start.fixture} (tag ${record.start.tag}, ${record.start.commit}).`}{' '}
           Durou {duration(record.timing.durationMs)}.
         </p>
       </header>

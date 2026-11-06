@@ -8,6 +8,7 @@ registro em JSON, e as páginas em [`web/`](web/) comparam uma execução com as
 
 - [Onde fica cada coisa](#onde-fica-cada-coisa)
 - [Declarar uma rodada](#declarar-uma-rodada)
+- [De onde a rodada parte](#de-onde-a-rodada-parte)
 - [Rodar](#rodar)
 - [Ver as páginas](#ver-as-páginas)
 - [O registro](#o-registro)
@@ -25,6 +26,7 @@ registro em JSON, e as páginas em [`web/`](web/) comparam uma execução com as
 | ------------------------------------- | ------------------------------------------------------------------------ |
 | [`../src/rounds`](../src/rounds)      | o motor: `defineRound`, `runRound`, as medidas e o validador do registro |
 | [`definitions/<id>.ts`](definitions/) | as rodadas declaradas                                                    |
+| [`fixtures/<nome>/`](fixtures/)       | os pontos de partida, copiados para a pasta da rodada a cada execução    |
 | [`data/<início>.json`](data/)         | um registro por execução, gravado pelo `runRound`                        |
 | [`web/`](web/)                        | as páginas (React), geradas a partir dos registros                       |
 | [`run.ts`](run.ts)                    | a linha de comando: `bun run rounds <id>`                                |
@@ -37,10 +39,14 @@ A rodada não entra no `runScript` nem no `Agent.run()`. Ela só declara quem pa
 Um arquivo em `definitions/`, com o nome do id da rodada, que exporta a declaração por padrão:
 
 ```ts
-import { ClaudeProvider, getConfig } from '../../src/index';
-import { defineRound, readOnlyRespected } from '../../src/rounds/index';
+import { ClaudeProvider } from '../../src/index';
+import {
+  defineRound,
+  readOnlyRespected,
+  roundDir,
+} from '../../src/rounds/index';
 
-const root = getConfig().workspaces.dir;
+const root = roundDir('so-analise');
 const workspace = {
   type: 'docker',
   image: 'FROM busybox:latest',
@@ -51,7 +57,7 @@ const workspace = {
 export default defineRound({
   id: 'so-analise',
   goal: 'O analista aponta os problemas sem alterar nenhum arquivo.',
-  start: { git: { root, tag: 'rodada-base' } },
+  start: { fixture: 'analise-base' },
   actors: {
     analista: {
       provider: new ClaudeProvider({ model: 'claude-opus-5-5' }),
@@ -69,8 +75,8 @@ export default defineRound({
 });
 ```
 
-- `start.git`: toda execução volta o workspace a essa tag antes de começar. Sem isso, ninguém confere o que cada
-  agente alterou.
+- `start`: de onde toda execução parte (veja [De onde a rodada parte](#de-onde-a-rodada-parte)). Sem isso, ninguém
+  confere o que cada agente alterou.
 - `flow`: os passos, em ordem. O `prompt` de um passo recebe o que cada agente disse no seu último passo
   (`({ said }) => [...]`).
 - `rules`: o que se confere de fora depois da execução (`readOnlyRespected`, `noQuestions`).
@@ -82,6 +88,33 @@ export default defineRound({
 Rodadas com a mesma configuração (os mesmos agentes, com o mesmo objetivo) são comparáveis entre si, e as páginas tiram a
 média delas. Se você mudar os pedidos, mude o `goal`: os pedidos ficam fora dessa comparação, porque levam o que os
 agentes disseram.
+
+## De onde a rodada parte
+
+As rodadas rodam numa pasta fora do projeto, o `rounds.dir` do `goiaba.config.ts`. Ele é obrigatório para rodar uma
+rodada e não tem valor padrão:
+
+```ts
+export default defineConfig({
+  rounds: { dir: '~/.local/share/goiaba/rodadas' },
+});
+```
+
+Um `rounds.dir` dentro do projeto, igual a ele ou que o contenha é recusado ao carregar a configuração: a pasta de
+uma rodada é apagada antes de cada execução, e o git dela nunca pode ser o do Goiaba. Cada rodada tem a sua pasta,
+`roundDir('<id>')`, e todos os agentes dela trabalham ali.
+
+O `start` escolhe um de dois pontos de partida:
+
+- `start: { fixture: '<nome>' }`: a pasta `fixtures/<nome>` deste projeto, versionada como o resto. A cada execução a
+  pasta da rodada é apagada, a fixture é copiada para ela e ganha um repositório git próprio com a tag
+  `rodada-base`. Não há tag para criar à mão, e o `bun run clear --rounds` pode apagar tudo: a próxima execução
+  recria.
+- `start: { git: { root, tag } }`: um repositório que já existe, como um projeto de verdade. A execução volta o
+  `root` à `tag` (`checkout --force` e `clean -fd`), então use uma cópia que só sirva às rodadas.
+
+Nos dois casos, antes de mexer em qualquer coisa, a rodada confere que a pasta é a raiz do próprio repositório git (o
+git não sobe até outro repositório em volta) e que não se sobrepõe ao projeto do Goiaba.
 
 ## Rodar
 

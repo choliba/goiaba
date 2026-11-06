@@ -5,7 +5,9 @@ import {
   pathExists,
   dirname,
   isAbsolute,
+  isWithin,
   join,
+  realPathOfNearest,
   resolve,
 } from '../filesystem/index';
 import { UsageError } from '../errors';
@@ -69,11 +71,23 @@ export interface GoiabaWorkspacesConfig {
   readonly homes?: string;
 }
 
+/** The rounds (src/rounds): where they run. */
+export interface GoiabaRoundsConfig {
+  /**
+   * Where the rounds run, one folder per round (`<dir>/<id>`), recreated on
+   * every run. Relative to the config file (or `~/…`). No default: a round
+   * refuses to run without it. Must be outside the project, and must not
+   * hold it: a round's folder is deleted before each run.
+   */
+  readonly dir?: string;
+}
+
 export interface GoiabaConfig {
   readonly debug?: boolean;
   readonly logger?: GoiabaLoggerConfig;
   readonly database?: GoiabaDatabaseConfig;
   readonly workspaces?: GoiabaWorkspacesConfig;
+  readonly rounds?: GoiabaRoundsConfig;
   readonly envs?: readonly GoiabaEnv[];
 }
 
@@ -94,6 +108,10 @@ export interface ResolvedGoiabaConfig {
     readonly dir: string;
     /** Absolute directory of the workspaces' homes. */
     readonly homes: string;
+  };
+  readonly rounds: {
+    /** Absolute folder the rounds run in; `undefined` when not configured. */
+    readonly dir: string | undefined;
   };
   readonly debug: boolean;
   readonly configPath: string | undefined;
@@ -255,12 +273,14 @@ async function normalizeConfig(
   const database = normalizeDatabase(value['database'], configPath);
   const logger = normalizeLogger(value['logger'], configPath);
   const workspaces = normalizeWorkspaces(value['workspaces'], configPath);
+  const rounds = normalizeRounds(value['rounds'], configPath);
 
   return {
     ...(value['debug'] === undefined ? {} : { debug: value['debug'] }),
     ...(database === undefined ? {} : { database }),
     ...(logger === undefined ? {} : { logger }),
     ...(workspaces === undefined ? {} : { workspaces }),
+    ...(rounds === undefined ? {} : { rounds }),
     envs: normalizeEnvs(value['envs'], configPath),
   };
 }
@@ -270,6 +290,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   'database',
   'envs',
   'logger',
+  'rounds',
   'workspaces',
 ]);
 
@@ -392,6 +413,54 @@ function normalizeWorkspaces(
   };
 }
 
+function normalizeRounds(
+  rounds: unknown,
+  configPath: string,
+): GoiabaRoundsConfig | undefined {
+  if (rounds === undefined) return undefined;
+
+  if (!isRecord(rounds)) {
+    throw new UsageError(`rounds em ${configPath} deve ser um objeto.`);
+  }
+
+  const unknown = Object.keys(rounds).find((key) => key !== 'dir');
+  if (unknown !== undefined) {
+    throw new UsageError(
+      `Opção desconhecida "rounds.${unknown}" em ${configPath}. Opções: dir.`,
+    );
+  }
+
+  const dir = rounds['dir'];
+  if (dir === undefined) return {};
+  if (typeof dir !== 'string' || dir.trim() === '') {
+    throw new UsageError(
+      `rounds.dir em ${configPath} deve ser uma string não vazia.`,
+    );
+  }
+  return { dir };
+}
+
+/**
+ * `rounds.dir`, refused inside the project or holding it: a round's folder
+ * is deleted before each run, and its git must never be the project's.
+ * Compared by real paths, so a symlink does not hide either.
+ */
+function roundsDir(project: string, dir: string): string {
+  const realProject = realPathOfNearest(project);
+  const realDir = realPathOfNearest(dir);
+  if (isWithin(realDir, realProject)) {
+    throw new UsageError(
+      `O rounds.dir (${dir}) está dentro do projeto (${project}). Use uma pasta fora dele, como ~/.local/share/goiaba/rodadas.`,
+    );
+  }
+  if (isWithin(realProject, realDir)) {
+    throw new UsageError(
+      `O rounds.dir (${dir}) contém o projeto (${project}): a pasta de uma rodada é apagada antes de cada execução. Use uma pasta só das rodadas, como ~/.local/share/goiaba/rodadas.`,
+    );
+  }
+  return dir;
+}
+
 function workspacesPath(
   path: unknown,
   name: string,
@@ -477,6 +546,12 @@ function resolveConfig(
     workspaces: {
       dir: absolute(baseDir, file.workspaces?.dir ?? DEFAULT_WORKSPACES_DIR),
       homes: absolute(baseDir, file.workspaces?.homes ?? DEFAULT_HOMES_DIR),
+    },
+    rounds: {
+      dir:
+        file.rounds?.dir === undefined
+          ? undefined
+          : roundsDir(baseDir, absolute(baseDir, file.rounds.dir)),
     },
     debug: envOverrides.debug ?? file.debug ?? false,
     configPath,

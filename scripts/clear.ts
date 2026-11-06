@@ -12,12 +12,12 @@ await runCommand(
   defineCommand({
     name: 'clear',
     description:
-      'Apaga o conteúdo das pastas do Goiaba: logs (logger.dir), workspaces (workspaces.dir) e homes (workspaces.homes).',
+      'Apaga o conteúdo das pastas do Goiaba: logs (logger.dir), workspaces (workspaces.dir), homes (workspaces.homes) e rodadas (rounds.dir).',
     options: {
       all: {
         type: 'boolean',
         short: 'a',
-        description: 'Apaga logs, workspaces e homes',
+        description: 'Apaga logs, workspaces, homes e rodadas',
       },
       logs: {
         type: 'boolean',
@@ -34,6 +34,12 @@ await runCommand(
         short: 'H',
         description: 'Apaga os homes dos workspaces (workspaces.homes)',
       },
+      rounds: {
+        type: 'boolean',
+        short: 'r',
+        description:
+          'Apaga as pastas das rodadas (rounds.dir); cada rodada recria a sua',
+      },
       dry: {
         type: 'boolean',
         short: 'd',
@@ -47,15 +53,22 @@ await runCommand(
     },
     run: async ({ options, output, signal }) => {
       const config = getConfig();
+      if (options.rounds && config.rounds.dir === undefined) {
+        throw new UsageError(
+          'Não há rounds.dir no goiaba.config.ts: não há pastas de rodadas para apagar.',
+        );
+      }
       const chosen = [
         options.all || options.logs ? config.logger.dir : undefined,
         options.all || options.workspaces ? config.workspaces.dir : undefined,
         options.all || options.homes ? config.workspaces.homes : undefined,
+        // With --all, only when configured: there is nothing otherwise.
+        options.all || options.rounds ? config.rounds.dir : undefined,
       ].filter((dir) => dir !== undefined);
 
       if (chosen.length === 0) {
         throw new UsageError(
-          'Diga o que apagar: --logs, --workspaces, --homes ou --all.',
+          'Diga o que apagar: --logs, --workspaces, --homes, --rounds ou --all.',
         );
       }
 

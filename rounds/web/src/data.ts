@@ -44,6 +44,8 @@ export interface Round {
 /** How many characters of `configHash` name a configuration. */
 const CONFIG_KEY_LENGTH = 8;
 
+// rounds/data (ROUNDS_DATA_DIR in src/rounds/constants.ts): Vite needs the
+// glob as a literal, so the path is written here too.
 const files = import.meta.glob<unknown>('../../data/*.json', {
   eager: true,
   import: 'default',

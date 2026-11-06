@@ -1,10 +1,10 @@
 /**
  * One local agent (Ollama), from start to end, without asking or saying
  * anything: it writes a file and exits. Every run starts from the
- * workspace's `rodada-base` tag, and the git says what it changed.
+ * `site-vazio` fixture in its own folder (rounds.dir), and the git says
+ * what it changed.
  */
 import {
-  getConfig,
   OllamaProvider,
   type AgentPolicy,
   type WorkspaceOptions,
@@ -12,12 +12,14 @@ import {
 import {
   defineRound,
   noQuestions,
-  noToolCallAsText,
+  roundDir,
+  // noToolCallAsText,
 } from '../../src/rounds/index';
 
-// workspaces.dir has no trailing slash: `dir + 'rodadas'` gave
-// `…/workspacesrodadas`, a folder that does not exist.
-const root = `${getConfig().workspaces.dir}/rodadas`;
+const id = 'ollama-product-owner';
+
+/** The round's own folder, in rounds.dir: recreated from the fixture on every run. */
+const root = roundDir(id);
 
 /** Every agent in its own sandbox, with nothing of the host's CLI state. */
 const workspace: WorkspaceOptions = {
@@ -51,7 +53,7 @@ const WRITE_WORKSPACE: AgentPolicy = {
         // only root the policy accepts. Writing is granted to the whole
         // tree or to a folder that already exists, never to a lone file
         // (`index.html` is refused).
-        paths: ['/workspace/**'],
+        paths: [`/workspace/**`],
       },
     ],
     execution: [
@@ -71,9 +73,9 @@ const WRITE_WORKSPACE: AgentPolicy = {
 };
 
 export default defineRound({
-  id: 'ollama-product-owner',
+  id,
   goal: 'O agente escreve um arquivo e sai, sem perguntar nem falar nada.',
-  start: { git: { root, tag: 'rodada-base' } },
+  start: { fixture: 'site-vazio' },
   actors: {
     // Not readOnly: writing the file is the task.
     'product-owner': {
@@ -93,5 +95,5 @@ export default defineRound({
     },
   ],
   // readOnlyRespected left out: the only agent is meant to write.
-  rules: [noQuestions(), noToolCallAsText()],
+  rules: [noQuestions()],
 });

@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -158,6 +164,7 @@ test('loadConfig usa defaults quando não há arquivo', async () => {
         dir: resolve(cwd, '.goiaba/workspaces'),
         homes: resolve(cwd, '.goiaba/homes'),
       },
+      rounds: { dir: undefined },
       debug: false,
       configPath: undefined,
       env: undefined,
@@ -233,6 +240,74 @@ test('loadConfig recusa workspaces.dir vazio', async () => {
     await expect(loadConfig({ cwd })).rejects.toThrow('workspaces.dir');
   } finally {
     rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+/** A project folder and a sibling outside it, in one temp parent. */
+async function withProject(
+  run: (paths: {
+    readonly parent: string;
+    readonly project: string;
+  }) => Promise<void>,
+): Promise<void> {
+  const parent = mkdtempSync(join(tmpdir(), 'goiaba-config-'));
+  const project = join(parent, 'projeto');
+  mkdirSync(project);
+  try {
+    await run({ parent, project });
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+}
+
+const writeRounds = (project: string, rounds: string): void =>
+  writeFileSync(
+    join(project, 'goiaba.config.ts'),
+    `export default { rounds: ${rounds} };\n`,
+  );
+
+test('rounds.dir fora do projeto: relativo ao arquivo, ainda sem existir', async () => {
+  await withProject(async ({ parent, project }) => {
+    writeRounds(project, `{ dir: '../rodadas' }`);
+    const config = await loadConfig({ cwd: project });
+    expect(config.rounds.dir).toBe(join(parent, 'rodadas'));
+  });
+});
+
+test('rounds.dir dentro do projeto, igual a ele ou contendo-o é recusado', async () => {
+  // One project per case: the loaded config module is cached by file.
+  for (const [dir, message] of [
+    ['storage/rodadas', 'está dentro do projeto'],
+    ['.', 'está dentro do projeto'],
+    ['..', 'contém o projeto'],
+  ] as const) {
+    await withProject(async ({ project }) => {
+      writeRounds(project, `{ dir: '${dir}' }`);
+      await expect(loadConfig({ cwd: project })).rejects.toThrow(message);
+    });
+  }
+});
+
+test('rounds.dir por um link simbólico que leva para dentro do projeto é recusado', async () => {
+  await withProject(async ({ parent, project }) => {
+    mkdirSync(join(project, 'storage'));
+    symlinkSync(join(project, 'storage'), join(parent, 'atalho'));
+    writeRounds(project, `{ dir: '../atalho/rodadas' }`);
+    await expect(loadConfig({ cwd: project })).rejects.toThrow(
+      'está dentro do projeto',
+    );
+  });
+});
+
+test('rounds: opção desconhecida e dir vazio são recusados', async () => {
+  for (const [rounds, message] of [
+    [`{ data: 'x' }`, 'rounds.data'],
+    [`{ dir: ' ' }`, 'rounds.dir'],
+  ] as const) {
+    await withProject(async ({ project }) => {
+      writeRounds(project, rounds);
+      await expect(loadConfig({ cwd: project })).rejects.toThrow(message);
+    });
   }
 });
 

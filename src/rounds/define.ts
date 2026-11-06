@@ -72,6 +72,17 @@ export interface RoundStartGit {
   readonly tag: string;
 }
 
+/**
+ * Where every run starts from:
+ * - `fixture`: a folder of `rounds/fixtures`, copied into the round's own
+ *   folder (`roundDir(id)`, in `rounds.dir`) with a fresh repository;
+ * - `git`: a tag in a repository that already exists (a real project).
+ * Either way the folder must be the top of its own repository, apart from
+ * the Goiaba's project.
+ */
+export type RoundStartDefinition =
+  { readonly fixture: string } | { readonly git: RoundStartGit };
+
 export interface RoundDefinition {
   /** `analise-programacao-revisao`: lowercase letters, digits and `-`. */
   readonly id: string;
@@ -83,7 +94,7 @@ export interface RoundDefinition {
    * it changes no configuration. `bun run rounds <id> --label "…"` wins.
    */
   readonly label?: string;
-  readonly start?: { readonly git: RoundStartGit };
+  readonly start?: RoundStartDefinition;
   readonly actors: Readonly<Record<string, RoundActor>>;
   readonly flow: readonly RoundFlowStep[];
   readonly rules?: readonly RoundRule[];
@@ -232,13 +243,36 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
       `${where}: repeat deve ser um inteiro a partir de 1, veio ${String(repeat)}.`,
     );
   }
-  if (definition.start !== undefined) {
-    const { root, tag } = definition.start.git;
-    if (root.trim().length === 0 || tag.trim().length === 0) {
+  if (definition.start !== undefined) checkStart(definition.start, where);
+  return definition;
+}
+
+function checkStart(start: RoundStartDefinition, where: string): void {
+  const keys = Object.keys(start);
+  if (keys.length !== 1 || !(keys[0] === 'fixture' || keys[0] === 'git')) {
+    throw new UsageError(
+      `${where}: start leva fixture (uma pasta de rounds/fixtures) ou git (root e tag de um repositório que já existe), um dos dois; veio ${keys.join(', ') || 'nada'}.`,
+    );
+  }
+  if ('fixture' in start) {
+    const name = start.fixture;
+    if (
+      name.trim().length === 0 ||
+      name.includes('/') ||
+      name.includes('\\') ||
+      name === '.' ||
+      name === '..'
+    ) {
       throw new UsageError(
-        `${where}: start.git precisa de root (o repositório do workspace) e tag (o ponto de partida).`,
+        `${where}: start.fixture deve ser o nome de uma pasta de rounds/fixtures, como site-vazio; veio "${name}".`,
       );
     }
+    return;
   }
-  return definition;
+  const { root, tag } = start.git;
+  if (root.trim().length === 0 || tag.trim().length === 0) {
+    throw new UsageError(
+      `${where}: start.git precisa de root (o repositório do workspace) e tag (o ponto de partida).`,
+    );
+  }
 }

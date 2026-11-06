@@ -12,11 +12,13 @@ export {
   type RoundDefinition,
   type RoundFlowStep,
   type RoundRule,
+  type RoundStartDefinition,
   type RoundStartGit,
   type RuleInput,
 } from './define';
 export { noQuestions, noToolCallAsText, readOnlyRespected } from './rules';
 export { writableOf } from './permissions';
+export { roundDir } from './dir';
 export { runRound, type RunRoundOptions } from './run';
 export { validateRound } from './validate';
 export {

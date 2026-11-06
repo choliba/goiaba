@@ -44,6 +44,12 @@ export default defineConfig({
     // (getConfig().workspaces.homes). O `bun run clear --homes` a esvazia.
     homes: join(dirStorage, 'homes'),
   },
+  rounds: {
+    // Onde as rodadas rodam: uma pasta por rodada (<dir>/<id>), recriada a
+    // partir da fixture a cada execução. Obrigatória para rodar rodadas e
+    // fora do projeto. O `bun run clear --rounds` a esvazia.
+    dir: '~/.local/share/goiaba/rodadas',
+  },
   envs: [
     {
       CURSOR_API_KEY: process.env['CURSOR_API_KEY'],
