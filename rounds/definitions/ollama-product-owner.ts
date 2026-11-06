@@ -94,6 +94,21 @@ export default defineRound({
       ],
     },
   ],
+  // What the prompt asks, checked in the workspace at the end of the step:
+  // without it, the effectiveness does not see that no file was written.
+  instructions: {
+    'product-owner': [
+      {
+        // "Se ele existir, alterar o fundo do body": index.html was there
+        // when the agent started.
+        when: { file: 'index.html' },
+        check: { file: 'index.html', contains: 'background' },
+        // "Apenas crie um index.html": it was not (the site-vazio fixture
+        // has none), so it must be there at the end.
+        otherwise: { file: 'index.html' },
+      },
+    ],
+  },
   // readOnlyRespected left out: the only agent is meant to write.
   rules: [noQuestions()],
 });
