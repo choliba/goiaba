@@ -18,6 +18,8 @@ import type { Interaction } from '../src/interaction/index';
 import type { Provider, ProviderEvent } from '../src/providers/types';
 import {
   defineRound,
+  findDefinition,
+  listDefinitions,
   noQuestions,
   noToolCallAsText,
   readOnlyRespected,
@@ -938,6 +940,44 @@ test('runRound recusa start.git no próprio projeto', async () => {
     ).rejects.toThrow('se sobrepõem');
   } finally {
     rmSync(project, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('findDefinition acha <id>.ts ou <id>/<id>.ts, e lista só as rodadas', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'goiaba-round-defs-'));
+  try {
+    writeFileSync(join(dir, 'solta.ts'), '');
+    mkdirSync(join(dir, 'em-pasta'));
+    writeFileSync(join(dir, 'em-pasta', 'em-pasta.ts'), '');
+    // A piece of the round, not a round.
+    writeFileSync(join(dir, 'em-pasta', 'politica.ts'), '');
+    // A folder without its <id>.ts is not a round.
+    mkdirSync(join(dir, 'rascunho'));
+
+    expect(findDefinition(dir, 'solta')).toBe(join(dir, 'solta.ts'));
+    expect(findDefinition(dir, 'em-pasta')).toBe(
+      join(dir, 'em-pasta', 'em-pasta.ts'),
+    );
+    expect(listDefinitions(dir)).toEqual(['em-pasta', 'solta']);
+    expect(() => findDefinition(dir, 'politica')).toThrow(
+      'As que existem: em-pasta, solta.',
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('findDefinition recusa a mesma rodada nos dois formatos', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'goiaba-round-defs-'));
+  try {
+    writeFileSync(join(dir, 'dupla.ts'), '');
+    mkdirSync(join(dir, 'dupla'));
+    writeFileSync(join(dir, 'dupla', 'dupla.ts'), '');
+    expect(() => findDefinition(dir, 'dupla')).toThrow(
+      'está declarada duas vezes',
+    );
+  } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });

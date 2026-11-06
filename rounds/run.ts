@@ -1,31 +1,25 @@
 /**
- * Runs a round declared in rounds/definitions: `bun rounds/run.ts <id>`.
+ * Runs a round declared in rounds/definitions (`<id>.ts`, or `<id>/<id>.ts`
+ * with its pieces beside it): `bun rounds/run.ts <id>`.
  * Each run leaves its record in rounds/data, the source of the rounds' pages.
  */
 import { defineCommand, runCommand } from '../src/command/index';
 import { UsageError } from '../src/errors';
-import {
-  join,
-  listDirectory,
-  pathExists,
-  resolve,
-} from '../src/filesystem/index';
+import { join, resolve } from '../src/filesystem/index';
 import {
   ROUNDS_DATA_DIR,
   ROUNDS_DEFINITIONS_DIR,
 } from '../src/rounds/constants';
-import { runRound, type RoundDefinition } from '../src/rounds/index';
+import {
+  findDefinition,
+  runRound,
+  type RoundDefinition,
+} from '../src/rounds/index';
 
 /** The Goiaba's root: the records leave its path out (`<projeto>`). */
 const PROJECT = resolve(import.meta.dir, '..');
 const DEFINITIONS = join(PROJECT, ROUNDS_DEFINITIONS_DIR);
 const DATA = join(PROJECT, ROUNDS_DATA_DIR);
-
-const available = (): string =>
-  listDirectory(DEFINITIONS)
-    .filter((name) => name.endsWith('.ts'))
-    .map((name) => name.slice(0, -'.ts'.length))
-    .join(', ');
 
 /** A module whose default export looks like a declaration (`defineRound` checked it). */
 function isDefinition(value: unknown): value is RoundDefinition {
@@ -60,12 +54,7 @@ await runCommand(
       },
     },
     run: async ({ args, options }) => {
-      const file = join(DEFINITIONS, `${args.rodada}.ts`);
-      if (!pathExists(file)) {
-        throw new UsageError(
-          `Não há a rodada ${args.rodada} em rounds/definitions. As que existem: ${available()}.`,
-        );
-      }
+      const file = findDefinition(DEFINITIONS, args.rodada);
       const loaded: unknown = await import(file);
       const definition =
         typeof loaded === 'object' && loaded !== null && 'default' in loaded

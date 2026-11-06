@@ -8,13 +8,13 @@ import {
   OllamaProvider,
   type AgentPolicy,
   type WorkspaceOptions,
-} from '../../src/index';
+} from '../../../src/index';
 import {
   defineRound,
   noQuestions,
   roundDir,
   // noToolCallAsText,
-} from '../../src/rounds/index';
+} from '../../../src/rounds/index';
 
 const id = 'ollama-product-owner';
 

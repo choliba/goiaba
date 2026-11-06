@@ -36,7 +36,10 @@ A rodada não entra no `runScript` nem no `Agent.run()`. Ela só declara quem pa
 
 ## Declarar uma rodada
 
-Um arquivo em `definitions/`, com o nome do id da rodada, que exporta a declaração por padrão:
+Um arquivo em `definitions/`, com o nome do id da rodada, que exporta a declaração por padrão. Se quiser separar as
+peças (a política, os prompts) em arquivos, use uma pasta com o nome do id: a declaração fica em
+`definitions/<id>/<id>.ts`, e os outros arquivos da pasta são só módulos que ela importa. A pasta é opcional; a mesma
+rodada nos dois formatos é recusada.
 
 ```ts
 import { ClaudeProvider } from '../../src/index';

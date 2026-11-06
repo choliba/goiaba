@@ -18,6 +18,7 @@ export {
 } from './define';
 export { noQuestions, noToolCallAsText, readOnlyRespected } from './rules';
 export { writableOf } from './permissions';
+export { findDefinition, listDefinitions } from './definitions';
 export { roundDir } from './dir';
 export { runRound, type RunRoundOptions } from './run';
 export { validateRound } from './validate';

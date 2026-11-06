@@ -62,28 +62,28 @@ declaração ──▶ runRound ──▶ pasta da rodada (fixture ou tag) ─�
 
 O motor fica em `src/rounds`; o que é de cada rodada fica em `rounds/`, versionado no projeto.
 
-| Arquivo                      | Papel                                                                                                   |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `src/rounds/index.ts`        | O que o módulo exporta.                                                                                 |
-| `src/rounds/define.ts`       | `defineRound` e os tipos da declaração (`RoundDefinition`, `RoundActor`, `RoundFlowStep`, `RoundRule`). |
-| `src/rounds/run.ts`          | `runRound`: prepara a partida, roda os passos, mede, confere e grava.                                   |
-| `src/rounds/git.ts`          | O git da rodada: `prepareFixture`, `resetTo`, as travas (`assertOwnRepository`, `assertApart`), o diff. |
-| `src/rounds/dir.ts`          | `roundDir(id)`: a pasta de uma rodada dentro do `rounds.dir`.                                           |
-| `src/rounds/instructions.ts` | Confere as `instructions` no workspace, no início e no fim de cada passo.                               |
-| `src/rounds/rules.ts`        | As regras prontas: `readOnlyRespected`, `noQuestions`, `noToolCallAsText`.                              |
-| `src/rounds/references.ts`   | Tira as citações `arquivo:linha` do que o agente disse e confere cada uma.                              |
-| `src/rounds/measures.ts`     | `StepRecorder`: ouve os eventos de um passo (falas, perguntas, ferramentas, tokens).                    |
-| `src/rounds/record.ts`       | Monta e grava o registro, tirando segredos e o caminho do projeto.                                      |
-| `src/rounds/score.ts`        | A rubrica: `scoreRound`, as notas de eficácia, eficiência e a final.                                    |
-| `src/rounds/validate.ts`     | `validateRound`: confere um registro lido do disco, campo a campo.                                      |
-| `src/rounds/types.ts`        | O formato do registro (`RoundRecord`, `schema: 4`).                                                     |
-| `src/rounds/constants.ts`    | Os valores do módulo: a rubrica, os caminhos fixos, a tag das fixtures.                                 |
-| `rounds/definitions/<id>.ts` | As rodadas declaradas, uma por arquivo, com o nome do `id`.                                             |
-| `rounds/fixtures/<nome>/`    | Os pontos de partida, copiados para a pasta da rodada a cada execução.                                  |
-| `rounds/data/<início>.json`  | Um registro por execução, gravado pelo `runRound`.                                                      |
-| `rounds/run.ts`              | A linha de comando: `bun run rounds <id>`.                                                              |
-| `rounds/web/`                | As páginas (React), geradas a partir dos registros.                                                     |
-| `rounds/README.md`           | A referência da rubrica: cada critério, cada número e o motivo dele.                                    |
+| Arquivo                      | Papel                                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/rounds/index.ts`        | O que o módulo exporta.                                                                                                                                       |
+| `src/rounds/define.ts`       | `defineRound` e os tipos da declaração (`RoundDefinition`, `RoundActor`, `RoundFlowStep`, `RoundRule`).                                                       |
+| `src/rounds/run.ts`          | `runRound`: prepara a partida, roda os passos, mede, confere e grava.                                                                                         |
+| `src/rounds/git.ts`          | O git da rodada: `prepareFixture`, `resetTo`, as travas (`assertOwnRepository`, `assertApart`), o diff.                                                       |
+| `src/rounds/dir.ts`          | `roundDir(id)`: a pasta de uma rodada dentro do `rounds.dir`.                                                                                                 |
+| `src/rounds/instructions.ts` | Confere as `instructions` no workspace, no início e no fim de cada passo.                                                                                     |
+| `src/rounds/rules.ts`        | As regras prontas: `readOnlyRespected`, `noQuestions`, `noToolCallAsText`.                                                                                    |
+| `src/rounds/references.ts`   | Tira as citações `arquivo:linha` do que o agente disse e confere cada uma.                                                                                    |
+| `src/rounds/measures.ts`     | `StepRecorder`: ouve os eventos de um passo (falas, perguntas, ferramentas, tokens).                                                                          |
+| `src/rounds/record.ts`       | Monta e grava o registro, tirando segredos e o caminho do projeto.                                                                                            |
+| `src/rounds/score.ts`        | A rubrica: `scoreRound`, as notas de eficácia, eficiência e a final.                                                                                          |
+| `src/rounds/validate.ts`     | `validateRound`: confere um registro lido do disco, campo a campo.                                                                                            |
+| `src/rounds/types.ts`        | O formato do registro (`RoundRecord`, `schema: 4`).                                                                                                           |
+| `src/rounds/constants.ts`    | Os valores do módulo: a rubrica, os caminhos fixos, a tag das fixtures.                                                                                       |
+| `rounds/definitions/<id>.ts` | As rodadas declaradas, uma por arquivo, com o nome do `id`; ou, se quiser separar as peças em arquivos, uma pasta `<id>/` com a declaração em `<id>/<id>.ts`. |
+| `rounds/fixtures/<nome>/`    | Os pontos de partida, copiados para a pasta da rodada a cada execução.                                                                                        |
+| `rounds/data/<início>.json`  | Um registro por execução, gravado pelo `runRound`.                                                                                                            |
+| `rounds/run.ts`              | A linha de comando: `bun run rounds <id>`.                                                                                                                    |
+| `rounds/web/`                | As páginas (React), geradas a partir dos registros.                                                                                                           |
+| `rounds/README.md`           | A referência da rubrica: cada critério, cada número e o motivo dele.                                                                                          |
 
 [↑ topo](#topo)
 
