@@ -65,3 +65,19 @@ export const GRID_LABEL_GAP = { y: 18, x: 14, char: 6.6 } as const;
  * it goes back to "Copiar definição": 2 s is time to read it.
  */
 export const COPIED_MS = 2000;
+
+/**
+ * Share of the context window (0 to 1) from which a step's peak is shown as
+ * a warning: past it, the CLI is about to compact the history (Claude Code
+ * compacts near the end of the window), and what the agent read early on
+ * starts to go.
+ */
+export const CONTEXT_WARN_SHARE = 0.8;
+
+/**
+ * Share (0 to 1) of what the model can read that the step's first request
+ * may take before the advice says to cut the CLI's tools: that request is
+ * mostly the CLI itself (instructions and tool schemas), and past this
+ * there is little room left for the task.
+ */
+export const CONTEXT_FIXED_SHARE = 0.4;

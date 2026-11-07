@@ -285,6 +285,11 @@ async function runOnce(
       recorder.network({ type: event.type, ts: event.ts, data: event }),
     );
     network.subscribe('network');
+    // The execution gate's decisions: why a command ran or not.
+    const commands = createConsumer((event) =>
+      recorder.command({ type: event.type, ts: event.ts, data: event }),
+    );
+    commands.subscribe('command');
     try {
       await new Agent({
         name,
@@ -312,6 +317,7 @@ async function runOnce(
       }).run();
     } finally {
       network.unsubscribeAll();
+      commands.unsubscribeAll();
     }
     const stepEndedAt = now();
 

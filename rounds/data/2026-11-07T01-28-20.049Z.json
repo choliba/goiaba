@@ -1,0 +1,315 @@
+{
+  "schema": 4,
+  "id": "2026-11-07T01-28-20.049Z",
+  "definition": {
+    "id": "ollama-product-owner",
+    "goal": "O Agente deve apenas escever um ticket"
+  },
+  "start": {
+    "tag": "rodada-base",
+    "commit": "459ac4f",
+    "fixture": "site-vazio"
+  },
+  "repeat": {
+    "index": 1,
+    "total": 1
+  },
+  "timing": {
+    "startedAt": "2026-11-07T01:28:20.049Z",
+    "endedAt": "2026-11-07T01:28:21.049Z",
+    "durationMs": 1000,
+    "actors": {
+      "product-owner": {
+        "startedAt": "2026-11-07T01:28:20.075Z",
+        "endedAt": "2026-11-07T01:28:21.042Z",
+        "durationMs": 967,
+        "workspaceMs": null,
+        "gitCheckMs": 13,
+        "approvalMs": null
+      }
+    }
+  },
+  "actors": {
+    "product-owner": {
+      "role": "product-owner",
+      "provider": {
+        "id": "ollama-claude",
+        "name": "ollama",
+        "model": "qwen2.5-coder:1.5b",
+        "cli": "claude",
+        "cliVersion": null,
+        "options": {}
+      },
+      "workspace": {
+        "type": "bubblewrap",
+        "image": null,
+        "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": {
+          "default": "deny",
+          "allow": [],
+          "requireApproval": [],
+          "deny": []
+        },
+        "alwaysAllow": [
+          "127.0.0.1:11434"
+        ],
+        "alwaysDeny": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
+        "decisions": [
+          {
+            "ts": "2026-11-07T01:28:20.378Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          }
+        ]
+      },
+      "policy": {
+        "default": "deny",
+        "allow": {
+          "filesystem": [
+            {
+              "operations": [
+                "read",
+                "write"
+              ],
+              "paths": [
+                "/workspace/**"
+              ]
+            }
+          ],
+          "execution": [
+            {
+              "commands": [
+                "ls *",
+                "cat *",
+                "find *",
+                "pwd",
+                "git status",
+                "git diff *",
+                "git log *"
+              ]
+            }
+          ]
+        }
+      },
+      "readOnly": false,
+      "configHash": "4fed1b75ddfb23d75fb89f7d760cd55061e97779339577fe57f8a3db61f6825c"
+    }
+  },
+  "configHash": "8f5a1e0bd6a58cc27d22de76c6ef51afbbf41467080c6a0552e028aff3674769",
+  "steps": [
+    {
+      "key": "product-owner#1",
+      "actor": "product-owner",
+      "by": null,
+      "prompt": {
+        "text": "Apenas implemente a solicitação escrita em ticket.txt\no nome do arquivo a ser lido é ticket.txt\n**NÃO TENTE ACESSAR NENHUM SITE NA WEB**",
+        "hash": "8930f869549014043d3ec01f65081146b80715bf056cdfed92ee14baf25e7684"
+      },
+      "span": {
+        "startedAt": "2026-11-07T01:28:20.075Z",
+        "endedAt": "2026-11-07T01:28:21.042Z",
+        "durationMs": 967
+      },
+      "said": [
+        "```json\n{\"name\": \"RequestUserInput\", \"arguments\": {\"query\": \"O que você gostaria de fazer?\"}}\n```"
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-07T01:28:20.098Z",
+            "endedAt": "2026-11-07T01:28:21.036Z",
+            "durationMs": 938
+          }
+        }
+      ],
+      "tools": [],
+      "changed": [],
+      "diff": "",
+      "instructions": [
+        {
+          "check": "index.html contém \"h1\"",
+          "when": {
+            "check": "ticket.txt existe",
+            "held": true
+          },
+          "met": true,
+          "detail": "index.html contém \"h1\"."
+        }
+      ],
+      "totals": {
+        "tokens": {
+          "input": 14157,
+          "output": 29,
+          "cacheRead": 13843,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": 343,
+        "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      }
+    }
+  ],
+  "usage": [
+    {
+      "ts": "2026-11-07T01:28:21.006Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 14157,
+        "output": 29,
+        "cacheRead": 13843,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    }
+  ],
+  "totals": {
+    "round": {
+      "tokens": {
+        "input": 14157,
+        "output": 29,
+        "cacheRead": 13843,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "fresh": 343,
+      "costUsd": null
+    },
+    "actors": {
+      "product-owner": {
+        "tokens": {
+          "input": 14157,
+          "output": 29,
+          "cacheRead": 13843,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": 343,
+        "costUsd": null
+      }
+    }
+  },
+  "measures": {
+    "product-owner": {
+      "turns": 1,
+      "tools": 0,
+      "questions": 0,
+      "changedFiles": 0,
+      "tests": null,
+      "typecheck": null
+    }
+  },
+  "violations": [
+    {
+      "rule": "no-questions",
+      "actor": "product-owner",
+      "passed": true,
+      "detail": "Não fez nenhuma pergunta."
+    }
+  ],
+  "declaration": {
+    "id": "ollama-product-owner",
+    "goal": "O Agente deve apenas escever um ticket",
+    "start": {
+      "fixture": "site-vazio"
+    },
+    "actors": {
+      "product-owner": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen2.5-coder:1.5b"
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+          "hostState": "none"
+        },
+        "permissions": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "read",
+                  "write"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "find *",
+                  "pwd",
+                  "git status",
+                  "git diff *",
+                  "git log *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      }
+    },
+    "flow": [
+      {
+        "actor": "product-owner",
+        "by": null,
+        "prompt": [
+          "Apenas implemente a solicitação escrita em ticket.txt",
+          "o nome do arquivo a ser lido é ticket.txt",
+          "**NÃO TENTE ACESSAR NENHUM SITE NA WEB**"
+        ]
+      }
+    ],
+    "rules": [
+      "no-questions"
+    ],
+    "instructions": {
+      "product-owner": [
+        {
+          "when": {
+            "file": "ticket.txt"
+          },
+          "check": {
+            "file": "index.html",
+            "contains": "h1"
+          },
+          "otherwise": {
+            "file": "ticket.txt"
+          }
+        }
+      ]
+    },
+    "repeat": 1
+  }
+}

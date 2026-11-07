@@ -1,0 +1,407 @@
+{
+  "schema": 4,
+  "id": "2026-11-06T23-43-59.103Z",
+  "definition": {
+    "id": "ollama-product-owner",
+    "goal": "O Agente deve apenas escever um ticket"
+  },
+  "start": {
+    "tag": "rodada-base",
+    "commit": "0e37978",
+    "fixture": "site-vazio"
+  },
+  "repeat": {
+    "index": 1,
+    "total": 1
+  },
+  "timing": {
+    "startedAt": "2026-11-06T23:43:59.103Z",
+    "endedAt": "2026-11-06T23:49:13.538Z",
+    "durationMs": 314435,
+    "actors": {
+      "product-owner": {
+        "startedAt": "2026-11-06T23:43:59.134Z",
+        "endedAt": "2026-11-06T23:49:13.522Z",
+        "durationMs": 314388,
+        "workspaceMs": null,
+        "gitCheckMs": 20,
+        "approvalMs": null
+      }
+    }
+  },
+  "actors": {
+    "product-owner": {
+      "role": "product-owner",
+      "provider": {
+        "id": "ollama-claude",
+        "name": "ollama",
+        "model": "qwen3.5:4b",
+        "cli": "claude",
+        "cliVersion": null,
+        "options": {}
+      },
+      "workspace": {
+        "type": "bubblewrap",
+        "image": null,
+        "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": {
+          "default": "deny",
+          "allow": [],
+          "requireApproval": [],
+          "deny": []
+        },
+        "alwaysAllow": [
+          "127.0.0.1:11434"
+        ],
+        "alwaysDeny": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
+        "decisions": [
+          {
+            "ts": "2026-11-06T23:43:59.651Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          }
+        ]
+      },
+      "policy": {
+        "default": "deny",
+        "allow": {
+          "filesystem": [
+            {
+              "operations": [
+                "read",
+                "write"
+              ],
+              "paths": [
+                "/workspace/**"
+              ]
+            }
+          ],
+          "execution": [
+            {
+              "commands": [
+                "ls *",
+                "cat *",
+                "find *",
+                "pwd",
+                "git status",
+                "git diff *",
+                "git log *"
+              ]
+            }
+          ]
+        }
+      },
+      "readOnly": false,
+      "configHash": "13ecb3014f2ba176b1ab32ae87ad0e0431166c4d906a7bedb40f5a4655aecae5"
+    }
+  },
+  "configHash": "af0c7957345e8b5e816c779c2fdf61c8499afedc5ba1600990529f239d8a79e4",
+  "steps": [
+    {
+      "key": "product-owner#1",
+      "actor": "product-owner",
+      "by": null,
+      "prompt": {
+        "text": "Apenas crie um ticket para alteração da página existente\n**NÃO ALTERE NEM EXCLUA O ARRQUIVO index.html\nA solicitação é para alterar o título da página de Ollama Product Owner para Goiaba\no nome do arquivo deve ser ticket.txt\n**NÃO TENTE ACESSAR NENHUM SITE NA WEB**",
+        "hash": "50bc1a778163d1c2aa677016df1ea1cdfdd779a77c463847a38f18c2aeda8237"
+      },
+      "span": {
+        "startedAt": "2026-11-06T23:43:59.134Z",
+        "endedAt": "2026-11-06T23:49:13.522Z",
+        "durationMs": 314388
+      },
+      "said": [
+        "O arquivo `ticket.txt` foi criado com sucesso no diretório atual. Ele contém todas as informações necessárias sobre a solicitação de alterar o título da página de \"Ollama Product Owner\" para \"Goiaba\", mantendo-se fiel ao requisito de não alterar ou excluir o arquivo `index.html`."
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-06T23:43:59.163Z",
+            "endedAt": "2026-11-06T23:49:13.510Z",
+            "durationMs": 314347
+          }
+        }
+      ],
+      "tools": [
+        {
+          "turn": 1,
+          "name": "Read",
+          "detail": {
+            "call_id": "call_1l2yp5qh",
+            "tool": "Read",
+            "args": {
+              "file_path": "~/.local/share/goiaba/rodadas/ollama-product-owner/index.html"
+            },
+            "bytes": 2805
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-06T23:44:35.993Z",
+            "endedAt": "2026-11-06T23:44:36.094Z",
+            "durationMs": 101
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Write",
+          "detail": {
+            "call_id": "call_21p04mtg",
+            "tool": "Write",
+            "args": {
+              "file_path": "~/.local/share/goiaba/rodadas/ollama-product-owner/ticket.txt",
+              "content": {
+                "bytes": 675
+              }
+            },
+            "bytes": 169
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-06T23:45:28.905Z",
+            "endedAt": "2026-11-06T23:45:28.941Z",
+            "durationMs": 36
+          }
+        }
+      ],
+      "changed": [
+        "?? ticket.txt"
+      ],
+      "diff": "",
+      "instructions": [
+        {
+          "check": "ticket.txt existe",
+          "when": {
+            "check": "ticket.txt existe",
+            "held": false
+          },
+          "met": true,
+          "detail": "ticket.txt existe."
+        }
+      ],
+      "totals": {
+        "tokens": {
+          "input": 67980,
+          "output": 1721,
+          "cacheRead": 31132,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": 38569,
+        "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      }
+    }
+  ],
+  "usage": [
+    {
+      "ts": "2026-11-06T23:44:36.162Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 15528,
+        "output": 81,
+        "cacheRead": 0,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-06T23:45:29.040Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 16619,
+        "output": 299,
+        "cacheRead": 15608,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-06T23:48:30.525Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 17947,
+        "output": 1246,
+        "cacheRead": 15524,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-06T23:49:13.437Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 17886,
+        "output": 95,
+        "cacheRead": 0,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    }
+  ],
+  "totals": {
+    "round": {
+      "tokens": {
+        "input": 67980,
+        "output": 1721,
+        "cacheRead": 31132,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "fresh": 38569,
+      "costUsd": null
+    },
+    "actors": {
+      "product-owner": {
+        "tokens": {
+          "input": 67980,
+          "output": 1721,
+          "cacheRead": 31132,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": 38569,
+        "costUsd": null
+      }
+    }
+  },
+  "measures": {
+    "product-owner": {
+      "turns": 1,
+      "tools": 2,
+      "questions": 0,
+      "changedFiles": 1,
+      "tests": null,
+      "typecheck": null
+    }
+  },
+  "violations": [
+    {
+      "rule": "no-questions",
+      "actor": "product-owner",
+      "passed": true,
+      "detail": "Não fez nenhuma pergunta."
+    }
+  ],
+  "declaration": {
+    "id": "ollama-product-owner",
+    "goal": "O Agente deve apenas escever um ticket",
+    "start": {
+      "fixture": "site-vazio"
+    },
+    "actors": {
+      "product-owner": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen3.5:4b"
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+          "hostState": "none"
+        },
+        "permissions": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "read",
+                  "write"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "find *",
+                  "pwd",
+                  "git status",
+                  "git diff *",
+                  "git log *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      }
+    },
+    "flow": [
+      {
+        "actor": "product-owner",
+        "by": null,
+        "prompt": [
+          "Apenas crie um ticket para alteração da página existente",
+          "**NÃO ALTERE NEM EXCLUA O ARRQUIVO index.html",
+          "A solicitação é para alterar o título da página de Ollama Product Owner para Goiaba",
+          "o nome do arquivo deve ser ticket.txt",
+          "**NÃO TENTE ACESSAR NENHUM SITE NA WEB**"
+        ]
+      }
+    ],
+    "rules": [
+      "no-questions"
+    ],
+    "instructions": {
+      "product-owner": [
+        {
+          "when": {
+            "file": "ticket.txt"
+          },
+          "check": {
+            "file": "index.html",
+            "contains": "h1"
+          },
+          "otherwise": {
+            "file": "ticket.txt"
+          }
+        }
+      ]
+    },
+    "repeat": 1
+  }
+}

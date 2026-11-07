@@ -133,7 +133,16 @@ export class OllamaProvider implements Provider<string, string> {
   }
 
   public describe(): ProviderDescription {
-    return { name: 'ollama', model: this.model, cli: this.cli };
+    return {
+      name: 'ollama',
+      model: this.model,
+      cli: this.cli,
+      contextWindow: this.contextWindow,
+      readableContext:
+        this.cli === 'claude'
+          ? this.contextWindow - claudeReplyReserve(this.contextWindow)
+          : Math.floor(this.contextWindow * this.compactAt),
+    };
   }
 
   /**
@@ -264,6 +273,15 @@ function readBaseUrl(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
+/**
+ * Tokens of the window Claude Code keeps for the reply. It reserves 32k by
+ * default: in a 32k window that leaves no room for the conversation, and
+ * every resumed turn is compacted first. A quarter leaves the rest to read.
+ */
+function claudeReplyReserve(contextWindow: number): number {
+  return Math.floor(contextWindow / 4);
+}
+
 function claudeEnv(
   baseUrl: string,
   model: string,
@@ -285,9 +303,8 @@ function claudeEnv(
     // compacted: the real one, enforced.
     `CLAUDE_CODE_MAX_CONTEXT_TOKENS=${String(contextWindow)}`,
     `CLAUDE_CODE_AUTO_COMPACT_WINDOW=${String(contextWindow)}`,
-    // Claude Code reserves 32k for the reply: in a 32k window that leaves no
-    // room for the conversation, and every resumed turn is compacted first.
-    `CLAUDE_CODE_MAX_OUTPUT_TOKENS=${String(Math.floor(contextWindow / 4))}`,
+    // See claudeReplyReserve.
+    `CLAUDE_CODE_MAX_OUTPUT_TOKENS=${String(claudeReplyReserve(contextWindow))}`,
   ];
 }
 

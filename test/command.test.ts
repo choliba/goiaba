@@ -116,4 +116,17 @@ describe('PolicyEngine.checkCommand', () => {
     // What runs inside $(...) is not parsed: a person sees the whole line.
     expect(policy('ls $(sudo id)')).toBe('require_approval');
   });
+
+  test('diz qual parte decidiu e se a linha é complexa', () => {
+    expect(engine.checkCommand('ls -la 2>/dev/null | head -5')).toMatchObject({
+      policy: 'deny',
+      source: 'default',
+      part: 'head -5',
+      complex: true,
+    });
+    expect(engine.checkCommand('cd /workspace && ls -la')).toMatchObject({
+      policy: 'allow',
+      complex: false,
+    });
+  });
 });

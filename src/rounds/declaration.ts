@@ -48,6 +48,9 @@ function providerSource(provider: DeclaredActor['provider']): string {
   const options = {
     ...(provider.cli === null ? {} : { cli: provider.cli }),
     ...(provider.model === null ? {} : { model: provider.model }),
+    ...(provider.contextWindow === undefined
+      ? {}
+      : { contextWindow: provider.contextWindow }),
   };
   return name === undefined
     ? `undefined /* provider "${provider.name}": escolha a classe */`

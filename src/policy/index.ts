@@ -17,6 +17,7 @@ import type {
   FilesystemAccess,
   FilesystemOperation,
   FilesystemRule,
+  CommandPolicyDecision,
   PolicyCategory,
   PolicyDecision,
   PolicyGroups,
@@ -104,14 +105,21 @@ export class PolicyEngine {
   public checkCommand(
     command: string,
     { approved = [] }: { readonly approved?: readonly string[] } = {},
-  ): PolicyDecision {
+  ): CommandPolicyDecision {
     const { parts, complex } = parseCommand(command);
 
     if (parts.length === 0) {
-      return { policy: 'deny', source: 'default', reason: 'Comando vazio.' };
+      return {
+        policy: 'deny',
+        source: 'default',
+        reason: 'Comando vazio.',
+        complex,
+      };
     }
 
-    const decisions = parts.map((part) => this.checkPart(part, approved));
+    const decisions = parts.map((part): CommandPolicyDecision =>
+      Object.assign(this.checkPart(part, approved), { part, complex }),
+    );
     const strictest = decisions.reduce((current, next) =>
       stricter(next, current) ? next : current,
     );

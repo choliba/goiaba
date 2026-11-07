@@ -29,6 +29,7 @@ import { basename, dirname, isAbsolute, join, relative } from 'node:path';
  * `node:path` either.
  */
 export {
+  basename,
   dirname,
   isAbsolute,
   join,

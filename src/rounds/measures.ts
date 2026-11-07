@@ -6,6 +6,7 @@
  */
 
 import type {
+  CommandPolicyRecord,
   NetworkDecisionRecord,
   Span,
   TokenCounts,
@@ -50,6 +51,23 @@ const amount = (value: unknown): number | null =>
     ? value
     : null;
 
+const oneOf = <T extends string>(
+  value: unknown,
+  options: readonly T[],
+): T | undefined => options.find((option) => option === value);
+
+/** The shell command a tool ran, when it ran one: what the gate decided on. */
+function commandOf(
+  detail: Readonly<Record<string, unknown>>,
+): string | undefined {
+  const args = detail['args'];
+  const fromArgs: unknown =
+    typeof args === 'object' && args !== null
+      ? Object.entries(args).find(([key]) => key === 'command')?.[1]
+      : undefined;
+  return text(fromArgs) ?? text(detail['command']);
+}
+
 /** The tool's name, as the CLI reports it in the detail. */
 function toolName(detail: Readonly<Record<string, unknown>>): string {
   return (
@@ -82,6 +100,11 @@ export class StepRecorder {
   private readonly tools: ToolRecord[] = [];
   private readonly usage: UsageRecord[] = [];
   private readonly decisions: NetworkDecisionRecord[] = [];
+  /** The execution gate's decisions, by command, in the order heard. */
+  private readonly commands: {
+    readonly command: string;
+    readonly policy: CommandPolicyRecord;
+  }[] = [];
   private readonly open: {
     readonly turn: number;
     readonly name: string;
@@ -200,6 +223,53 @@ export class StepRecorder {
     });
   }
 
+  /** One of the execution gate's decisions while the step ran. */
+  public command({ type, data }: HeardEvent): void {
+    if (type !== 'decision') return;
+    const command = text(data['command']);
+    const decision = oneOf(data['decision'], ['allow', 'deny'] as const);
+    const decidedBy = oneOf(data['source'], [
+      'policy',
+      'default',
+      'human',
+      'saved',
+    ] as const);
+    const policy = oneOf(data['policy'], [
+      'allow',
+      'deny',
+      'require_approval',
+    ] as const);
+    const source = oneOf(data['policySource'], [
+      'allow',
+      'deny',
+      'requireApproval',
+      'default',
+      'approved',
+    ] as const);
+    if (
+      command === undefined ||
+      decision === undefined ||
+      decidedBy === undefined ||
+      policy === undefined ||
+      source === undefined
+    ) {
+      return;
+    }
+    this.commands.push({
+      command,
+      policy: {
+        decision,
+        decidedBy,
+        policy,
+        source,
+        part: text(data['part']) ?? null,
+        pattern: text(data['pattern']) ?? null,
+        complex: data['complex'] === true,
+        reason: text(data['reason']) ?? '',
+      },
+    });
+  }
+
   /** Everything measured; a tool still open ends `unfinished` at `endedAt`. */
   public finish(endedAt: string): StepMeasures {
     const unfinished = this.open.map((tool): ToolRecord => ({
@@ -209,13 +279,25 @@ export class StepRecorder {
       outcome: 'unfinished',
       span: spanOf(tool.startedAt, endedAt),
     }));
+    const tools = [...this.tools, ...unfinished].toSorted((a, b) =>
+      a.span.startedAt.localeCompare(b.span.startedAt),
+    );
+    // Each decision goes to the first tool, in order, that ran its command.
+    const pending = [...this.commands];
+    const decided: ToolRecord[] = [];
+    for (const tool of tools) {
+      const command = commandOf(tool.detail);
+      const index = pending.findIndex((entry) => entry.command === command);
+      const entry = index === -1 ? undefined : pending.splice(index, 1).at(0);
+      decided.push(
+        entry === undefined ? tool : { ...tool, policy: entry.policy },
+      );
+    }
     return {
       said: [...this.said],
       asked: [...this.asked],
       turns: [...this.turns],
-      tools: [...this.tools, ...unfinished].toSorted((a, b) =>
-        a.span.startedAt.localeCompare(b.span.startedAt),
-      ),
+      tools: decided,
       usage: [...this.usage],
       decisions: [...this.decisions],
     };

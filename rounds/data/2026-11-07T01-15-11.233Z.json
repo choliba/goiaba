@@ -1,0 +1,298 @@
+{
+  "schema": 4,
+  "id": "2026-11-07T01-15-11.233Z",
+  "definition": {
+    "id": "ollama-product-owner",
+    "goal": "O Agente deve apenas escever um ticket"
+  },
+  "start": {
+    "tag": "rodada-base",
+    "commit": "b527057",
+    "fixture": "site-vazio"
+  },
+  "repeat": {
+    "index": 1,
+    "total": 1
+  },
+  "timing": {
+    "startedAt": "2026-11-07T01:15:11.233Z",
+    "endedAt": "2026-11-07T01:15:11.672Z",
+    "durationMs": 439,
+    "actors": {
+      "product-owner": {
+        "startedAt": "2026-11-07T01:15:11.253Z",
+        "endedAt": "2026-11-07T01:15:11.666Z",
+        "durationMs": 413,
+        "workspaceMs": null,
+        "gitCheckMs": 13,
+        "approvalMs": null
+      }
+    }
+  },
+  "actors": {
+    "product-owner": {
+      "role": "product-owner",
+      "provider": {
+        "id": "ollama-claude",
+        "name": "ollama",
+        "model": "qwen2.5-coder:1.5b",
+        "cli": "claude",
+        "cliVersion": null,
+        "options": {}
+      },
+      "workspace": {
+        "type": "bubblewrap",
+        "image": null,
+        "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": {
+          "default": "deny",
+          "allow": [],
+          "requireApproval": [],
+          "deny": []
+        },
+        "alwaysAllow": [
+          "127.0.0.1:11434"
+        ],
+        "alwaysDeny": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
+        "decisions": [
+          {
+            "ts": "2026-11-07T01:15:11.609Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          }
+        ]
+      },
+      "policy": {
+        "default": "deny",
+        "allow": {
+          "filesystem": [
+            {
+              "operations": [
+                "read",
+                "write"
+              ],
+              "paths": [
+                "/workspace/**"
+              ]
+            }
+          ],
+          "execution": [
+            {
+              "commands": [
+                "ls *",
+                "cat *",
+                "find *",
+                "pwd",
+                "git status",
+                "git diff *",
+                "git log *"
+              ]
+            }
+          ]
+        }
+      },
+      "readOnly": false,
+      "configHash": "4fed1b75ddfb23d75fb89f7d760cd55061e97779339577fe57f8a3db61f6825c"
+    }
+  },
+  "configHash": "8f5a1e0bd6a58cc27d22de76c6ef51afbbf41467080c6a0552e028aff3674769",
+  "steps": [
+    {
+      "key": "product-owner#1",
+      "actor": "product-owner",
+      "by": null,
+      "prompt": {
+        "text": "Apenas implemente a solicitação escrita em ticket.txt\no nome do arquivo a ser lido é ticket.txt\n**NÃO TENTE ACESSAR NENHUM SITE NA WEB**",
+        "hash": "8930f869549014043d3ec01f65081146b80715bf056cdfed92ee14baf25e7684"
+      },
+      "span": {
+        "startedAt": "2026-11-07T01:15:11.253Z",
+        "endedAt": "2026-11-07T01:15:11.666Z",
+        "durationMs": 413
+      },
+      "said": [
+        "There's an issue with the selected model (qwen2.5-coder:1.5b). It may not exist or you may not have access to it. Run --model to pick a different model."
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-07T01:15:11.277Z",
+            "endedAt": "2026-11-07T01:15:11.663Z",
+            "durationMs": 386
+          }
+        }
+      ],
+      "tools": [],
+      "changed": [],
+      "diff": "",
+      "instructions": [
+        {
+          "check": "index.html contém \"h1\"",
+          "when": {
+            "check": "ticket.txt existe",
+            "held": true
+          },
+          "met": true,
+          "detail": "index.html contém \"h1\"."
+        }
+      ],
+      "totals": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      }
+    }
+  ],
+  "usage": [],
+  "totals": {
+    "round": {
+      "tokens": {
+        "input": null,
+        "output": null,
+        "cacheRead": null,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "fresh": null,
+      "costUsd": null
+    },
+    "actors": {
+      "product-owner": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      }
+    }
+  },
+  "measures": {
+    "product-owner": {
+      "turns": 1,
+      "tools": 0,
+      "questions": 0,
+      "changedFiles": 0,
+      "tests": null,
+      "typecheck": null
+    }
+  },
+  "violations": [
+    {
+      "rule": "no-questions",
+      "actor": "product-owner",
+      "passed": true,
+      "detail": "Não fez nenhuma pergunta."
+    }
+  ],
+  "declaration": {
+    "id": "ollama-product-owner",
+    "goal": "O Agente deve apenas escever um ticket",
+    "start": {
+      "fixture": "site-vazio"
+    },
+    "actors": {
+      "product-owner": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen2.5-coder:1.5b"
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+          "hostState": "none"
+        },
+        "permissions": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "read",
+                  "write"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "find *",
+                  "pwd",
+                  "git status",
+                  "git diff *",
+                  "git log *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      }
+    },
+    "flow": [
+      {
+        "actor": "product-owner",
+        "by": null,
+        "prompt": [
+          "Apenas implemente a solicitação escrita em ticket.txt",
+          "o nome do arquivo a ser lido é ticket.txt",
+          "**NÃO TENTE ACESSAR NENHUM SITE NA WEB**"
+        ]
+      }
+    ],
+    "rules": [
+      "no-questions"
+    ],
+    "instructions": {
+      "product-owner": [
+        {
+          "when": {
+            "file": "ticket.txt"
+          },
+          "check": {
+            "file": "index.html",
+            "contains": "h1"
+          },
+          "otherwise": {
+            "file": "ticket.txt"
+          }
+        }
+      ]
+    },
+    "repeat": 1
+  }
+}

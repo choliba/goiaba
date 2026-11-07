@@ -159,6 +159,17 @@ export interface PolicyDecision {
   readonly reason: string;
 }
 
+/** A decision on a whole command line (`checkCommand`). */
+export interface CommandPolicyDecision extends PolicyDecision {
+  /** The simple command whose decision won; absent for an empty line. */
+  readonly part?: string;
+  /**
+   * Redirection, substitution, heredoc or script: an allowed line still
+   * needs approval, since no rule can read its effect.
+   */
+  readonly complex: boolean;
+}
+
 export interface ApprovalRequest {
   readonly action: AgentAction;
   readonly decision: PolicyDecision;

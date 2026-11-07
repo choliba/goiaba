@@ -1,0 +1,331 @@
+{
+  "schema": 4,
+  "id": "2026-11-07T01-53-05.855Z",
+  "definition": {
+    "id": "ollama-product-owner",
+    "goal": "O Agente deve apenas escever um ticket"
+  },
+  "start": {
+    "tag": "rodada-base",
+    "commit": "0f0b29f",
+    "fixture": "site-vazio"
+  },
+  "repeat": {
+    "index": 1,
+    "total": 1
+  },
+  "timing": {
+    "startedAt": "2026-11-07T01:53:05.855Z",
+    "endedAt": "2026-11-07T01:53:07.533Z",
+    "durationMs": 1678,
+    "actors": {
+      "product-owner": {
+        "startedAt": "2026-11-07T01:53:05.874Z",
+        "endedAt": "2026-11-07T01:53:07.526Z",
+        "durationMs": 1652,
+        "workspaceMs": null,
+        "gitCheckMs": 12,
+        "approvalMs": null
+      }
+    }
+  },
+  "actors": {
+    "product-owner": {
+      "role": "product-owner",
+      "provider": {
+        "id": "claude",
+        "name": "claude",
+        "model": "opus5.5",
+        "cli": null,
+        "cliVersion": null,
+        "options": {}
+      },
+      "workspace": {
+        "type": "bubblewrap",
+        "image": null,
+        "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": {
+          "default": "deny",
+          "allow": [],
+          "requireApproval": [],
+          "deny": []
+        },
+        "alwaysAllow": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
+        "alwaysDeny": [],
+        "decisions": [
+          {
+            "ts": "2026-11-07T01:53:06.084Z",
+            "destination": "api.anthropic.com:443",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-07T01:53:06.086Z",
+            "destination": "api.anthropic.com:443",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-07T01:53:06.535Z",
+            "destination": "api.anthropic.com:443",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          }
+        ]
+      },
+      "policy": {
+        "default": "deny",
+        "allow": {
+          "filesystem": [
+            {
+              "operations": [
+                "read",
+                "write"
+              ],
+              "paths": [
+                "/workspace/**"
+              ]
+            }
+          ],
+          "execution": [
+            {
+              "commands": [
+                "ls *",
+                "cat *",
+                "find *",
+                "pwd",
+                "git status",
+                "git diff *",
+                "git log *"
+              ]
+            }
+          ]
+        }
+      },
+      "readOnly": false,
+      "configHash": "8df15f8d4ab57bbea9ec155e60264399aedf2a5405f2c1bc0831e9143c30a8b5"
+    }
+  },
+  "configHash": "064d7572edf3198508dc0eba187b0446ad3ca2f9e3bba9b30110aff69da1263b",
+  "steps": [
+    {
+      "key": "product-owner#1",
+      "actor": "product-owner",
+      "by": null,
+      "prompt": {
+        "text": "leia o arquivo ticket.txt\nCom base nas instruções dele implemente a alteração no index.html\nApenas implemente a solicitação escrita em ticket.txt\no nome do arquivo a ser lido é ticket.txt\n**NÃO TENTE ACESSAR NENHUM SITE NA WEB**",
+        "hash": "25757b799cc8a57a8ff211c48a3e40db464a2414003b6736257e6903a914fd6f"
+      },
+      "span": {
+        "startedAt": "2026-11-07T01:53:05.874Z",
+        "endedAt": "2026-11-07T01:53:07.526Z",
+        "durationMs": 1652
+      },
+      "said": [
+        "There's an issue with the selected model (opus5.5). It may not exist or you may not have access to it. Run --model to pick a different model."
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-07T01:53:05.897Z",
+            "endedAt": "2026-11-07T01:53:07.523Z",
+            "durationMs": 1626
+          }
+        }
+      ],
+      "tools": [],
+      "changed": [],
+      "diff": "",
+      "instructions": [
+        {
+          "check": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
+          "when": {
+            "check": "index.html existe",
+            "held": true
+          },
+          "met": false,
+          "detail": "index.html existe, mas não contém \"<h1>🚀 Goiaba</h1>\"."
+        }
+      ],
+      "totals": {
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": null
+        },
+        "fresh": 0,
+        "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      }
+    }
+  ],
+  "usage": [
+    {
+      "ts": "2026-11-07T01:53:07.508Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    }
+  ],
+  "totals": {
+    "round": {
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": null
+      },
+      "fresh": 0,
+      "costUsd": null
+    },
+    "actors": {
+      "product-owner": {
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": null
+        },
+        "fresh": 0,
+        "costUsd": null
+      }
+    }
+  },
+  "measures": {
+    "product-owner": {
+      "turns": 1,
+      "tools": 0,
+      "questions": 0,
+      "changedFiles": 0,
+      "tests": null,
+      "typecheck": null
+    }
+  },
+  "violations": [
+    {
+      "rule": "no-questions",
+      "actor": "product-owner",
+      "passed": true,
+      "detail": "Não fez nenhuma pergunta."
+    }
+  ],
+  "declaration": {
+    "id": "ollama-product-owner",
+    "goal": "O Agente deve apenas escever um ticket",
+    "start": {
+      "fixture": "site-vazio"
+    },
+    "actors": {
+      "product-owner": {
+        "provider": {
+          "name": "claude",
+          "cli": null,
+          "model": "opus5.5"
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+          "hostState": "none"
+        },
+        "permissions": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "read",
+                  "write"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "find *",
+                  "pwd",
+                  "git status",
+                  "git diff *",
+                  "git log *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      }
+    },
+    "flow": [
+      {
+        "actor": "product-owner",
+        "by": null,
+        "prompt": [
+          "leia o arquivo ticket.txt",
+          "Com base nas instruções dele implemente a alteração no index.html",
+          "Apenas implemente a solicitação escrita em ticket.txt",
+          "o nome do arquivo a ser lido é ticket.txt",
+          "**NÃO TENTE ACESSAR NENHUM SITE NA WEB**"
+        ]
+      }
+    ],
+    "rules": [
+      "no-questions"
+    ],
+    "instructions": {
+      "product-owner": [
+        {
+          "when": {
+            "file": "index.html"
+          },
+          "check": {
+            "file": "index.html",
+            "contains": "<h1>🚀 Goiaba</h1>"
+          },
+          "otherwise": {
+            "file": "index.html"
+          }
+        }
+      ]
+    },
+    "repeat": 1
+  }
+}

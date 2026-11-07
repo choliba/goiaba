@@ -1,0 +1,21 @@
+---
+name: ticket-140-alterar-titulo-pagina-goiaba
+description: Alterar título da página de Ollama Product Owner para Goiaba
+status: pending
+priority: medium
+type: alteration
+
+**Descrição do Problema:**
+O título atual da página é "🚀 Ollama Product Owner". É necessário alterar para refinar o branding.
+
+**Título Atual (linha 73):**
+`<h1>🚀 Ollama Product Owner</h1>`
+
+**Título Esperado:**
+`<h1>🚀 Goiaba</h1>`
+
+**Arquivo:** index.html
+**Alteração Requerida:** Substituir "Ollama Product Owner" por "Goiaba" na linha 73 do título e atualizar referências no conteúdo.
+
+---
+🤖 Generated with [Claude Code](https://claude.com/claude-code)

@@ -180,6 +180,17 @@ export interface ProviderDescription {
   readonly model: string;
   /** The CLI it drives, when the provider can drive more than one. */
   readonly cli?: string;
+  /**
+   * Tokens of context the CLI is told the model has (where it compacts the
+   * history), when the provider sets it: Ollama's `contextWindow`.
+   */
+  readonly contextWindow?: number;
+  /**
+   * Of that window, the tokens left for what the model reads: what the CLI
+   * keeps for the reply taken out (Claude Code), or up to where it compacts
+   * (Codex). Past it the history is compacted.
+   */
+  readonly readableContext?: number;
 }
 
 /** An `AgentPolicy` as one provider expresses it. */

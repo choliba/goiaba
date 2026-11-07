@@ -147,7 +147,7 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
         )}
       </header>
 
-      <Scores score={round.score} />
+      <Scores score={round.score} record={round.record} />
 
       <Measures round={round} />
 

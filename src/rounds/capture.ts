@@ -56,6 +56,9 @@ export function captureDeclaration(
             name: described?.name ?? actor.provider.id,
             cli: described?.cli ?? null,
             model: described?.model ?? null,
+            ...(described?.contextWindow === undefined
+              ? {}
+              : { contextWindow: described.contextWindow }),
           },
           workspace: {
             type: workspace.type,

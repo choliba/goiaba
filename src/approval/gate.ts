@@ -1,8 +1,10 @@
+import { createProducer } from '../events/index';
 import { log } from '../logger/index';
 import {
   PolicyEngine,
   suggestPattern,
   type AgentPolicy,
+  type CommandPolicyDecision,
 } from '../policy/index';
 import type { ApprovalScope, DecisionCategory, Store } from '../store/index';
 
@@ -51,6 +53,27 @@ export interface CommandDecisionEvent {
 }
 
 /**
+ * Every command the gate decides: `type: 'decision'`, CommandDecisionData.
+ * Whoever wants to know why a command ran or not (a round) listens here.
+ */
+export const COMMAND_SOURCE = 'command';
+const commandEvents = createProducer(COMMAND_SOURCE);
+
+/** What the gate emits for each command: its decision and the policy's. */
+export interface CommandDecisionData extends CommandDecisionEvent {
+  /** What the policy said about the line, before approvals and people. */
+  readonly policy: CommandPolicyDecision['policy'];
+  /** Which of the policy's groups decided: a rule's, or the default. */
+  readonly policySource: CommandPolicyDecision['source'];
+  /** The simple command whose decision won (`head -5` in `find … | head -5`). */
+  readonly part: string | null;
+  /** The pattern an allow or deny rule for that part would take. */
+  readonly pattern: string | null;
+  /** Redirection, substitution or script: no rule allows it by itself. */
+  readonly complex: boolean;
+}
+
+/**
  * Decides whether a shell command may run: the policy first, then approvals
  * already given, then the approver. Every decision is recorded.
  */
@@ -76,37 +99,49 @@ export class CommandGate {
     });
 
     if (decision.policy === 'allow' && decision.source !== 'approved') {
-      return this.record(command, 'allow', 'policy', decision.reason);
+      return this.record(command, 'allow', 'policy', decision.reason, {
+        policy: decision,
+      });
     }
 
     // An explicit `deny` rule always wins, even over approvals.
     if (decision.source === 'deny') {
-      return this.record(command, 'deny', 'policy', decision.reason);
+      return this.record(command, 'deny', 'policy', decision.reason, {
+        policy: decision,
+      });
     }
 
     // An approval of this exact line covers it, even a complex one.
     const exact = this.approvals.exact(command);
     if (exact !== undefined) {
-      return this.record(command, 'allow', 'saved', exact);
+      return this.record(command, 'allow', 'saved', exact, {
+        policy: decision,
+      });
     }
 
     if (decision.policy === 'allow') {
-      return this.record(command, 'allow', 'saved', decision.reason);
+      return this.record(command, 'allow', 'saved', decision.reason, {
+        policy: decision,
+      });
     }
 
     if (decision.policy === 'deny') {
       return this.record(command, 'deny', 'default', decision.reason, {
+        policy: decision,
         // What the agent reads: a person decides, so retrying only repeats it.
         toAgent: (id) => awaitingApproval(id),
       });
     }
 
-    return this.ask(command, decision.reason);
+    return this.ask(command, decision);
   }
 
-  private ask(command: string, reason: string): Promise<CommandDecision> {
+  private ask(
+    command: string,
+    policy: CommandPolicyDecision,
+  ): Promise<CommandDecision> {
     const ask = (): Promise<CommandDecision> =>
-      this.askApprover(command, reason);
+      this.askApprover(command, policy);
     const result = this.queue.then(ask, ask);
     this.queue = result.catch(() => undefined);
     return result;
@@ -114,22 +149,29 @@ export class CommandGate {
 
   private async askApprover(
     command: string,
-    reason: string,
+    policy: CommandPolicyDecision,
   ): Promise<CommandDecision> {
     const pattern = suggestPattern(command);
     const scope = await this.options
-      .approve({ command, reason, pattern, provider: this.options.provider })
+      .approve({
+        command,
+        reason: policy.reason,
+        pattern,
+        provider: this.options.provider,
+      })
       .catch((): ApprovalScope => 'deny');
 
     if (scope === 'deny') {
       return this.record(command, 'deny', 'human', 'Negado pelo usuário.', {
         scope,
+        policy,
       });
     }
 
     this.approvals.remember(scope, pattern);
     return this.record(command, 'allow', 'human', 'Aprovado pelo usuário.', {
       scope,
+      policy,
     });
   }
 
@@ -141,11 +183,14 @@ export class CommandGate {
     {
       scope,
       toAgent,
+      policy,
     }: {
+      /** The policy's decision on the line. */
+      readonly policy: CommandPolicyDecision;
       readonly scope?: ApprovalScope;
       /** The reason the agent gets, from the request's id, when it differs. */
       readonly toAgent?: (id: number | undefined) => string;
-    } = {},
+    },
   ): CommandDecision {
     const id = this.options.store?.recordDecision({
       session: this.approvals.session(),
@@ -158,6 +203,18 @@ export class CommandGate {
       reason,
     });
     reportDecision({ command, decision, source, reason });
+    commandEvents.emit({
+      type: 'decision',
+      command,
+      decision,
+      source,
+      reason,
+      policy: policy.policy,
+      policySource: policy.source,
+      part: policy.part ?? null,
+      pattern: policy.part === undefined ? null : suggestPattern(policy.part),
+      complex: policy.complex,
+    } satisfies CommandDecisionData & { readonly type: 'decision' });
     return { decision, reason: toAgent?.(id) ?? reason };
   }
 }

@@ -30,7 +30,7 @@ export function CopyDeclaration({
   };
   return (
     <div className="copy-declaration">
-      <button type="button" className="all-tests-button" onClick={copy}>
+      <button type="button" className="more-rounds" onClick={copy}>
         {state === 'copied' ? 'Definição copiada' : 'Copiar definição'}
       </button>
       <span className="muted" aria-live="polite">

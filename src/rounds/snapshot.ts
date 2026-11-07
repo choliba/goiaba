@@ -62,6 +62,12 @@ export function snapshotActor(
       cli: described?.cli ?? null,
       cliVersion: null,
       options: {},
+      ...(described?.contextWindow === undefined
+        ? {}
+        : { contextWindow: described.contextWindow }),
+      ...(described?.readableContext === undefined
+        ? {}
+        : { readableContext: described.readableContext }),
     },
     workspace: {
       type: options.type,

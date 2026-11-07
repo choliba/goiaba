@@ -11,7 +11,9 @@ import type {
   CriterionScore,
   RoundScore,
 } from '../../../../src/rounds/score';
+import type { RoundRecord, ToolRecord } from '../../../../src/rounds/types';
 import { NOT_MEASURED, title } from '../format';
+import { ToolCall } from './ToolCall';
 
 /** `3,5`, or `—` when not evaluated. */
 export const grade = (score: number | null): string =>
@@ -34,8 +36,11 @@ export function Grade({ score }: { readonly score: number | null }): ReactNode {
 
 function Criteria({
   criteria,
+  failed = [],
 }: {
   readonly criteria: readonly CriterionScore[];
+  /** The tools that failed, opened under the criterion that counts them. */
+  readonly failed?: readonly ToolRecord[];
 }): ReactNode {
   return (
     <ul className="criteria">
@@ -43,6 +48,15 @@ function Criteria({
         <li key={criterion.id}>
           <Grade score={criterion.score} /> <b>{criterion.label}</b>
           <span className="muted"> · {criterion.detail}</span>
+          {criterion.id === 'process' && failed.length > 0 && (
+            <ol className="tools">
+              {failed.map((tool, i) => (
+                <li key={i} className={tool.outcome}>
+                  <ToolCall tool={tool} />
+                </li>
+              ))}
+            </ol>
+          )}
         </li>
       ))}
     </ul>
@@ -52,9 +66,12 @@ function Criteria({
 function ActorCard({
   name,
   score,
+  failed,
 }: {
   readonly name: string;
   readonly score: ActorScore;
+  /** Its tools that failed, the ones "Processo sem desperdício" counts. */
+  readonly failed: readonly ToolRecord[];
 }): ReactNode {
   return (
     <article className="actor">
@@ -84,13 +101,23 @@ function ActorCard({
               </span>
             )}
         </h4>
-        <Criteria criteria={score.efficiency.criteria} />
+        <Criteria criteria={score.efficiency.criteria} failed={failed} />
       </div>
     </article>
   );
 }
 
-export function Scores({ score }: { readonly score: RoundScore }): ReactNode {
+export function Scores({
+  score,
+  record,
+}: {
+  readonly score: RoundScore;
+  readonly record: RoundRecord;
+}): ReactNode {
+  const failedOf = (actor: string): readonly ToolRecord[] =>
+    record.steps
+      .filter((step) => step.actor === actor)
+      .flatMap((step) => step.tools.filter((tool) => tool.outcome === 'error'));
   const roundCriteria = score.round.effectiveness.criteria.filter(
     (c) => c.score !== null,
   );
@@ -111,7 +138,12 @@ export function Scores({ score }: { readonly score: RoundScore }): ReactNode {
       {roundCriteria.length > 0 && <Criteria criteria={roundCriteria} />}
       <div className="actors">
         {Object.entries(score.actors).map(([name, actorScore]) => (
-          <ActorCard key={name} name={name} score={actorScore} />
+          <ActorCard
+            key={name}
+            name={name}
+            score={actorScore}
+            failed={failedOf(name)}
+          />
         ))}
       </div>
     </section>

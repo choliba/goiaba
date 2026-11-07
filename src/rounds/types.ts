@@ -95,6 +95,8 @@ export interface DeclaredActor {
     readonly name: string;
     readonly cli: string | null;
     readonly model: string | null;
+    /** See `ProviderSnapshot.contextWindow`. */
+    readonly contextWindow?: number;
   };
   readonly workspace: {
     readonly type: RoundWorkspaceType;
@@ -194,6 +196,13 @@ export interface ProviderSnapshot {
   readonly cliVersion: string | null;
   /** The options it was created with (credentials never). */
   readonly options: Readonly<Record<string, unknown>>;
+  /**
+   * Tokens of context the CLI was told the model has (`describe()`), when
+   * the provider sets it: what a step's peak context is compared with.
+   */
+  readonly contextWindow?: number;
+  /** Of it, what the model can read before the CLI compacts (`describe()`). */
+  readonly readableContext?: number;
 }
 
 export interface WorkspaceSnapshot {
@@ -335,6 +344,32 @@ export interface TurnRecord {
   readonly span: Span;
 }
 
+/**
+ * What the policy decided about a shell command the agent ran, as the
+ * execution gate heard it: the reason a tool failed when the gate stopped
+ * it, and what to change in the definition to allow or deny it.
+ */
+export interface CommandPolicyRecord {
+  readonly decision: 'allow' | 'deny';
+  /**
+   * Who decided: a rule (`policy`), the default (`default`), a person or
+   * nobody in a round (`human`), an approval given before (`saved`).
+   */
+  readonly decidedBy: 'policy' | 'default' | 'human' | 'saved';
+  /** The policy alone, before approvals: `allow`, `deny` or `require_approval`. */
+  readonly policy: 'allow' | 'deny' | 'require_approval';
+  /** Which group decided: `allow`, `deny`, `requireApproval`, `default`, `approved`. */
+  readonly source:
+    'allow' | 'deny' | 'requireApproval' | 'default' | 'approved';
+  /** The simple command whose decision won (`head -5` in `find … | head -5`). */
+  readonly part: string | null;
+  /** The pattern a rule for that part would take (`head *`). */
+  readonly pattern: string | null;
+  /** Redirection, substitution or script: no rule allows the line by itself. */
+  readonly complex: boolean;
+  readonly reason: string;
+}
+
 /** One tool the CLI used: from its call to its result. */
 export interface ToolRecord {
   /** The turn it ran in. */
@@ -345,6 +380,8 @@ export interface ToolRecord {
   readonly detail: Readonly<Record<string, unknown>>;
   readonly outcome: 'result' | 'error' | 'unfinished';
   readonly span: Span;
+  /** The gate's decision, for a shell command it decided; absent otherwise. */
+  readonly policy?: CommandPolicyRecord;
 }
 
 /**

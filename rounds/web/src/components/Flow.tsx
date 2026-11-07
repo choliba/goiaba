@@ -17,6 +17,8 @@ import {
   title,
   tokensShort,
 } from '../format';
+import { ContextUse } from './ContextUse';
+import { ToolCall } from './ToolCall';
 
 /** Lane colors, in order of the actors' first step. */
 const PALETTE = ['--guava', '--violet', '--leaf', '--amber', '--sky'];
@@ -28,9 +30,11 @@ const arrowLabel = (step: RoundStep): string =>
 function Facts({
   round,
   step,
+  index,
 }: {
   readonly round: RoundRecord;
   readonly step: RoundStep;
+  readonly index: number;
 }): ReactNode {
   const checked = round.start !== null;
   const facts = [
@@ -51,6 +55,7 @@ function Facts({
   return (
     <>
       <p className="facts">{facts.join(' · ')}</p>
+      <ContextUse round={round} step={step} index={index} />
       {lastSaid.length > 0 && (
         <p className="quote">
           {lastSaid.slice(0, 280)}
@@ -79,10 +84,7 @@ function Facts({
             <ol className="tools">
               {step.tools.map((tool, i) => (
                 <li key={i} className={tool.outcome}>
-                  <code>{tool.name}</code> {duration(tool.span.durationMs)}
-                  {tool.outcome === 'result'
-                    ? ''
-                    : ` · ${tool.outcome === 'error' ? 'falhou' : 'não terminou'}`}
+                  <ToolCall tool={tool} />
                 </li>
               ))}
             </ol>
@@ -197,7 +199,7 @@ export function Flow({ round }: { readonly round: RoundRecord }): ReactNode {
                   <span className="scene-who">{title(step.actor)}</span>
                   <code className="scene-key">{step.key}</code>
                 </div>
-                <Facts round={round} step={step} />
+                <Facts round={round} step={step} index={index} />
               </li>,
             );
             return items;

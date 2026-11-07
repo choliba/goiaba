@@ -172,6 +172,29 @@ export interface Helper {
 }
 
 /**
+ * Opens `url` in the person's browser with the desktop's opener, without
+ * waiting for it: detached, so a browser it starts outlives this process.
+ * Rejects when there is no opener (no desktop, a server).
+ */
+export async function openInBrowser(url: string): Promise<void> {
+  const [executable, ...args] =
+    process.platform === 'darwin'
+      ? ['open', url]
+      : process.platform === 'win32'
+        ? ['cmd', '/c', 'start', '', url]
+        : ['xdg-open', url];
+  const child = spawn(executable, args, {
+    detached: true,
+    stdio: 'ignore',
+  });
+  await new Promise<void>((resolve, reject) => {
+    child.once('spawn', resolve);
+    child.once('error', reject);
+  });
+  child.unref();
+}
+
+/**
  * Starts a long-lived helper (e.g. the jail keeper). Its stdin is a pipe held
  * by this process, so the helper can notice when Goiaba dies.
  */

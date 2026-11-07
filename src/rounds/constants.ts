@@ -63,3 +63,33 @@ export const FIXTURE_TAG = 'rodada-base';
  * it does not depend on the user's git identity (nor leaks it).
  */
 export const FIXTURE_AUTHOR = { name: 'goiaba', email: 'goiaba@localhost' };
+
+/**
+ * Where the rounds' pages answer while `bun run rounds:web` runs: Vite's
+ * dev server, on its default port. A round's page is this plus
+ * `#/rodada/<id>`.
+ */
+export const ROUNDS_WEB_URL = 'http://localhost:5173/';
+
+/**
+ * Milliseconds to wait for the pages to answer before saying they are not
+ * up: a local server answers in a few; more would only delay the end of
+ * the round.
+ */
+export const ROUNDS_WEB_PROBE_MS = 1000;
+
+/** The rounds' pages: the Vite project `bun run rounds:web` serves. */
+export const ROUNDS_WEB_DIR = 'rounds/web';
+
+/** Vite's own script, in the pages' project: run directly, one process to stop. */
+export const ROUNDS_WEB_VITE = 'node_modules/vite/bin/vite.js';
+
+/**
+ * Milliseconds to wait for the pages' server to answer once started: Vite
+ * starts in about one second; more than this, something is wrong (a busy
+ * port, no dependencies installed).
+ */
+export const ROUNDS_WEB_START_MS = 15_000;
+
+/** Milliseconds between checks while the pages' server starts. */
+export const ROUNDS_WEB_POLL_MS = 250;

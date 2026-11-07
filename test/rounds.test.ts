@@ -208,6 +208,52 @@ test('defineRound recusa campo desconhecido', () => {
 const at = (second: number): string =>
   `2026-11-04T10:00:${String(second).padStart(2, '0')}.000Z`;
 
+test('StepRecorder junta a decisão do gate à ferramenta que rodou o comando', () => {
+  const recorder = new StepRecorder('analista', 0);
+  const call = (id: string, command: string, ts: number): void => {
+    recorder.agent({
+      type: 'tool',
+      ts: at(ts),
+      data: {
+        phase: 'call',
+        detail: { call_id: id, tool: 'Bash', args: { command } },
+      },
+    });
+  };
+  call('a', 'ls', 1);
+  call('b', 'find . 2>/dev/null | head -5', 2);
+  recorder.command({
+    type: 'decision',
+    ts: at(3),
+    data: {
+      command: 'find . 2>/dev/null | head -5',
+      decision: 'deny',
+      source: 'default',
+      reason: 'Nenhuma regra corresponde à ação.',
+      policy: 'deny',
+      policySource: 'default',
+      part: 'head -5',
+      pattern: 'head *',
+      complex: true,
+    },
+  });
+  recorder.command({ type: 'decision', ts: at(3), data: { command: 'x' } });
+
+  const [ls, find] = recorder.finish(at(4)).tools;
+
+  expect(ls.policy).toBeUndefined();
+  expect(find.policy).toEqual({
+    decision: 'deny',
+    decidedBy: 'default',
+    policy: 'deny',
+    source: 'default',
+    part: 'head -5',
+    pattern: 'head *',
+    complex: true,
+    reason: 'Nenhuma regra corresponde à ação.',
+  });
+});
+
 test('StepRecorder mede turnos, ferramentas, tokens, custo, falas, perguntas e rede', () => {
   const recorder = new StepRecorder('analista', 0, (tokens) =>
     tokens.input === null ? null : tokens.input * 0.000001,
@@ -1063,14 +1109,20 @@ test('a declaração vira dados e volta a ser um arquivo que declara a mesma rod
         name,
         {
           ...actor,
-          provider: { name: 'ollama', cli: 'claude', model: 'qwen3.5:4b' },
+          // An Ollama provider always says its window.
+          provider: {
+            name: 'ollama',
+            cli: 'claude',
+            model: 'qwen3.5:4b',
+            contextWindow: 32_768,
+          },
         },
       ]),
     ),
   };
   const source = declarationSource(known);
   expect(source).toContain(
-    'new OllamaProvider({"cli":"claude","model":"qwen3.5:4b"})',
+    'new OllamaProvider({"cli":"claude","model":"qwen3.5:4b","contextWindow":32768})',
   );
   expect(source).toContain('said["analista"] ?? \'\'');
   expect(source).toContain('rules: [readOnlyRespected(), noQuestions()]');
