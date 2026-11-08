@@ -27,6 +27,30 @@ const X_TICKS = 5;
 const share = (used: number, total: number): number | null =>
   total === 0 ? null : (used / total) * 100;
 
+/** Whether an instant falls inside a span. */
+const within = (
+  iso: string,
+  span: { readonly startedAt: string; readonly endedAt: string },
+): boolean => {
+  const t = Date.parse(iso);
+  return t >= Date.parse(span.startedAt) && t <= Date.parse(span.endedAt);
+};
+
+/** A short label for a tool call: its name and the first detail that reads. */
+function toolLabel(tool: RoundStep['tools'][number]): string {
+  const detail = tool.detail;
+  const field = (key: string): string | undefined =>
+    typeof detail[key] === 'string' ? detail[key] : undefined;
+  const text =
+    field('command') ??
+    field('file_path') ??
+    field('path') ??
+    field('pattern') ??
+    '';
+  const short = text.length > 44 ? `${text.slice(0, 43)}…` : text;
+  return short.length === 0 ? tool.name : `${tool.name}: ${short}`;
+}
+
 /** A point of a series: elapsed seconds and its value, 0–100 or a gap. */
 interface Point {
   readonly t: number;
@@ -63,10 +87,19 @@ export function SampleChart({
   }
 
   const t0 = Math.min(...samples.map((s) => Date.parse(s.ts)));
-  const elapsedOf = (s: ResourceSample): number =>
-    (Date.parse(s.ts) - t0) / 1000;
+  const secondsOf = (iso: string): number => (Date.parse(iso) - t0) / 1000;
+  const elapsedOf = (s: ResourceSample): number => secondsOf(s.ts);
   const maxT = Math.max(...samples.map(elapsedOf), 1);
   const vram = machine.gpu === null ? 0 : machine.gpu.memTotalMb;
+
+  // One mark per tool call, where it started: what happened, on the timeline.
+  const marks = steps.flatMap((step) =>
+    step.tools.map((tool) => ({
+      t: secondsOf(tool.span.startedAt),
+      outcome: tool.outcome,
+      label: `${title(step.actor)} · ${toolLabel(tool)}`,
+    })),
+  );
 
   const build = (value: (s: ResourceSample) => number | null): Point[] =>
     samples.map((s) => ({ t: elapsedOf(s), v: value(s) }));
@@ -132,16 +165,19 @@ export function SampleChart({
   };
 
   const current = hover === null ? undefined : samples[hover];
-  const activeAgent =
+  // What was happening at the hovered instant: the agent, its turn, its tool.
+  const activeStep =
     current === undefined
       ? undefined
-      : steps.find((step) => {
-          const ts = Date.parse(current.ts);
-          return (
-            ts >= Date.parse(step.span.startedAt) &&
-            ts <= Date.parse(step.span.endedAt)
-          );
-        })?.actor;
+      : steps.find((step) => within(current.ts, step.span));
+  const activeTurn =
+    current === undefined
+      ? undefined
+      : activeStep?.turns.find((turn) => within(current.ts, turn.span));
+  const activeTool =
+    current === undefined
+      ? undefined
+      : activeStep?.tools.find((tool) => within(current.ts, tool.span));
 
   return (
     <div className="sample-chart xy-chart">
@@ -201,6 +237,23 @@ export function SampleChart({
             y1={MARGIN.top}
             y2={MARGIN.top + PLOT_H}
           />
+          <g className="marks" aria-hidden="true">
+            {marks
+              .filter((mark) => mark.t >= 0 && mark.t <= maxT)
+              .map((mark) => (
+                <line
+                  key={`${mark.label}-${String(mark.t)}`}
+                  x1={x(mark.t)}
+                  x2={x(mark.t)}
+                  y1={MARGIN.top + PLOT_H - 5}
+                  y2={MARGIN.top + PLOT_H}
+                  style={{
+                    stroke:
+                      mark.outcome === 'error' ? 'var(--warn)' : 'var(--muted)',
+                  }}
+                />
+              ))}
+          </g>
           {series.map((s) => (
             <polyline
               key={s.label}
@@ -246,8 +299,19 @@ export function SampleChart({
             }}
           >
             <b>{duration(Math.round(elapsedOf(current)) * 1000)}</b>
-            {activeAgent !== undefined && (
-              <span className="muted">{title(activeAgent)}</span>
+            {activeStep !== undefined && (
+              <span className="muted">
+                {title(activeStep.actor)}
+                {activeTurn === undefined
+                  ? ''
+                  : ` · turno ${String(activeTurn.index)}`}
+              </span>
+            )}
+            {activeTool !== undefined && (
+              <span className="happened">
+                {toolLabel(activeTool)}{' '}
+                {activeTool.outcome === 'error' ? '(erro)' : ''}
+              </span>
             )}
             {series.map((s) => {
               const detail = s.detail(current);

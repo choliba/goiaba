@@ -1174,6 +1174,13 @@ tr.row-link:hover th a {
   border-radius: 50%;
   margin-right: 6px;
 }
+.sample-tip .happened {
+  font-weight: 600;
+  color: var(--ink);
+}
+.sample-chart .marks line {
+  stroke-width: 2;
+}
 
 /* A test's latest rounds on one line, and "Mais (n)" (RecentRounds) */
 .recent-rounds {
