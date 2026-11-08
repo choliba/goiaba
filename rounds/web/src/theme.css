@@ -349,6 +349,7 @@ tr.total td {
 }
 .rules li {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: baseline;
   background: var(--ok-bg);
@@ -357,6 +358,22 @@ tr.total td {
 }
 .rules li.failed {
   background: var(--warn-bg);
+}
+.rules .asked {
+  flex-basis: 100%;
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.rules .asked pre {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--code-bg);
+  border-radius: 6px;
+  font: 12.5px/1.45 var(--mono);
+  white-space: pre-wrap;
 }
 .rules b {
   font: 600 12px/1 var(--mono);

@@ -172,6 +172,18 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
                   <code>{v.rule}</code>
                   {v.actor === null ? '' : ` · ${v.actor}`}: {v.detail}
                 </span>
+                {!v.passed && v.rule === 'no-questions' && v.actor !== null && (
+                  <ul className="asked">
+                    {record.steps
+                      .filter((step) => step.actor === v.actor)
+                      .flatMap((step) => step.asked)
+                      .map((question, qi) => (
+                        <li key={qi}>
+                          <pre>{question}</pre>
+                        </li>
+                      ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
