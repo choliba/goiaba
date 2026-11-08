@@ -13,6 +13,7 @@ import {
 } from '../components/Config';
 import { CopyDeclaration } from '../components/CopyDeclaration';
 import { Flow } from '../components/Flow';
+import { Resources } from '../components/Resources';
 import { Scores } from '../components/Scores';
 import { TestRounds } from '../components/TestRounds';
 import { TestsNav } from '../components/TestsNav';
@@ -150,6 +151,8 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
       <Scores score={round.score} record={round.record} />
 
       <Measures round={round} />
+
+      <Resources round={round} />
 
       <section className="block" aria-labelledby="regras">
         <h2 id="regras">Regras</h2>

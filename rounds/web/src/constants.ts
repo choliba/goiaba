@@ -21,6 +21,13 @@ export const CHART_HEIGHT = 360;
 export const CHART_TICKS = 5;
 
 /**
+ * The resource chart's drawing area, in SVG units (it scales to the page's
+ * width): as wide as the XY chart, shorter because its Y axis is a fixed
+ * 0–100% and does not need the room.
+ */
+export const SAMPLE_CHART_HEIGHT = 220;
+
+/**
  * How long, in milliseconds, a point's card stays after the mouse leaves the
  * point or the card: 250 ms is enough to cross the 14 px gap between them
  * and reach the card's links, and short enough to feel immediate.

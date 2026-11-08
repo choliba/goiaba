@@ -1108,6 +1108,35 @@ tr.row-link:hover th a {
   margin-right: 6px;
 }
 
+/* The machine a round ran on, and its use over time (Resources) */
+.machine {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 24px;
+  margin: 0 0 16px;
+}
+.machine div {
+  display: grid;
+  gap: 2px;
+}
+.machine dt {
+  font: 600 11px var(--body);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.machine dd {
+  margin: 0;
+  font: 14px var(--body);
+  color: var(--ink);
+}
+.machine dd small {
+  color: var(--muted);
+}
+.sample-chart {
+  margin-top: 12px;
+}
+
 /* A test's latest rounds on one line, and "Mais (n)" (RecentRounds) */
 .recent-rounds {
   list-style: none;

@@ -148,6 +148,28 @@ const METRICS = {
     show: decimal,
     tick: fine,
   },
+  cpuMedia: {
+    label: 'CPU média',
+    value: measure((r, name) => r.resources?.actors[name]?.cpu.avgPct),
+    show: (v) => `${fine(v)}%`,
+    tick: fine,
+  },
+  gpuPico: {
+    label: 'GPU pico',
+    value: measure(
+      (r, name) => r.resources?.actors[name]?.gpu?.peakUtilPct ?? undefined,
+    ),
+    show: (v) => `${fine(v)}%`,
+    tick: fine,
+  },
+  energia: {
+    label: 'Energia da GPU',
+    value: measure(
+      (r, name) => r.resources?.actors[name]?.gpu?.energyWh ?? undefined,
+    ),
+    show: (v) => `${fine(v)} Wh`,
+    tick: fine,
+  },
 } satisfies Record<string, Metric>;
 
 type MetricKey = keyof typeof METRICS;

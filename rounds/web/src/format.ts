@@ -86,3 +86,25 @@ export function spread(
 /** The goal, or what the rounds that ran without one show. */
 export const goalOf = (goal: string): string =>
   goal.trim().length === 0 ? 'sem objetivo declarado' : goal;
+
+const oneDecimal = new Intl.NumberFormat('pt-BR', {
+  maximumFractionDigits: 1,
+});
+
+/** `9%`, `2,3%`; `—` when not measured. */
+export const percent = (value: number | null): string =>
+  value === null ? NOT_MEASURED : `${oneDecimal.format(value)}%`;
+
+/** `512 MB`, `5,4 GB`; `—` when not measured. */
+export function megabytes(mb: number | null): string {
+  if (mb === null) return NOT_MEASURED;
+  if (mb < 1024) return `${integer.format(Math.round(mb))} MB`;
+  return `${oneDecimal.format(mb / 1024)} GB`;
+}
+
+/** `0,02 Wh`, `1,2 kWh`; `—` when not measured. */
+export function energy(wh: number | null): string {
+  if (wh === null) return NOT_MEASURED;
+  if (wh >= 1000) return `${oneDecimal.format(wh / 1000)} kWh`;
+  return `${wh.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} Wh`;
+}
