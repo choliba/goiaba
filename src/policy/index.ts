@@ -528,7 +528,11 @@ function validatePermissions(permissions: AgentPolicy): void {
             `Uma regra ${category} precisa ter ${category === 'execution' ? 'commands' : 'alvos'}.`,
           );
         }
-        if ('operations' in rule && rule.operations.length === 0) {
+        if (
+          'operations' in rule &&
+          rule.operations !== undefined &&
+          rule.operations.length === 0
+        ) {
           throw new UsageError(`Uma regra ${category} precisa ter operações.`);
         }
 
@@ -601,7 +605,10 @@ function matchesRule(rule: PolicyRule, action: AgentAction): boolean {
   const target = actionTarget(action);
 
   if (action.category === 'execution') {
+    // The one verb is `run`; omitted, it is assumed. The line still decides.
+    const operations = 'operations' in rule ? rule.operations : undefined;
     return (
+      (operations === undefined || includesOperation(operations, 'run')) &&
       patterns.some((pattern) => commandMatches(target, pattern)) &&
       !ignored.some((pattern) => commandMatches(target, pattern))
     );
@@ -625,10 +632,13 @@ function matchesRule(rule: PolicyRule, action: AgentAction): boolean {
 }
 
 function includesOperation(
-  operations: readonly string[],
+  operations: readonly string[] | undefined,
   operation: string,
 ): boolean {
-  return operations.includes('*') || operations.includes(operation);
+  return (
+    operations !== undefined &&
+    (operations.includes('*') || operations.includes(operation))
+  );
 }
 
 function matchesAny(

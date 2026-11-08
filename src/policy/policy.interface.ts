@@ -25,8 +25,16 @@ export interface WebRule {
   readonly ignores?: { readonly domains?: readonly string[] };
 }
 
-/** Execution is governed by command only: no CLI can verify intent (tests, lint...). */
+/** The one verb of execution: run a command. */
+export type ExecutionOperation = 'run';
+
+/**
+ * Execution is matched by the command line (no CLI can verify intent: tests,
+ * lint...). `operations` exists only to give the category the same shape as
+ * the others; it has a single verb, `run`, and when left out it is assumed.
+ */
 export interface ExecutionRule {
+  readonly operations?: readonly (ExecutionOperation | '*')[];
   readonly commands: readonly string[];
   readonly ignores?: { readonly commands?: readonly string[] };
 }

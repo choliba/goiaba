@@ -167,6 +167,35 @@ describe('PolicyEngine', () => {
     ).toBe('allow');
   });
 
+  test('execution: operations é opcional e, quando presente, run/* valem', () => {
+    const engine = new PolicyEngine({
+      default: 'deny',
+      allow: {
+        execution: [
+          // sem operations: continua valendo
+          { commands: ['ls *'] },
+          // com operations explícito
+          { operations: ['run'], commands: ['pwd'] },
+          // curinga
+          { operations: ['*'], commands: ['whoami'] },
+        ],
+      },
+    });
+
+    expect(
+      engine.check({ category: 'execution', command: 'ls -la' }).policy,
+    ).toBe('allow');
+    expect(engine.check({ category: 'execution', command: 'pwd' }).policy).toBe(
+      'allow',
+    );
+    expect(
+      engine.check({ category: 'execution', command: 'whoami' }).policy,
+    ).toBe('allow');
+    expect(
+      engine.check({ category: 'execution', command: 'rm -rf /' }).policy,
+    ).toBe('deny');
+  });
+
   test('solicita aprovação uma vez para a ação atual', async () => {
     const engine = new PolicyEngine({
       default: 'require_approval',
