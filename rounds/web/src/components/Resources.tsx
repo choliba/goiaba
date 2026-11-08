@@ -137,7 +137,7 @@ export function Resources({ round }: { readonly round: Round }): ReactNode {
         {String(resources.intervalMs / 1000)} s. A energia é a potência da GPU
         somada no tempo.
       </p>
-      <SampleChart resources={resources} />
+      <SampleChart resources={resources} steps={round.record.steps} />
     </section>
   );
 }

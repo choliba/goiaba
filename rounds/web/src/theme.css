@@ -1136,6 +1136,44 @@ tr.row-link:hover th a {
 .sample-chart {
   margin-top: 12px;
 }
+.sample-plot {
+  position: relative;
+}
+.sample-chart svg {
+  touch-action: none;
+}
+.sample-chart .cursor line {
+  stroke: var(--muted);
+  stroke-dasharray: 3 3;
+}
+.sample-chart .cursor circle {
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.sample-tip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.25);
+  font: 12.5px/1.4 var(--body);
+  color: var(--ink);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.sample-tip .swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
 
 /* A test's latest rounds on one line, and "Mais (n)" (RecentRounds) */
 .recent-rounds {

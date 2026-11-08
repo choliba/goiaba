@@ -3,23 +3,29 @@
  * VRAM), all on a single 0–100% axis so they read against each other, X in
  * elapsed time. Memory is shown as a share of what the machine has, so it
  * sits on the same axis as the percentages. Drawn as plain SVG, like the XY
- * chart; no chart library.
+ * chart; no chart library. The mouse over the plot shows, at that instant,
+ * each series' value and which agent was running.
  */
 
-import type { ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 
 import type {
   ResourceSample,
   RoundResources,
+  RoundStep,
 } from '../../../../src/rounds/types';
 import { CHART_WIDTH, SAMPLE_CHART_HEIGHT } from '../constants';
-import { duration } from '../format';
+import { duration, megabytes, percent, title } from '../format';
 
 const MARGIN = { top: 10, right: 12, bottom: 24, left: 34 } as const;
 const PLOT_W = CHART_WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_H = SAMPLE_CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
 const Y_TICKS = [0, 25, 50, 75, 100] as const;
 const X_TICKS = 5;
+
+/** A value as a share of a total, 0–100; `null` when the total is unknown. */
+const share = (used: number, total: number): number | null =>
+  total === 0 ? null : (used / total) * 100;
 
 /** A point of a series: elapsed seconds and its value, 0–100 or a gap. */
 interface Point {
@@ -32,14 +38,21 @@ interface Series {
   /** A theme color variable. */
   readonly color: string;
   readonly points: readonly Point[];
+  /** What the tooltip shows for a sample; `null` leaves the row out. */
+  readonly detail: (sample: ResourceSample) => string | null;
 }
 
 export function SampleChart({
   resources,
+  steps,
 }: {
   readonly resources: RoundResources;
+  readonly steps: readonly RoundStep[];
 }): ReactNode {
   const { samples, machine } = resources;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hover, setHover] = useState<number | null>(null);
+
   if (samples.length < 2) {
     return (
       <p className="note">
@@ -59,15 +72,18 @@ export function SampleChart({
     samples.map((s) => ({ t: elapsedOf(s), v: value(s) }));
 
   const series: Series[] = [
-    { label: 'CPU', color: 'var(--guava)', points: build((s) => s.cpuPct) },
+    {
+      label: 'CPU',
+      color: 'var(--guava)',
+      points: build((s) => s.cpuPct),
+      detail: (s) => percent(s.cpuPct),
+    },
     {
       label: 'RAM',
       color: 'var(--leaf)',
-      points: build((s) =>
-        machine.memTotalMb === 0
-          ? null
-          : (s.memUsedMb / machine.memTotalMb) * 100,
-      ),
+      points: build((s) => share(s.memUsedMb, machine.memTotalMb)),
+      detail: (s) =>
+        `${percent(share(s.memUsedMb, machine.memTotalMb))} (${megabytes(s.memUsedMb)})`,
     },
   ];
   if (machine.gpu !== null) {
@@ -76,13 +92,18 @@ export function SampleChart({
         label: 'GPU',
         color: 'var(--violet)',
         points: build((s) => s.gpu?.utilPct ?? null),
+        detail: (s) => (s.gpu === null ? null : percent(s.gpu.utilPct)),
       },
       {
         label: 'VRAM',
         color: 'var(--amber)',
         points: build((s) =>
-          vram === 0 || s.gpu === null ? null : (s.gpu.memUsedMb / vram) * 100,
+          s.gpu === null ? null : share(s.gpu.memUsedMb, vram),
         ),
+        detail: (s) =>
+          s.gpu === null
+            ? null
+            : `${percent(share(s.gpu.memUsedMb, vram))} (${megabytes(s.gpu.memUsedMb)})`,
       },
     );
   }
@@ -90,6 +111,37 @@ export function SampleChart({
   const x = (t: number): number => MARGIN.left + (t / maxT) * PLOT_W;
   const y = (v: number): number =>
     MARGIN.top + (1 - Math.min(100, Math.max(0, v)) / 100) * PLOT_H;
+
+  /** The sample nearest the pointer, by elapsed time. */
+  const nearest = (clientX: number): number => {
+    const svg = svgRef.current;
+    if (svg === null) return 0;
+    const rect = svg.getBoundingClientRect();
+    const units = ((clientX - rect.left) / rect.width) * CHART_WIDTH;
+    const t = ((units - MARGIN.left) / PLOT_W) * maxT;
+    let best = 0;
+    let bestGap = Infinity;
+    samples.forEach((sample, index) => {
+      const gap = Math.abs(elapsedOf(sample) - t);
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = index;
+      }
+    });
+    return best;
+  };
+
+  const current = hover === null ? undefined : samples[hover];
+  const activeAgent =
+    current === undefined
+      ? undefined
+      : steps.find((step) => {
+          const ts = Date.parse(current.ts);
+          return (
+            ts >= Date.parse(step.span.startedAt) &&
+            ts <= Date.parse(step.span.endedAt)
+          );
+        })?.actor;
 
   return (
     <div className="sample-chart xy-chart">
@@ -101,65 +153,114 @@ export function SampleChart({
           </li>
         ))}
       </ul>
-      <svg
-        viewBox={`0 0 ${String(CHART_WIDTH)} ${String(SAMPLE_CHART_HEIGHT)}`}
-        role="img"
-        aria-label="Uso de recursos ao longo da rodada, em porcentagem"
-      >
-        {Y_TICKS.map((v) => (
-          <g key={`y${String(v)}`} className="tick">
-            <line
-              x1={MARGIN.left}
-              x2={CHART_WIDTH - MARGIN.right}
-              y1={y(v)}
-              y2={y(v)}
-            />
+      <div className="sample-plot">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${String(CHART_WIDTH)} ${String(SAMPLE_CHART_HEIGHT)}`}
+          role="img"
+          aria-label="Uso de recursos ao longo da rodada, em porcentagem"
+          onPointerMove={(event) => setHover(nearest(event.clientX))}
+          onPointerLeave={() => setHover(null)}
+        >
+          {Y_TICKS.map((v) => (
+            <g key={`y${String(v)}`} className="tick">
+              <line
+                x1={MARGIN.left}
+                x2={CHART_WIDTH - MARGIN.right}
+                y1={y(v)}
+                y2={y(v)}
+              />
+              <text
+                x={MARGIN.left - 6}
+                y={y(v)}
+                textAnchor="end"
+                dominantBaseline="middle"
+              >
+                {String(v)}
+              </text>
+            </g>
+          ))}
+          {Array.from(
+            { length: X_TICKS + 1 },
+            (_, i) => (maxT / X_TICKS) * i,
+          ).map((t) => (
             <text
-              x={MARGIN.left - 6}
-              y={y(v)}
-              textAnchor="end"
-              dominantBaseline="middle"
+              key={`x${String(t)}`}
+              className="tick"
+              x={x(t)}
+              y={SAMPLE_CHART_HEIGHT - 8}
+              textAnchor="middle"
             >
-              {String(v)}
+              {duration(Math.round(t) * 1000)}
             </text>
-          </g>
-        ))}
-        {Array.from(
-          { length: X_TICKS + 1 },
-          (_, i) => (maxT / X_TICKS) * i,
-        ).map((t) => (
-          <text
-            key={`x${String(t)}`}
-            className="tick"
-            x={x(t)}
-            y={SAMPLE_CHART_HEIGHT - 8}
-            textAnchor="middle"
-          >
-            {duration(Math.round(t) * 1000)}
-          </text>
-        ))}
-        <line
-          className="axis"
-          x1={MARGIN.left}
-          x2={MARGIN.left}
-          y1={MARGIN.top}
-          y2={MARGIN.top + PLOT_H}
-        />
-        {series.map((s) => (
-          <polyline
-            key={s.label}
-            fill="none"
-            stroke={s.color}
-            strokeWidth={1.75}
-            points={s.points
-              .map((p) =>
-                p.v === null ? '' : `${String(x(p.t))},${String(y(p.v))}`,
-              )
-              .filter((point) => point.length > 0)
-              .join(' ')}
+          ))}
+          <line
+            className="axis"
+            x1={MARGIN.left}
+            x2={MARGIN.left}
+            y1={MARGIN.top}
+            y2={MARGIN.top + PLOT_H}
           />
-        ))}
-      </svg>
+          {series.map((s) => (
+            <polyline
+              key={s.label}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={1.75}
+              points={s.points
+                .map((p) =>
+                  p.v === null ? '' : `${String(x(p.t))},${String(y(p.v))}`,
+                )
+                .filter((point) => point.length > 0)
+                .join(' ')}
+            />
+          ))}
+          {current !== undefined && (
+            <g className="cursor" aria-hidden="true">
+              <line
+                x1={x(elapsedOf(current))}
+                x2={x(elapsedOf(current))}
+                y1={MARGIN.top}
+                y2={MARGIN.top + PLOT_H}
+              />
+              {series.map((s) => {
+                const point = s.points[hover ?? 0];
+                return point === undefined || point.v === null ? null : (
+                  <circle
+                    key={s.label}
+                    cx={x(point.t)}
+                    cy={y(point.v)}
+                    r={3}
+                    style={{ fill: s.color }}
+                  />
+                );
+              })}
+            </g>
+          )}
+        </svg>
+        {current !== undefined && (
+          <div
+            className="sample-tip"
+            style={{
+              left: `${String((x(elapsedOf(current)) / CHART_WIDTH) * 100)}%`,
+            }}
+          >
+            <b>{duration(Math.round(elapsedOf(current)) * 1000)}</b>
+            {activeAgent !== undefined && (
+              <span className="muted">{title(activeAgent)}</span>
+            )}
+            {series.map((s) => {
+              const detail = s.detail(current);
+              return detail === null ? null : (
+                <span key={s.label}>
+                  <span className="swatch" style={{ background: s.color }} />
+                  {s.label}: {detail}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
