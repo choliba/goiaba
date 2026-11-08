@@ -12,6 +12,7 @@ import {
   promptChanges,
 } from '../components/Config';
 import { CopyDeclaration } from '../components/CopyDeclaration';
+import { ExtractAgent } from '../components/ExtractAgent';
 import { Flow } from '../components/Flow';
 import { Resources } from '../components/Resources';
 import { Scores } from '../components/Scores';
@@ -183,6 +184,13 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
       <section className="block" aria-labelledby="configuracao">
         <h2 id="configuracao">Configuração de cada agente</h2>
         <ActorConfigs round={record} />
+        {record.declaration !== undefined && (
+          <div className="extract-agents">
+            {Object.entries(record.declaration.actors).map(([name, actor]) => (
+              <ExtractAgent key={name} name={name} actor={actor} />
+            ))}
+          </div>
+        )}
         {previous !== undefined && (
           <div className="changes">
             <h3>

@@ -299,6 +299,7 @@ const declaredActor = object({
     model: nullable(nonEmpty),
     'contextWindow?': positive,
     'think?': boolean,
+    'tools?': list(nonEmpty),
   }),
   workspace: object({
     type: oneOf(WORKSPACE_TYPES),

@@ -18,6 +18,7 @@ import type { Interaction } from '../src/interaction/index';
 import type { Provider, ProviderEvent } from '../src/providers/types';
 import {
   captureDeclaration,
+  agentSource,
   declarationSource,
   defineRound,
   findDefinition,
@@ -1148,6 +1149,37 @@ test('a declaração vira dados e volta a ser um arquivo que declara a mesma rod
   } finally {
     rmSync(file, { force: true });
   }
+});
+
+test('agentSource gera um agente de agents/ com provider, workspace, política e tools', () => {
+  const source = agentSource('product-owner', {
+    provider: {
+      name: 'ollama',
+      cli: 'claude',
+      model: 'qwen3.5:4b',
+      contextWindow: 20_000,
+      think: false,
+      tools: ['file_write'],
+    },
+    workspace: {
+      type: 'bubblewrap',
+      image: null,
+      root: '<projeto>/x',
+      hostState: 'none',
+    },
+    permissions: { default: 'deny' },
+    readOnly: false,
+  });
+
+  expect(source).toContain('await new Agent({');
+  expect(source).toContain('name: "product-owner"');
+  expect(source).toContain(
+    'new OllamaProvider({"cli":"claude","model":"qwen3.5:4b","contextWindow":20000,"think":false,"tools":["file_write"]})',
+  );
+  // O workspace aponta para a pasta configurada, não a da rodada.
+  expect(source).toContain('root: getConfig().workspaces.dir');
+  expect(source).toContain('permissions: {');
+  expect(source).toContain('}).run();');
 });
 
 test('o registro guarda a declaração com que rodou', async () => {

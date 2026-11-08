@@ -82,6 +82,7 @@ export class OllamaProvider implements Provider<string, string> {
   private readonly compactAt: number;
   private readonly endpoint: string;
   private readonly think: boolean | undefined;
+  private readonly tools: readonly GoiabaTool[] | undefined;
 
   /**
    * Only with `think: false`: what turns the thinking off in each request
@@ -121,6 +122,7 @@ export class OllamaProvider implements Provider<string, string> {
       );
     }
     this.think = options.think;
+    this.tools = options.tools;
     if (options.think === false) this.rewriteRequest = withoutThinking;
 
     const providerOptions: ProviderOptions = {
@@ -172,6 +174,7 @@ export class OllamaProvider implements Provider<string, string> {
       cli: this.cli,
       contextWindow: this.contextWindow,
       ...(this.think === undefined ? {} : { think: this.think }),
+      ...(this.tools === undefined ? {} : { tools: this.tools }),
       readableContext:
         this.cli === 'claude'
           ? this.contextWindow - claudeReplyReserve(this.contextWindow)

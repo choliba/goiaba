@@ -52,6 +52,7 @@ function providerSource(provider: DeclaredActor['provider']): string {
       ? {}
       : { contextWindow: provider.contextWindow }),
     ...(provider.think === undefined ? {} : { think: provider.think }),
+    ...(provider.tools === undefined ? {} : { tools: provider.tools }),
   };
   return name === undefined
     ? `undefined /* provider "${provider.name}": escolha a classe */`
@@ -192,6 +193,53 @@ export function declarationSource(declaration: RoundDeclaration): string {
     ...(declaration.repeat === 1
       ? []
       : [`  repeat: ${String(declaration.repeat)},`]),
+    '});',
+    '',
+  ].join('\n');
+}
+
+/**
+ * One actor of a round as a standalone agent, ready to paste in `agents/`: a
+ * `new Agent({…}).run()` with the provider, workspace, policy and tools it ran
+ * with. The prompt is left as a placeholder (it is the task's, not the
+ * agent's), and the workspace points at the configured folder. A provider this
+ * file does not know comes out as a comment.
+ */
+export function agentSource(
+  name: string,
+  actor: RoundDeclaration['actors'][string],
+): string {
+  const { workspace, provider } = actor;
+  const providerClass = PROVIDERS[provider.name];
+  const ws = [`type: ${JSON.stringify(workspace.type)}`];
+  if (workspace.image !== null)
+    ws.push(`image: ${JSON.stringify(workspace.image)}`);
+  ws.push('root: getConfig().workspaces.dir');
+  if (workspace.hostState !== null) {
+    ws.push(`hostState: ${JSON.stringify(workspace.hostState)}`);
+  }
+
+  const imports = [
+    'Agent',
+    ...(providerClass === undefined ? [] : [providerClass]),
+    'Workspace',
+    'getConfig',
+    'runScript',
+  ].toSorted();
+
+  return [
+    `import { ${imports.join(', ')} } from '../src/index';`,
+    '',
+    'await runScript(async () => {',
+    '  await new Agent({',
+    `    name: ${JSON.stringify(name)},`,
+    "    prompt: 'TODO: o pedido ao agente.',",
+    `    provider: ${providerSource(provider)},`,
+    `    workspace: new Workspace({ ${ws.join(', ')} }),`,
+    ...(actor.permissions === null
+      ? []
+      : [`    permissions: ${literal(actor.permissions, '    ')},`]),
+    '  }).run();',
     '});',
     '',
   ].join('\n');

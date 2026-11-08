@@ -173,6 +173,8 @@ export interface DeclaredActor {
     readonly contextWindow?: number;
     /** See `ProviderSnapshot.think`. */
     readonly think?: boolean;
+    /** The capabilities the model saw, when restricted (`GoiabaTool`). */
+    readonly tools?: readonly string[];
   };
   readonly workspace: {
     readonly type: RoundWorkspaceType;

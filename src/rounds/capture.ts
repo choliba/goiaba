@@ -62,6 +62,9 @@ export function captureDeclaration(
             ...(described?.think === undefined
               ? {}
               : { think: described.think }),
+            ...(described?.tools === undefined
+              ? {}
+              : { tools: described.tools }),
           },
           workspace: {
             type: workspace.type,

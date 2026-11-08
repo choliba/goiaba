@@ -135,7 +135,11 @@ export class ClaudeProvider
   }
 
   public describe(): ProviderDescription {
-    return { name: 'claude', model: this.model };
+    return {
+      name: 'claude',
+      model: this.model,
+      ...(this.tools === undefined ? {} : { tools: this.tools }),
+    };
   }
 
   /** Its state (sessions, settings), its install, and its login. */

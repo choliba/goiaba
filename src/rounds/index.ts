@@ -19,7 +19,7 @@ export {
 export { noQuestions, noToolCallAsText, readOnlyRespected } from './rules';
 export { writableOf } from './permissions';
 export { captureDeclaration } from './capture';
-export { declarationSource } from './declaration';
+export { agentSource, declarationSource } from './declaration';
 export { findDefinition, listDefinitions } from './definitions';
 export { roundDir } from './dir';
 export { runRound, type RunRoundOptions } from './run';

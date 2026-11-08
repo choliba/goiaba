@@ -1231,21 +1231,25 @@ tr.row-link:hover th a {
 }
 
 /* A round's declaration, to copy (CopyDeclaration) */
-.copy-declaration {
+.copy-declaration,
+.extract-agent {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
 }
-.copy-declaration details {
+.copy-declaration details,
+.extract-agent details {
   flex-basis: 100%;
 }
-.copy-declaration summary {
+.copy-declaration summary,
+.extract-agent summary {
   cursor: pointer;
   color: var(--muted);
   font: 12.5px var(--mono);
 }
-.copy-declaration pre {
+.copy-declaration pre,
+.extract-agent pre {
   margin-top: 8px;
   max-height: 480px;
   overflow: auto;
@@ -1253,4 +1257,9 @@ tr.row-link:hover th a {
   background: var(--code-bg);
   border-radius: 6px;
   font: 12.5px/1.5 var(--mono);
+}
+.extract-agents {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
 }

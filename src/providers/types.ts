@@ -1,5 +1,6 @@
 import type { ProgramCommand, ProgramOutput } from '../execute/types';
 import type { AgentPolicy } from '../policy/policy.interface';
+import type { GoiabaTool } from './tools';
 
 export type AgentEvent<TOutput> =
   | {
@@ -139,6 +140,8 @@ export interface ProviderDescription {
   readonly readableContext?: number;
   /** `false` when the provider turns the model's thinking off; left out, the model's default. */
   readonly think?: boolean;
+  /** The capabilities the model sees, when the provider restricts them. */
+  readonly tools?: readonly GoiabaTool[];
 }
 
 export interface Provider<TInput, TOutput> {
