@@ -181,12 +181,9 @@ export function declarationSource(declaration: RoundDeclaration): string {
     '  flow: [',
     ...flowLines,
     '  ],',
-    ...(declaration.instructions === undefined
+    ...(declaration.criteria === undefined
       ? []
-      : [`  instructions: ${literal(declaration.instructions, '  ')},`]),
-    ...(declaration.limits === undefined
-      ? []
-      : [`  limits: ${literal(declaration.limits, '  ')},`]),
+      : [`  criteria: ${literal(declaration.criteria, '  ')},`]),
     ...(declaration.rules.length === 0
       ? []
       : [`  rules: [${ruleSource.join(', ')}],`]),

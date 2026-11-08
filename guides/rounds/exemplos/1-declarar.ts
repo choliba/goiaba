@@ -55,10 +55,8 @@ const wrong: [string, RoundDefinition][] = [
     'otherwise sem when',
     {
       ...base,
-      instructions: {
-        analista: [
-          { check: { file: 'a.txt' }, otherwise: { unchanged: true } },
-        ],
+      criteria: {
+        analista: [{ file: { name: 'a.txt', exists: true } }],
       },
     },
   ],

@@ -94,8 +94,8 @@ await runScript(async () => {
           },
         },
         flow: [{ actor: 'dev', prompt: () => ['Crie um index.html.'] }],
-        // Sem uma instrução conferível, não há eficácia, e sem ela, nota final.
-        instructions: { dev: [{ check: { file: 'index.html' } }] },
+        // Sem um critério conferível, não há eficácia, e sem ela, nota final.
+        criteria: { dev: [{ file: { name: 'index.html', exists: true } }] },
         repeat: 3,
       }),
       { dir: records, project, roundsDir },

@@ -138,17 +138,6 @@
       "tools": [],
       "changed": [],
       "diff": "",
-      "instructions": [
-        {
-          "check": "index.html contém \"h1\"",
-          "when": {
-            "check": "ticket.txt existe",
-            "held": true
-          },
-          "met": true,
-          "detail": "index.html contém \"h1\"."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 14156,
@@ -164,7 +153,14 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "index.html contém \"h1\"",
+          "met": true,
+          "detail": "index.html contém \"h1\"."
+        }
+      ]
     }
   ],
   "usage": [
@@ -294,22 +290,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "when": {
-            "file": "ticket.txt"
-          },
-          "check": {
-            "file": "index.html",
-            "contains": "h1"
-          },
-          "otherwise": {
-            "file": "ticket.txt"
-          }
-        }
-      ]
-    },
     "repeat": 1
   }
 }

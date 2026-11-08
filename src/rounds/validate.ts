@@ -278,19 +278,56 @@ const step = object({
   ),
   changed: list(string),
   diff: string,
-  instructions: list(
-    object({
-      check: nonEmpty,
-      when: nullable(object({ check: nonEmpty, held: boolean })),
-      met: boolean,
-      detail: string,
-    }),
+  criteria: list(
+    object({ description: nonEmpty, met: boolean, detail: string }),
   ),
   totals: usageTotal,
   references: nullable(
     object({ cited: count, valid: count, invalid: list(nonEmpty) }),
   ),
 });
+
+const fileCriterion = object({
+  name: nonEmpty,
+  'ignore?': list(nonEmpty),
+  'exists?': boolean,
+  'created?': boolean,
+  'deleted?': boolean,
+  'changed?': boolean,
+  'contains?': list(string),
+  'matches?': list(nonEmpty),
+  'equals?': string,
+});
+
+const limitCriterion = object({
+  'time?': nonEmpty,
+  'tokens?': positive,
+  'cost?': nonEmpty,
+});
+
+const condition = object({
+  name: nonEmpty,
+  'exists?': boolean,
+  'contains?': list(string),
+});
+
+/** A criterion: file, limit or conditional (which nests criteria). */
+const criterion: Check = (value, path) => {
+  if (!isObject(value)) throw invalid(path, 'um objeto', value);
+  if ('file' in value) return object({ file: fileCriterion })(value, path);
+  if ('limit' in value) return object({ limit: limitCriterion })(value, path);
+  if ('if' in value) {
+    return object({
+      if: condition,
+      check: list(criterion),
+      'else?': list(criterion),
+    })(value, path);
+  }
+  throw invalid(path, 'um critério com file, limit ou if', value);
+};
+
+/** The declared criteria: by actor name (and `round`). */
+const criteria = record(list(criterion));
 
 const declaredActor = object({
   provider: object({
@@ -326,8 +363,7 @@ const declaration = object({
     }),
   ),
   rules: list(nonEmpty),
-  'instructions?': anyObject,
-  'limits?': anyObject,
+  'criteria?': criteria,
   repeat: positive,
 });
 
@@ -431,13 +467,7 @@ const roundRecord = object({
       detail: string,
     }),
   ),
-  'criteria?': object({
-    'limits?': object({
-      'roundMs?': positive,
-      'actorMs?': record(positive),
-      'costUsd?': amount,
-    }),
-  }),
+  'criteria?': criteria,
   'declaration?': declaration,
   'resources?': resources,
 });

@@ -11,7 +11,13 @@ import { createConsumer } from '../events/index';
 import type { Interaction } from '../interaction/index';
 import { getConfig } from '../config/index';
 import { UsageError } from '../errors';
-import { join, realPathOfNearest } from '../filesystem/index';
+import {
+  isDirectory,
+  join,
+  listDirectory,
+  readText,
+  realPathOfNearest,
+} from '../filesystem/index';
 import { Workspace } from '../workspace/index';
 import { FIXTURE_TAG, NO_ONE_ANSWERS, RESOURCE_SAMPLE_MS } from './constants';
 import { writableOf } from './permissions';
@@ -27,7 +33,7 @@ import {
   tree,
   type Tree,
 } from './git';
-import { checkInstructions, conditionsAt } from './instructions';
+import { checkFiles, type Lookup } from './criteria';
 import { checkReferences } from './references';
 import { spanOf, StepRecorder } from './measures';
 import { measuresOf, sanitize, writeRound } from './record';
@@ -139,6 +145,63 @@ const title = (name: string): string =>
   `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 
 const now = (): string => new Date().toISOString();
+
+/** An empty workspace view, for a step with no criteria to check. */
+const emptyLookup: Lookup = {
+  exists: () => false,
+  read: () => undefined,
+  list: () => [],
+};
+
+/**
+ * The workspace at a moment, read into memory so the start can be compared
+ * with the end. Skips `.git`; a file it cannot read as text is listed but has
+ * no content.
+ */
+function snapshot(root: string): Lookup {
+  const content = new Map<string, string>();
+  const names = new Set<string>();
+  const walk = (dir: string, prefix: string): void => {
+    let entries: string[];
+    try {
+      entries = listDirectory(dir);
+    } catch {
+      return; // the folder went away or cannot be read
+    }
+    for (const entry of entries) {
+      if (entry === '.git') continue;
+      const absolute = join(dir, entry);
+      const relative = prefix === '' ? entry : `${prefix}/${entry}`;
+      if (isDirectory(absolute)) {
+        walk(absolute, relative);
+      } else {
+        names.add(relative);
+        try {
+          content.set(relative, readText(absolute));
+        } catch {
+          // binary or unreadable: it still exists, just has no text
+        }
+      }
+    }
+  };
+  walk(root, '');
+  return {
+    exists: (name) => names.has(name),
+    read: (name) => content.get(name),
+    list: () => [...names],
+  };
+}
+
+/** The relative paths of `git status --porcelain` lines (status prefix off). */
+function changedPaths(lines: readonly string[]): ReadonlySet<string> {
+  return new Set(
+    lines.map((line) => {
+      const path = line.slice(3);
+      const rename = path.indexOf(' -> ');
+      return rename === -1 ? path : path.slice(rename + 4);
+    }),
+  );
+}
 
 interface ActorClock {
   startedAt: string;
@@ -277,9 +340,11 @@ async function runOnce(
       gitCheckMs: null,
     });
     const before = await check(clock);
-    // The instructions' conditions, before the agent acts.
-    const stepInstructions = definition.instructions?.[name] ?? [];
-    const conditions = conditionsAt(stepInstructions, workspace.root);
+    // The actor's criteria, and the workspace as it is before the agent acts
+    // (for `if` conditions and created/deleted).
+    const actorCriteria = definition.criteria?.[name] ?? [];
+    const startFiles =
+      actorCriteria.length > 0 ? snapshot(workspace.root) : emptyLookup;
 
     // The conversation's screen, without reading the keyboard: a question
     // of the agent is answered here, as if someone had typed it.
@@ -376,12 +441,14 @@ async function runOnce(
       usage: measured.usage,
       changed,
       diff,
-      instructions: checkInstructions(
-        stepInstructions,
-        conditions,
-        workspace.root,
-        changed,
-      ),
+      criteria:
+        actorCriteria.length === 0
+          ? []
+          : checkFiles(actorCriteria, {
+              start: startFiles,
+              end: snapshot(workspace.root),
+              changed: changedPaths(changed),
+            }),
       totals: totalOf(measured.usage),
       references,
     };
@@ -469,9 +536,9 @@ async function runOnce(
         ]),
       ),
       violations: rules,
-      ...(definition.limits === undefined
+      ...(definition.criteria === undefined
         ? {}
-        : { criteria: { limits: definition.limits } }),
+        : { criteria: definition.criteria }),
       declaration: captureDeclaration(definition, label),
       ...(resources === undefined ? {} : { resources }),
     };

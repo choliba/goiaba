@@ -20,8 +20,9 @@
 
 import { RUBRIC } from './constants';
 import { wildmatch } from '../policy/wildmatch';
+import { checkLimits, type Measured } from './criteria';
 import { statusPath, writableOf } from './permissions';
-import type { RoundRecord, RoundStep } from './types';
+import type { RoundCriterion, RoundRecord, RoundStep } from './types';
 
 export const RUBRIC_VERSION = '3';
 
@@ -136,30 +137,45 @@ function eliminations(record: RoundRecord, actor: string): string[] {
   return reasons;
 }
 
-/** The checkable instructions of its prompt, as checked at the end of each step. */
-function instructions(record: RoundRecord, actor: string): CriterionScore {
-  const label = 'Instruções do prompt';
-  const results = stepsOf(record, actor).flatMap((step) => step.instructions);
+/** The file/conditional criteria of its prompt, as checked at each step's end. */
+function fileCriteria(record: RoundRecord, actor: string): CriterionScore {
+  const label = 'Critérios do prompt';
+  const results = stepsOf(record, actor).flatMap((step) => step.criteria);
   if (results.length === 0) {
     return {
-      id: 'instructions',
+      id: 'criteria',
       label,
       score: null,
       detail:
-        'Nenhuma instrução conferível declarada (instructions) para este agente.',
+        'Nenhum critério conferível de arquivo declarado para este agente.',
     };
   }
   const met = results.filter((result) => result.met).length;
   const missed = results.filter((result) => !result.met);
   return {
-    id: 'instructions',
+    id: 'criteria',
     label,
     score: round1((5 * met) / results.length),
     detail:
       missed.length === 0
-        ? `Cumpriu as ${String(results.length)} instruções: ${results.map((r) => r.detail).join(' ')}`
+        ? `Cumpriu os ${String(results.length)} critérios: ${results.map((r) => r.detail).join(' ')}`
         : `Cumpriu ${String(met)} de ${String(results.length)}. ${missed.map((r) => r.detail).join(' ')}`,
   };
+}
+
+/** The limit criteria (time/tokens/cost) compared with what was measured. */
+function limitScores(
+  prefix: string,
+  label: string,
+  criteria: readonly RoundCriterion[],
+  measured: Measured,
+): CriterionScore[] {
+  return checkLimits(criteria, measured).map((result, index) => ({
+    id: `${prefix}-${String(index)}`,
+    label,
+    score: result.met ? 5 : 0,
+    detail: result.detail,
+  }));
 }
 
 /**
@@ -243,28 +259,6 @@ function references(record: RoundRecord, actor: string): CriterionScore {
   };
 }
 
-function limit(
-  id: string,
-  label: string,
-  value: number | null,
-  max: number | undefined,
-  show: (value: number) => string,
-): CriterionScore {
-  if (max === undefined)
-    return { id, label, score: null, detail: 'Sem limite declarado.' };
-  if (value === null) return { id, label, score: null, detail: 'Não medido.' };
-  return {
-    id,
-    label,
-    // Over the limit, the goal was not met.
-    score: value <= max ? 5 : 0,
-    detail:
-      value <= max
-        ? `${show(value)}, dentro do limite de ${show(max)}.`
-        : `${show(value)}, acima do limite de ${show(max)}.`,
-  };
-}
-
 const seconds = (ms: number): string => `${String(Math.round(ms / 1000))} s`;
 const tokens = (n: number): string =>
   `${String(Math.round(n / 1000))} mil tokens novos`;
@@ -329,15 +323,18 @@ function actorScore(
 ): ActorScore {
   const eliminated = eliminations(record, actor);
   const effectivenessCriteria = [
-    instructions(record, actor),
+    fileCriteria(record, actor),
     policy(record, actor),
     references(record, actor),
-    limit(
-      'time-limit',
-      'Limite de tempo',
-      entry(record.timing.actors, actor)?.durationMs ?? null,
-      entry(record.criteria?.limits?.actorMs, actor),
-      seconds,
+    ...limitScores(
+      'actor-limit',
+      'Limite do agente',
+      record.criteria?.[actor] ?? [],
+      {
+        ms: entry(record.timing.actors, actor)?.durationMs ?? null,
+        tokens: entry(record.totals.actors, actor)?.fresh ?? null,
+        cost: entry(record.totals.actors, actor)?.costUsd ?? null,
+      },
     ),
   ];
   const resourceCriteria = [
@@ -416,23 +413,16 @@ export function scoreRound(
       actorScore(record, actor, history),
     ]),
   );
-  const limits = record.criteria?.limits;
-  const roundCriteria = [
-    limit(
-      'round-time-limit',
-      'Limite de tempo da rodada',
-      record.timing.durationMs,
-      limits?.roundMs,
-      seconds,
-    ),
-    limit(
-      'round-cost-limit',
-      'Limite de custo da rodada',
-      record.totals.round.costUsd,
-      limits?.costUsd,
-      (usd) => `US$ ${usd.toFixed(2)}`,
-    ),
-  ];
+  const roundCriteria = limitScores(
+    'round-limit',
+    'Limite da rodada',
+    record.criteria?.round ?? [],
+    {
+      ms: record.timing.durationMs,
+      tokens: record.totals.round.fresh,
+      cost: record.totals.round.costUsd,
+    },
+  );
   const scores = Object.values(actors);
   const effectiveness = mean([
     ...scores.map((s) => s.effectiveness.score),

@@ -205,14 +205,6 @@
         " M index.html"
       ],
       "diff": "diff --git a/index.html b/index.html\nindex d4f6b94..ebc477e 100644\n--- a/index.html\n+++ b/index.html\n@@ -3,7 +3,7 @@\n   <head>\n     <meta charset=\"UTF-8\" />\n     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n-    <title>Site Vazio - Ollama Product Owner</title>\n+    <title>Goiaba - Ollama Product Owner</title>\n     <style>\n       * {\n         margin: 0;\n",
-      "instructions": [
-        {
-          "check": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
-          "when": null,
-          "met": false,
-          "detail": "index.html existe, mas não contém \"<h1>🚀 Goiaba</h1>\"."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 66666,
@@ -228,7 +220,14 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
+          "met": false,
+          "detail": "index.html existe, mas não contém \"<h1>🚀 Goiaba</h1>\"."
+        }
+      ]
     }
   ],
   "usage": [
@@ -408,16 +407,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "check": {
-            "file": "index.html",
-            "contains": "<h1>🚀 Goiaba</h1>"
-          }
-        }
-      ]
-    },
     "repeat": 1
   }
 }

@@ -175,25 +175,20 @@ test.each<[string, Partial<RoundDefinition>, string]>([
     'start.fixture deve ser o nome de uma pasta',
   ],
   [
-    'instrução com caminho absoluto',
-    { instructions: { analista: [{ check: { file: '/etc/passwd' } }] } },
-    'use um caminho relativo à raiz do workspace',
+    'critério de arquivo com caminho absoluto',
+    { criteria: { analista: [{ file: { name: '/etc/passwd' } }] } },
+    'caminho relativo à raiz do workspace',
   ],
   [
-    'otherwise sem when',
-    {
-      instructions: {
-        analista: [
-          { check: { file: 'a.txt' }, otherwise: { unchanged: true } },
-        ],
-      },
-    },
-    'tem otherwise sem when',
+    'critério sem file, limit ou if',
+    // @ts-expect-error: critério inválido de propósito, para a recusa.
+    { criteria: { analista: [{}] } },
+    'um critério precisa ter file, limit ou if',
   ],
   [
-    'instrução de agente que não existe',
-    { instructions: { revisor: [{ check: { file: 'a.txt' } }] } },
-    'instructions fala de "revisor"',
+    'critério de agente que não existe',
+    { criteria: { revisor: [{ file: { name: 'a.txt' } }] } },
+    'criteria fala de "revisor"',
   ],
 ])('defineRound recusa %s', (_name, overrides, message) => {
   expect(() => defineRound(definition(overrides))).toThrow(message);
@@ -649,24 +644,29 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
           },
         ],
         rules: [readOnlyRespected()],
-        instructions: {
+        criteria: {
           programador: [
-            { check: { file: 'b.txt', contains: 'NOVO' } },
-            { check: { file: 'c.txt' } },
-            // b.txt did not exist when the programmer started: otherwise applies.
+            { file: { name: 'b.txt', contains: ['NOVO'] } },
+            { file: { name: 'c.txt', exists: true } },
+            // b.txt did not exist when the programmer started: else applies.
             {
-              when: { file: 'b.txt' },
-              check: { file: 'b.txt', contains: 'velho' },
-              otherwise: { unchanged: true },
+              if: { name: 'b.txt', exists: true },
+              check: [{ file: { name: 'b.txt', contains: ['velho'] } }],
+              else: [{ file: { name: '*', changed: false } }],
             },
-            // a.txt existed: the check applies; no otherwise needed.
+            // a.txt existed: the check branch applies.
             {
-              when: { file: 'a.txt' },
-              check: { file: 'a.txt', contains: 'base' },
+              if: { name: 'a.txt', exists: true },
+              check: [{ file: { name: 'a.txt', contains: ['base'] } }],
             },
           ],
-          // The analyst: a.txt existed, it changed nothing.
-          analista: [{ when: { file: 'zzz.txt' }, check: { file: 'zzz.txt' } }],
+          // The analyst: zzz.txt did not exist, so nothing applies.
+          analista: [
+            {
+              if: { name: 'zzz.txt', exists: true },
+              check: [{ file: { name: 'zzz.txt', exists: true } }],
+            },
+          ],
         },
       }),
       { dir, project, screen: quiet, label: 'analista só lê' },
@@ -681,34 +681,28 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
     expect(round.start?.tag).toBe('rodada-base');
     expect(round.label).toBe('analista só lê');
     // Checked against the workspace at the end of the step: only the verdict.
-    expect(round.steps[1]?.instructions).toEqual([
+    expect(round.steps[1]?.criteria).toEqual([
       {
-        check: 'b.txt contém "NOVO"',
-        when: null,
+        description: 'b.txt contém "NOVO"',
         met: true,
         detail: 'b.txt contém "NOVO".',
       },
+      { description: 'c.txt existe', met: false, detail: 'c.txt não existe.' },
+      // else branch (b.txt did not exist at the start): nothing may have changed.
       {
-        check: 'c.txt existe',
-        when: null,
+        description: '* não mudou',
         met: false,
-        detail: 'c.txt não existe.',
+        detail: 'b.txt mudou, mas não devia.',
       },
+      // check branch (a.txt existed at the start).
       {
-        check: 'não alterou nada',
-        when: { check: 'b.txt existe', held: false },
-        met: false,
-        detail: 'Alterou: ?? b.txt.',
-      },
-      {
-        check: 'a.txt contém "base"',
-        when: { check: 'a.txt existe', held: true },
+        description: 'a.txt contém "base"',
         met: true,
         detail: 'a.txt contém "base".',
       },
     ]);
-    // A condition that did not hold, with no otherwise: the instruction does not apply.
-    expect(round.steps[0]?.instructions).toEqual([]);
+    // A condition that did not hold, with no else: nothing applies.
+    expect(round.steps[0]?.criteria).toEqual([]);
     expect(round.steps.map((s) => [s.actor, s.said, s.changed])).toEqual([
       ['analista', ['dois problemas'], []],
       ['programador', ['corrigi'], ['?? b.txt']],
@@ -1087,8 +1081,10 @@ test('a declaração vira dados e volta a ser um arquivo que declara a mesma rod
         ],
       },
     ],
-    instructions: { analista: [{ check: { unchanged: true } }] },
-    limits: { roundMs: 60_000 },
+    criteria: {
+      analista: [{ file: { name: '*', changed: false } }],
+      round: [{ limit: { time: '60s' } }],
+    },
     rules: [readOnlyRespected(), noQuestions()],
     repeat: 2,
   });

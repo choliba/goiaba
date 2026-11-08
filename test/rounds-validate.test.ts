@@ -106,10 +106,9 @@ function round(): RoundRecord {
         ],
         changed: [],
         diff: '',
-        instructions: [
+        criteria: [
           {
-            check: 'tickets/ticket-01.txt contém "ANÁLISE TÉCNICA"',
-            when: { check: 'tickets/ticket-01.txt existe', held: true },
+            description: 'tickets/ticket-01.txt contém "ANÁLISE TÉCNICA"',
             met: true,
             detail: 'tickets/ticket-01.txt contém "ANÁLISE TÉCNICA".',
           },

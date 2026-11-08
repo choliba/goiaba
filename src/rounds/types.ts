@@ -55,8 +55,8 @@ export interface RoundRecord {
   /** The result of every rule the declaration checks. */
   readonly violations: readonly RuleResult[];
   /**
-   * The limits the declaration set, copied so the record can be scored
-   * alone. Absent when it set none.
+   * The criteria the declaration set, by actor (and `round`), copied so the
+   * record can be scored alone. Absent when it set none.
    */
   readonly criteria?: RoundCriteria;
   /**
@@ -158,8 +158,8 @@ export interface RoundDeclaration {
   readonly flow: readonly DeclaredStep[];
   /** Rule ids: `read-only-respected`. */
   readonly rules: readonly string[];
-  readonly instructions?: Readonly<Record<string, readonly RoundInstruction[]>>;
-  readonly limits?: RoundLimits;
+  /** The declared criteria, by actor (and `round`); `matches` as its source. */
+  readonly criteria?: RoundCriteria;
   readonly repeat: number;
 }
 
@@ -317,56 +317,13 @@ export interface NetworkDecisionRecord {
   readonly reason: string;
 }
 
-/** What a round's declaration sets, to score it (see `src/rounds/score.ts`). */
-export interface RoundCriteria {
-  /** Limits set before the run: meeting them is part of the goal. */
-  readonly limits?: RoundLimits;
-}
-
-export interface RoundLimits {
-  /** The whole round, wall clock, in ms. */
-  readonly roundMs?: number;
-  /** Each actor's time, the sum of its steps, in ms. */
-  readonly actorMs?: Readonly<Record<string, number>>;
-  /** The whole round, in USD. */
-  readonly costUsd?: number;
-}
-
 /**
- * What must be true in the workspace: a file is there (holding a passage,
- * ignoring case), or the agent changed nothing in its step.
+ * What a round's declaration sets to score it: the criteria of each actor by
+ * name, plus `round` for the whole round (see `src/rounds/score.ts`).
  */
-export type RoundCheck =
-  | {
-      /** Relative to the workspace's root: `tickets/ticket-01.txt`. */
-      readonly file: string;
-      readonly contains?: string;
-    }
-  | { readonly unchanged: true };
+export type RoundCriteria = Readonly<Record<string, readonly RoundCriterion[]>>;
 
-/**
- * An instruction of a step's prompt that the round checks by itself: `check`
- * at the end of the step; with `when`, only if it held at the start of the
- * step (before the agent acted), and `otherwise` when it did not.
- */
-export interface RoundInstruction {
-  readonly when?: { readonly file: string; readonly contains?: string };
-  readonly check: RoundCheck;
-  readonly otherwise?: RoundCheck;
-}
-
-/** An instruction, checked; only the verdict is kept, never the file. */
-export interface InstructionResult {
-  /** What was checked, written by the round: `tickets/ticket-01.txt contém "ANÁLISE TÉCNICA"`. */
-  readonly check: string;
-  /** The condition and whether it held at the start; `null` without one. */
-  readonly when: { readonly check: string; readonly held: boolean } | null;
-  readonly met: boolean;
-  /** Why, in the user's language. */
-  readonly detail: string;
-}
-
-// --- Criteria (new model; replaces RoundInstruction/limits as it is wired in) ---
+// --- Criteria ---
 
 /**
  * A criterion of a good round: an assertion about a file, a limit of
@@ -464,8 +421,8 @@ export interface RoundStep {
   readonly changed: readonly string[];
   /** What it changed (`git diff`), empty when nothing. */
   readonly diff: string;
-  /** Its actor's checkable instructions, checked at the end of the step. */
-  readonly instructions: readonly InstructionResult[];
+  /** Its actor's file/conditional criteria, checked at the end of the step. */
+  readonly criteria: readonly CriterionResult[];
   /** Tokens and cost of this step: the sum of its `usage` records. */
   readonly totals: UsageTotal;
   /**

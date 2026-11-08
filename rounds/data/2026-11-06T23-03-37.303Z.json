@@ -182,17 +182,6 @@
         "?? ticket.txt"
       ],
       "diff": "",
-      "instructions": [
-        {
-          "check": "ticket.txt existe",
-          "when": {
-            "check": "ticket.txt existe",
-            "held": false
-          },
-          "met": true,
-          "detail": "ticket.txt existe."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 64767,
@@ -208,7 +197,14 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "ticket.txt existe",
+          "met": true,
+          "detail": "ticket.txt existe."
+        }
+      ]
     }
   ],
   "usage": [
@@ -387,22 +383,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "when": {
-            "file": "ticket.txt"
-          },
-          "check": {
-            "file": "index.html",
-            "contains": "h1"
-          },
-          "otherwise": {
-            "file": "ticket.txt"
-          }
-        }
-      ]
-    },
     "repeat": 1
   }
 }

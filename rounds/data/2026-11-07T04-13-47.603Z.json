@@ -230,14 +230,6 @@
         " M index.html"
       ],
       "diff": "diff --git a/index.html b/index.html\nindex d4f6b94..63147ad 100644\n--- a/index.html\n+++ b/index.html\n@@ -72,7 +72,7 @@\n   <body>\n     <header>\n       <div class=\"container\">\n-        <h1>🚀 Ollama Product Owner</h1>\n+        <h1>🚀 Goiaba</h1>\n         <p>Site Vazio - Preparado para sua primeira interação</p>\n       </div>\n     </header>\n@@ -102,7 +102,7 @@\n     </main>\n \n     <footer>\n-      <p>Ollama Product Owner &copy; 2026</p>\n+      <p>Goiaba &copy; 2026</p>\n     </footer>\n   </body>\n </html>\n",
-      "instructions": [
-        {
-          "check": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
-          "when": null,
-          "met": true,
-          "detail": "index.html contém \"<h1>🚀 Goiaba</h1>\"."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 103710,
@@ -253,7 +245,14 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
+          "met": true,
+          "detail": "index.html contém \"<h1>🚀 Goiaba</h1>\"."
+        }
+      ]
     }
   ],
   "usage": [
@@ -465,16 +464,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "check": {
-            "file": "index.html",
-            "contains": "<h1>🚀 Goiaba</h1>"
-          }
-        }
-      ]
-    },
     "repeat": 1
   }
 }

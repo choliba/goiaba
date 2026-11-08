@@ -35,7 +35,7 @@ function step(
     tools: [],
     changed: [],
     diff: '',
-    instructions: [],
+    criteria: [],
     totals: { tokens: none, fresh: null, costUsd: null },
     references: null,
     ...extra,
@@ -159,9 +159,11 @@ test('nota de recurso: 5 até 75% da referência, 3 nela, 0 no dobro', () => {
   ).toEqual([5, 5, 4, 3, 1.5, 0, 0]);
 });
 
-const result = (met: boolean, check = 'tickets/ticket-01.txt existe') => ({
-  check,
-  when: null,
+const result = (
+  met: boolean,
+  description = 'tickets/ticket-01.txt existe',
+) => ({
+  description,
   met,
   detail: met ? 'ok.' : 'faltou.',
 });
@@ -170,7 +172,7 @@ test('eficácia pelas instruções do prompt, e eficiência escalada por ela', (
   const current = round(['feito'], 30_000, 2000, {
     steps: [
       step('analista', ['feito'], {
-        instructions: [
+        criteria: [
           result(true),
           result(true, 'tickets/ticket-01.txt contém "ANÁLISE TÉCNICA"'),
           result(false, 'tickets/ticket-01.txt contém "testes"'),
@@ -282,10 +284,10 @@ test('perguntas e ferramentas com erro tiram pontos do processo', () => {
 
 test('limite de tempo declarado: dentro dá 5, acima dá 0', () => {
   const within = round(['ok'], 30_000, null, {
-    criteria: { limits: { actorMs: { analista: 60_000 } } },
+    criteria: { analista: [{ limit: { time: '60s' } }] },
   });
   const over = round(['ok'], 90_000, null, {
-    criteria: { limits: { actorMs: { analista: 60_000 } } },
+    criteria: { analista: [{ limit: { time: '60s' } }] },
   });
   expect(scoreRound(within, []).actors['analista'].effectiveness.score).toBe(5);
   expect(scoreRound(over, []).actors['analista'].effectiveness.score).toBe(0);

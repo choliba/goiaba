@@ -156,17 +156,6 @@
       "tools": [],
       "changed": [],
       "diff": "",
-      "instructions": [
-        {
-          "check": "não alterou nada",
-          "when": {
-            "check": "index.html contém \"<h1>🚀 Ollama Product Owner</h1>\"",
-            "held": true
-          },
-          "met": true,
-          "detail": "Não alterou nada."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 28401,
@@ -182,7 +171,14 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "não alterou nada",
+          "met": true,
+          "detail": "Não alterou nada."
+        }
+      ]
     }
   ],
   "usage": [
@@ -330,24 +326,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "when": {
-            "file": "index.html",
-            "contains": "<h1>🚀 Ollama Product Owner</h1>"
-          },
-          "check": {
-            "file": "ticket.txt",
-            "unchanged": true
-          },
-          "otherwise": {
-            "file": "index.html",
-            "contains": "Goiaba"
-          }
-        }
-      ]
-    },
     "repeat": 1
   }
 }

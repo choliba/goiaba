@@ -1,11 +1,13 @@
 import { expect, test } from 'bun:test';
 
 import {
-  checkCriteria,
+  checkFiles,
+  checkLimits,
   matchGlob,
   parseDuration,
-  type CriteriaContext,
+  type FileContext,
   type Lookup,
+  type Measured,
 } from '../src/rounds/criteria';
 import type { RoundCriterion } from '../src/rounds/types';
 
@@ -15,27 +17,30 @@ const lookup = (files: Readonly<Record<string, string>>): Lookup => ({
   list: () => Object.keys(files),
 });
 
-const context = (opts: {
+const files = (opts: {
   start?: Readonly<Record<string, string>>;
   end?: Readonly<Record<string, string>>;
   changed?: readonly string[];
-  measured?: CriteriaContext['measured'];
-}): CriteriaContext => ({
+}): FileContext => ({
   start: lookup(opts.start ?? {}),
   end: lookup(opts.end ?? {}),
   changed: new Set(opts.changed ?? []),
-  measured: opts.measured ?? { ms: null, tokens: null, cost: null },
 });
 
-const verdicts = (
+const fileVerdicts = (
   criteria: readonly RoundCriterion[],
-  ctx: CriteriaContext,
-): boolean[] => checkCriteria(criteria, ctx).map((result) => result.met);
+  ctx: FileContext,
+): boolean[] => checkFiles(criteria, ctx).map((result) => result.met);
+
+const limitVerdicts = (
+  criteria: readonly RoundCriterion[],
+  measured: Measured,
+): boolean[] => checkLimits(criteria, measured).map((result) => result.met);
 
 test('file: exists, contains (todos), matches e equals', () => {
-  const ctx = context({ end: { 'ticket.md': 'Dado X\nEntão #5f4e4e' } });
+  const ctx = files({ end: { 'ticket.md': 'Dado X\nEntão #5f4e4e' } });
   expect(
-    verdicts(
+    fileVerdicts(
       [
         { file: { name: 'ticket.md', exists: true } },
         { file: { name: 'ticket.md', contains: ['Então', '#5f4e4e'] } },
@@ -49,18 +54,18 @@ test('file: exists, contains (todos), matches e equals', () => {
 });
 
 test('file: created, deleted e changed usam início vs fim', () => {
-  const ctx = context({
+  const ctx = files({
     start: { 'velho.txt': 'a' },
     end: { 'novo.txt': 'b' },
     changed: ['novo.txt', 'velho.txt'],
   });
   expect(
-    verdicts(
+    fileVerdicts(
       [
         { file: { name: 'novo.txt', created: true } },
         { file: { name: 'velho.txt', deleted: true } },
         { file: { name: 'novo.txt', changed: true } },
-        { file: { name: 'novo.txt', deleted: true } }, // novo.txt foi criado, não apagado
+        { file: { name: 'novo.txt', deleted: true } }, // foi criado, não apagado
       ],
       ctx,
     ),
@@ -68,19 +73,19 @@ test('file: created, deleted e changed usam início vs fim', () => {
 });
 
 test('file curinga + ignore: nenhum outro arquivo mudou', () => {
-  const unchanged = context({
+  const unchanged = files({
     end: { 'ticket.md': 'x', 'index.html': 'y' },
     changed: ['ticket.md'],
   });
-  const changedToo = context({
+  const changedToo = files({
     end: { 'ticket.md': 'x', 'index.html': 'y' },
     changed: ['ticket.md', 'index.html'],
   });
   const criterion: RoundCriterion = {
     file: { name: '*', ignore: ['ticket.md'], changed: false },
   };
-  expect(verdicts([criterion], unchanged)).toEqual([true]);
-  expect(verdicts([criterion], changedToo)).toEqual([false]);
+  expect(fileVerdicts([criterion], unchanged)).toEqual([true]);
+  expect(fileVerdicts([criterion], changedToo)).toEqual([false]);
 });
 
 test('condicional: if/check quando vale, else quando não', () => {
@@ -89,31 +94,25 @@ test('condicional: if/check quando vale, else quando não', () => {
     check: [{ file: { name: 'ticket.md', changed: true } }],
     else: [{ file: { name: 'ticket.md', created: true } }],
   };
-  // existia no início → ramo check (mudou)
-  const existia = context({
+  const existia = files({
     start: { 'ticket.md': 'a' },
     end: { 'ticket.md': 'b' },
     changed: ['ticket.md'],
   });
-  expect(verdicts([criterion], existia)).toEqual([true]);
-  // não existia → ramo else (foi criado)
-  const naoExistia = context({ end: { 'ticket.md': 'b' } });
-  expect(verdicts([criterion], naoExistia)).toEqual([true]);
+  expect(fileVerdicts([criterion], existia)).toEqual([true]);
+  const naoExistia = files({ end: { 'ticket.md': 'b' } });
+  expect(fileVerdicts([criterion], naoExistia)).toEqual([true]);
 });
 
 test('limit: tempo, tokens e custo comparados com o medido', () => {
-  const ctx = context({ measured: { ms: 18_000, tokens: 19_000, cost: 0.04 } });
+  const limit: RoundCriterion = {
+    limit: { time: '20s', tokens: 20_000, cost: '0.05' },
+  };
   expect(
-    verdicts([{ limit: { time: '20s', tokens: 20_000, cost: '0.05' } }], ctx),
+    limitVerdicts([limit], { ms: 18_000, tokens: 19_000, cost: 0.04 }),
   ).toEqual([true, true, true]);
-  const estourou = context({
-    measured: { ms: 25_000, tokens: 30_000, cost: 0.2 },
-  });
   expect(
-    verdicts(
-      [{ limit: { time: '20s', tokens: 20_000, cost: '0.05' } }],
-      estourou,
-    ),
+    limitVerdicts([limit], { ms: 25_000, tokens: 30_000, cost: 0.2 }),
   ).toEqual([false, false, false]);
 });
 

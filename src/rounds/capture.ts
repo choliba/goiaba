@@ -5,7 +5,12 @@
  */
 
 import type { RoundDefinition } from './define';
-import type { DeclaredActor, RoundDeclaration } from './types';
+import type {
+  DeclaredActor,
+  RoundCriteria,
+  RoundCriterion,
+  RoundDeclaration,
+} from './types';
 
 /** `{{said:analista}}`: where a prompt puts what that actor said. */
 const saidMarker = (actor: string): string => `{{said:${actor}}}`;
@@ -85,10 +90,41 @@ export function captureDeclaration(
       prompt: promptLines(step),
     })),
     rules: (definition.rules ?? []).map((rule) => rule.id),
-    ...(definition.instructions === undefined
+    ...(definition.criteria === undefined
       ? {}
-      : { instructions: definition.instructions }),
-    ...(definition.limits === undefined ? {} : { limits: definition.limits }),
+      : { criteria: serializeCriteria(definition.criteria) }),
     repeat: definition.repeat ?? 1,
   };
+}
+
+/** The criteria as data: each `matches` RegExp becomes its source string. */
+function serializeCriteria(criteria: RoundCriteria): RoundCriteria {
+  const one = (criterion: RoundCriterion): RoundCriterion => {
+    if ('file' in criterion) {
+      const { matches } = criterion.file;
+      return matches === undefined
+        ? criterion
+        : {
+            file: {
+              ...criterion.file,
+              matches: matches.map((m) =>
+                typeof m === 'string' ? m : m.source,
+              ),
+            },
+          };
+    }
+    if ('if' in criterion) {
+      return {
+        if: criterion.if,
+        check: criterion.check.map(one),
+        ...(criterion.else === undefined
+          ? {}
+          : { else: criterion.else.map(one) }),
+      };
+    }
+    return criterion;
+  };
+  return Object.fromEntries(
+    Object.entries(criteria).map(([name, list]) => [name, list.map(one)]),
+  );
 }

@@ -116,16 +116,16 @@ await runScript(async () => {
             ],
           },
         ],
-        instructions: {
+        criteria: {
           // "Escreva o ticket em tickets/ticket-01.txt."
           'product-owner': [
-            { check: { file: 'tickets/ticket-01.txt', contains: 'rodapé' } },
+            { file: { name: 'tickets/ticket-01.txt', contains: ['rodapé'] } },
           ],
           // "Não altere nada", se o ticket estava lá quando ele começou.
           analista: [
             {
-              when: { file: 'tickets/ticket-01.txt' },
-              check: { unchanged: true },
+              if: { name: 'tickets/ticket-01.txt', exists: true },
+              check: [{ file: { name: '*', changed: false } }],
             },
           ],
         },
@@ -141,9 +141,9 @@ await runScript(async () => {
         step.key,
         `  pedido: ${step.prompt.text.replace(/\n/g, ' / ')}`,
       );
-      for (const instruction of step.instructions) {
+      for (const criterion of step.criteria) {
         lines.push(
-          `  instrução: ${instruction.check} → ${instruction.met ? 'cumpriu' : 'não cumpriu'} (${instruction.detail})`,
+          `  critério: ${criterion.description} → ${criterion.met ? 'cumpriu' : 'não cumpriu'} (${criterion.detail})`,
         );
       }
     }

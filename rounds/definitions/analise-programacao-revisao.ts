@@ -181,11 +181,10 @@ export default defineRound({
     },
   ],
   // What the prompts ask, checked in the workspace at the end of each step.
-  instructions: {
+  criteria: {
     // "Não altere nenhum arquivo do projeto."
-    analista: [{ check: { unchanged: true } }],
-    // "Não altere nenhum arquivo do projeto."
-    revisor: [{ check: { unchanged: true } }],
+    analista: [{ file: { name: '*', changed: false } }],
+    revisor: [{ file: { name: '*', changed: false } }],
   },
   rules: [readOnlyRespected(), noQuestions(), noToolCallAsText()],
 });

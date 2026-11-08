@@ -186,20 +186,6 @@
         "?? ticket.md"
       ],
       "diff": "",
-      "instructions": [
-        {
-          "check": "ticket.md contém \"Então\"",
-          "when": null,
-          "met": true,
-          "detail": "ticket.md contém \"Então\"."
-        },
-        {
-          "check": "ticket.md contém \"#5f4e4e\"",
-          "when": null,
-          "met": true,
-          "detail": "ticket.md contém \"#5f4e4e\"."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 11864,
@@ -215,7 +201,19 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "ticket.md contém \"Então\"",
+          "met": true,
+          "detail": "ticket.md contém \"Então\"."
+        },
+        {
+          "description": "ticket.md contém \"#5f4e4e\"",
+          "met": true,
+          "detail": "ticket.md contém \"#5f4e4e\"."
+        }
+      ]
     }
   ],
   "usage": [
@@ -395,22 +393,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "check": {
-            "file": "ticket.md",
-            "contains": "Então"
-          }
-        },
-        {
-          "check": {
-            "file": "ticket.md",
-            "contains": "#5f4e4e"
-          }
-        }
-      ]
-    },
     "repeat": 1
   },
   "resources": {

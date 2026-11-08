@@ -325,7 +325,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 121449,
@@ -341,7 +340,8 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": []
     }
   ],
   "usage": [

@@ -175,14 +175,6 @@
       "tools": [],
       "changed": [],
       "diff": "",
-      "instructions": [
-        {
-          "check": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
-          "when": null,
-          "met": false,
-          "detail": "index.html existe, mas não contém \"<h1>🚀 Goiaba</h1>\"."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 82415,
@@ -198,7 +190,14 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
+          "met": false,
+          "detail": "index.html existe, mas não contém \"<h1>🚀 Goiaba</h1>\"."
+        }
+      ]
     }
   ],
   "usage": [
@@ -391,16 +390,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "check": {
-            "file": "index.html",
-            "contains": "<h1>🚀 Goiaba</h1>"
-          }
-        }
-      ]
-    },
     "repeat": 1
   },
   "resources": {

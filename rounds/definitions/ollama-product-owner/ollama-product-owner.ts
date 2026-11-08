@@ -74,20 +74,11 @@ export default defineRound({
     },
   ],
   // O que o prompt pede, conferido no workspace no fim do passo: é o que a
-  // eficácia ("Instruções do prompt") avalia.
-  instructions: {
-    // As instruções do passo deste agente.
+  // eficácia ("Critérios do prompt") avalia. O index.html tem que ter o
+  // título novo que o ticket pede (maiúsculas e minúsculas não importam).
+  criteria: {
     'product-owner': [
-      {
-        // Sem `when`: conferida sempre, no fim do passo.
-        check: {
-          // O arquivo conferido, a partir da raiz do workspace.
-          file: 'index.html',
-          // O texto que ele precisa ter: o título novo que o ticket pede
-          // (maiúsculas e minúsculas não importam).
-          contains: '<h1>🚀 Goiaba</h1>',
-        },
-      },
+      { file: { name: 'index.html', contains: ['<h1>🚀 Goiaba</h1>'] } },
     ],
   },
   // Regras sobre a rodada inteira: perguntar elimina o agente (numa rodada

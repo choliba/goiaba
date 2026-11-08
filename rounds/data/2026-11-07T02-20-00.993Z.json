@@ -138,23 +138,6 @@
       "tools": [],
       "changed": [],
       "diff": "",
-      "instructions": [
-        {
-          "check": "não alterou nada",
-          "when": {
-            "check": "index.html contém \"<h1>🚀 Ollama Product Owner</h1>\"",
-            "held": true
-          },
-          "met": true,
-          "detail": "Não alterou nada."
-        },
-        {
-          "check": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
-          "when": null,
-          "met": false,
-          "detail": "index.html existe, mas não contém \"<h1>🚀 Goiaba</h1>\"."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 14177,
@@ -170,7 +153,19 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "não alterou nada",
+          "met": true,
+          "detail": "Não alterou nada."
+        },
+        {
+          "description": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
+          "met": false,
+          "detail": "index.html existe, mas não contém \"<h1>🚀 Goiaba</h1>\"."
+        }
+      ]
     }
   ],
   "usage": [
@@ -302,26 +297,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "when": {
-            "file": "index.html",
-            "contains": "<h1>🚀 Ollama Product Owner</h1>"
-          },
-          "check": {
-            "file": "ticket.txt",
-            "unchanged": true
-          }
-        },
-        {
-          "check": {
-            "file": "index.html",
-            "contains": "<h1>🚀 Goiaba</h1>"
-          }
-        }
-      ]
-    },
     "repeat": 1
   }
 }

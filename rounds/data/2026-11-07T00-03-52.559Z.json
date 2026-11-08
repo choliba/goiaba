@@ -251,17 +251,6 @@
         " M index.html"
       ],
       "diff": "diff --git a/index.html b/index.html\nindex eb9a0e0..a37d2d5 100644\n--- a/index.html\n+++ b/index.html\n@@ -4,7 +4,7 @@\n <head>\n     <meta charset=\"UTF-8\">\n     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n-    <title>Site Vazio - Ollama Product Owner</title>\n+    <title>Site Vazio - Goiaba</title>\n     <style>\n         * {\n             margin: 0;\n@@ -70,7 +70,7 @@\n <body>\n     <header>\n         <div class=\"container\">\n-            <h1>🚀 Ollama Product Owner</h1>\n+            <h1>🚀 Goiaba</h1>\n             <p>Site Vazio - Preparado para sua primeira interação</p>\n         </div>\n     </header>\n",
-      "instructions": [
-        {
-          "check": "index.html contém \"h1\"",
-          "when": {
-            "check": "ticket.txt existe",
-            "held": true
-          },
-          "met": true,
-          "detail": "index.html contém \"h1\"."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 138328,
@@ -277,7 +266,14 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "index.html contém \"h1\"",
+          "met": true,
+          "detail": "index.html contém \"h1\"."
+        }
+      ]
     }
   ],
   "usage": [
@@ -519,22 +515,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "when": {
-            "file": "ticket.txt"
-          },
-          "check": {
-            "file": "index.html",
-            "contains": "h1"
-          },
-          "otherwise": {
-            "file": "ticket.txt"
-          }
-        }
-      ]
-    },
     "repeat": 1
   }
 }

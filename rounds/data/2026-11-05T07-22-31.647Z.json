@@ -176,7 +176,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 31198,
@@ -188,7 +187,8 @@
         "fresh": 4670,
         "costUsd": null
       },
-      "references": null
+      "references": null,
+      "criteria": []
     }
   ],
   "usage": [

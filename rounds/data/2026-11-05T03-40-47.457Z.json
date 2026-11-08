@@ -450,7 +450,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 224830,
@@ -466,7 +465,8 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": []
     },
     {
       "key": "analista#1",
@@ -629,7 +629,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 137157,
@@ -645,7 +644,8 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": []
     }
   ],
   "usage": [

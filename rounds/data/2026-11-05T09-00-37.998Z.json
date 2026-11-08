@@ -194,7 +194,6 @@
       "tools": [],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 4021,
@@ -210,7 +209,8 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": []
     }
   ],
   "usage": [

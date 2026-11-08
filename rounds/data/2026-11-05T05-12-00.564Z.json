@@ -380,7 +380,6 @@
         "?? tickets/ticket-01.txt"
       ],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 121391,
@@ -396,7 +395,8 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": []
     },
     {
       "key": "analista#1",
@@ -566,7 +566,6 @@
         "?? tickets/ticket-01.txt"
       ],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 146337,
@@ -582,7 +581,8 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": []
     }
   ],
   "usage": [
@@ -953,12 +953,20 @@
     }
   ],
   "criteria": {
-    "limits": {
-      "roundMs": 120000,
-      "actorMs": {
-        "analista": 45000
-      },
-      "costUsd": 0.5
-    }
+    "analista": [
+      {
+        "limit": {
+          "time": "45s"
+        }
+      }
+    ],
+    "round": [
+      {
+        "limit": {
+          "time": "2min",
+          "cost": "0.5"
+        }
+      }
+    ]
   }
 }

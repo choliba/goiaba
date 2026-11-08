@@ -220,7 +220,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 76276,
@@ -236,7 +235,8 @@
         "cited": 6,
         "valid": 6,
         "invalid": []
-      }
+      },
+      "criteria": []
     },
     {
       "key": "programador#1",
@@ -304,7 +304,6 @@
         " M src/usuarios.test.ts"
       ],
       "diff": "diff --git a/src/main.ts b/src/main.ts\nindex 7522c9c..bbcfb32 100644\n--- a/src/main.ts\n+++ b/src/main.ts\n@@ -3,6 +3,8 @@ import { buscarPorId, descreverAtivos, saudacao, usuariosPadrao } from \"./usuari\n const usuario = buscarPorId(usuariosPadrao, 1);\n if (usuario) {\n   console.log(saudacao(usuario));\n+} else {\n+  console.error(\"Usuário 1 não encontrado.\");\n }\n \n console.log(descreverAtivos(usuariosPadrao));\ndiff --git a/src/usuarios.test.ts b/src/usuarios.test.ts\nindex 4905490..06b76ec 100644\n--- a/src/usuarios.test.ts\n+++ b/src/usuarios.test.ts\n@@ -28,6 +28,14 @@ test(\"listarAtivos retorna apenas usuários ativos\", () => {\n   );\n });\n \n+test(\"listarAtivos retorna lista vazia sem usuários ativos\", () => {\n+  assert.deepEqual(listarAtivos([]), []);\n+  assert.deepEqual(\n+    listarAtivos(usuariosPadrao.filter((u) => !u.ativo)),\n+    [],\n+  );\n+});\n+\n test(\"saudacao monta a mensagem com o nome\", () => {\n   const usuario: Usuario = { id: 9, nome: \"Davi\", email: \"davi@exemplo.com\", ativo: true };\n   assert.equal(saudacao(usuario), \"Olá, Davi!\");\n",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 55446,
@@ -320,7 +319,8 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": []
     },
     {
       "key": "revisor#1",
@@ -453,7 +453,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": null,
@@ -469,7 +468,8 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": []
     }
   ],
   "usage": [

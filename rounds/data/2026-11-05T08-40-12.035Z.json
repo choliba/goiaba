@@ -161,7 +161,6 @@
         "?? index.html"
       ],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 31893,
@@ -177,7 +176,8 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": []
     }
   ],
   "usage": [

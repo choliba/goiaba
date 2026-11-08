@@ -215,7 +215,6 @@
       "tools": [],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 15419,
@@ -227,7 +226,8 @@
         "fresh": 15759,
         "costUsd": null
       },
-      "references": null
+      "references": null,
+      "criteria": []
     },
     {
       "key": "analista#1",
@@ -299,7 +299,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 31579,
@@ -311,7 +310,8 @@
         "fresh": 15927,
         "costUsd": null
       },
-      "references": null
+      "references": null,
+      "criteria": []
     }
   ],
   "usage": [

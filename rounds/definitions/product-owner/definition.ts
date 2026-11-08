@@ -57,26 +57,12 @@ export const definition: RoundDefinition = {
     },
   ],
   // O que o prompt pede, conferido no workspace no fim do passo: é o que a
-  // eficácia ("Instruções do prompt") avalia.
-  instructions: {
-    // As instruções do passo deste agente.
+  // eficácia ("Critérios do prompt") avalia.
+  criteria: {
+    // Os critérios do passo deste agente: o ticket.md tem que ter o "Então"
+    // do Gherkin e tratar a cor pedida (maiúsculas e minúsculas não importam).
     'product-owner': [
-      {
-        // Sem `when`: conferida sempre, no fim do passo. O ticket tem que ter
-        // o "Então" do Gherkin (maiúsculas e minúsculas não importam).
-        check: {
-          // O arquivo conferido, a partir da raiz do workspace.
-          file: 'ticket.md',
-          contains: 'Então',
-        },
-      },
-      {
-        // E precisa tratar o problema do enunciado: a cor pedida.
-        check: {
-          file: 'ticket.md',
-          contains: '#5f4e4e',
-        },
-      },
+      { file: { name: 'ticket.md', contains: ['Então', '#5f4e4e'] } },
     ],
   },
   // Regras sobre a rodada inteira: perguntar elimina o agente (numa rodada

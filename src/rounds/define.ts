@@ -9,7 +9,8 @@ import type { AgentProvider } from '../agent/types';
 import { UsageError } from '../errors';
 import type { AgentPolicy } from '../policy/policy.interface';
 import type { WorkspaceOptions } from '../workspace/index';
-import type { RoundInstruction, RoundLimits, RuleResult } from './types';
+import { parseDuration } from './criteria';
+import type { RoundCriteria, RoundCriterion, RuleResult } from './types';
 
 /** One agent of the round. */
 export interface RoundActor {
@@ -99,13 +100,11 @@ export interface RoundDefinition {
   readonly flow: readonly RoundFlowStep[];
   readonly rules?: readonly RoundRule[];
   /**
-   * By actor, the instructions of its prompt the round can check by itself:
-   * a file that must be there at the end of its step, holding a passage.
-   * Score whether it did what it was asked (see rounds/README.md).
+   * The criteria of a good round, by actor name (and `round` for the whole
+   * round): file assertions, limits, and conditionals. Score whether it did
+   * what it was asked (see rounds/README.md).
    */
-  readonly instructions?: Readonly<Record<string, readonly RoundInstruction[]>>;
-  /** Limits set before the run (time, cost): meeting them is part of the goal. */
-  readonly limits?: RoundLimits;
+  readonly criteria?: RoundCriteria;
   /** How many times it runs, each run its own record; 1 by default. */
   readonly repeat?: number;
 }
@@ -121,8 +120,7 @@ const KNOWN_FIELDS = new Set([
   'flow',
   'rules',
   'repeat',
-  'instructions',
-  'limits',
+  'criteria',
 ]);
 
 /**
@@ -173,68 +171,14 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
       }
     }
   });
-  for (const [field, names] of [
-    ['instructions', Object.keys(definition.instructions ?? {})],
-    ['limits.actorMs', Object.keys(definition.limits?.actorMs ?? {})],
-  ] as const) {
-    for (const name of names) {
-      if (!actors.includes(name)) {
-        throw new UsageError(
-          `${where}: ${field} fala de "${name}", que não está em actors (${actors.join(', ')}).`,
-        );
-      }
-    }
-  }
-  for (const [name, list] of Object.entries(definition.instructions ?? {})) {
-    for (const instruction of list) {
-      const files = [
-        instruction.when,
-        instruction.check,
-        instruction.otherwise,
-      ].filter(
-        (
-          check,
-        ): check is { readonly file: string; readonly contains?: string } =>
-          check !== undefined && 'file' in check,
-      );
-      for (const { file, contains } of files) {
-        if (
-          file.trim().length === 0 ||
-          file.startsWith('/') ||
-          file.split('/').includes('..')
-        ) {
-          throw new UsageError(
-            `${where}: instructions.${name} tem o arquivo "${file}"; use um caminho relativo à raiz do workspace, como tickets/ticket-01.txt.`,
-          );
-        }
-        if (contains?.trim().length === 0) {
-          throw new UsageError(
-            `${where}: instructions.${name} tem um contains vazio em ${file}: escreva o trecho ou tire o campo.`,
-          );
-        }
-      }
-      if (
-        instruction.otherwise !== undefined &&
-        instruction.when === undefined
-      ) {
-        throw new UsageError(
-          `${where}: instructions.${name} tem otherwise sem when: o otherwise vale quando a condição (when) não vale.`,
-        );
-      }
-    }
-  }
-  const { roundMs, costUsd, actorMs = {} } = definition.limits ?? {};
-  for (const [field, value] of [
-    ['limits.roundMs', roundMs],
-    ['limits.costUsd', costUsd],
-    ...Object.entries(actorMs).map(
-      ([name, ms]) => [`limits.actorMs.${name}`, ms] as const,
-    ),
-  ] as const) {
-    if (value !== undefined && !(value > 0)) {
+  for (const [name, list] of Object.entries(definition.criteria ?? {})) {
+    if (name !== 'round' && !actors.includes(name)) {
       throw new UsageError(
-        `${where}: ${field} deve ser maior que zero, veio ${String(value)}.`,
+        `${where}: criteria fala de "${name}", que não está em actors (${actors.join(', ')}) nem é "round".`,
       );
+    }
+    for (const criterion of list) {
+      checkCriterion(criterion, `${where}: criteria.${name}`);
     }
   }
   const repeat = definition.repeat ?? 1;
@@ -245,6 +189,70 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
   }
   if (definition.start !== undefined) checkStart(definition.start, where);
   return definition;
+}
+
+/** A criterion of the declaration, checked: shape, paths and limits. */
+function checkCriterion(criterion: RoundCriterion, where: string): void {
+  if ('file' in criterion) {
+    const { file } = criterion;
+    checkRelPath(file.name, `${where}.file.name`);
+    for (const pattern of file.ignore ?? []) {
+      checkRelPath(pattern, `${where}.file.ignore`);
+    }
+    for (const passage of file.contains ?? []) {
+      if (passage.trim().length === 0) {
+        throw new UsageError(`${where}.file.contains tem um trecho vazio.`);
+      }
+    }
+    return;
+  }
+  if ('limit' in criterion) {
+    const { time, tokens, cost } = criterion.limit;
+    if (time !== undefined) {
+      try {
+        parseDuration(time);
+      } catch {
+        throw new UsageError(
+          `${where}.limit.time inválido: "${time}" (use 20s, 2min, 1h).`,
+        );
+      }
+    }
+    if (tokens !== undefined && !(tokens > 0)) {
+      throw new UsageError(
+        `${where}.limit.tokens deve ser maior que zero, veio ${String(tokens)}.`,
+      );
+    }
+    if (cost !== undefined && !(Number(cost) > 0)) {
+      throw new UsageError(
+        `${where}.limit.cost deve ser um valor em USD maior que zero, veio "${cost}".`,
+      );
+    }
+    return;
+  }
+  if ('if' in criterion) {
+    checkRelPath(criterion.if.name, `${where}.if.name`);
+    for (const inner of criterion.check) {
+      checkCriterion(inner, `${where}.check`);
+    }
+    for (const inner of criterion.else ?? []) {
+      checkCriterion(inner, `${where}.else`);
+    }
+    return;
+  }
+  throw new UsageError(`${where}: um critério precisa ter file, limit ou if.`);
+}
+
+/** A path relative to the workspace root (a wildcard is allowed). */
+function checkRelPath(path: string, field: string): void {
+  if (
+    path.trim().length === 0 ||
+    path.startsWith('/') ||
+    path.split('/').includes('..')
+  ) {
+    throw new UsageError(
+      `${field} deve ser um caminho relativo à raiz do workspace, como tickets/ticket-01.txt; veio "${path}".`,
+    );
+  }
 }
 
 function checkStart(start: RoundStartDefinition, where: string): void {

@@ -1493,17 +1493,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [
-        {
-          "check": "index.html existe",
-          "when": {
-            "check": "index.html existe",
-            "held": false
-          },
-          "met": false,
-          "detail": "index.html não existe."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 2663954,
@@ -1519,7 +1508,14 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "index.html existe",
+          "met": false,
+          "detail": "index.html não existe."
+        }
+      ]
     }
   ],
   "usage": [

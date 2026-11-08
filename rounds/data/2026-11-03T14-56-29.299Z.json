@@ -233,7 +233,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 117464,
@@ -245,7 +244,8 @@
         "fresh": 8108,
         "costUsd": null
       },
-      "references": null
+      "references": null,
+      "criteria": []
     },
     {
       "key": "programador#1",
@@ -391,7 +391,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": 177436,
@@ -403,7 +402,8 @@
         "fresh": 12538,
         "costUsd": null
       },
-      "references": null
+      "references": null,
+      "criteria": []
     },
     {
       "key": "revisor#1",
@@ -638,7 +638,6 @@
       ],
       "changed": [],
       "diff": "",
-      "instructions": [],
       "totals": {
         "tokens": {
           "input": null,
@@ -650,7 +649,8 @@
         "fresh": null,
         "costUsd": null
       },
-      "references": null
+      "references": null,
+      "criteria": []
     }
   ],
   "usage": [

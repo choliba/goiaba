@@ -33,39 +33,46 @@ export interface Measured {
   readonly cost: number | null;
 }
 
-/** Everything a round gives the checker. */
-export interface CriteriaContext {
+/** The workspace around a step, for file criteria. */
+export interface FileContext {
   /** The workspace at the start of the step (for `if` and created/deleted). */
   readonly start: Lookup;
   /** The workspace at the end of the step. */
   readonly end: Lookup;
   /** Files the git saw change during the step, relative paths. */
   readonly changed: ReadonlySet<string>;
-  /** What the step (or round) spent, for limit criteria. */
-  readonly measured: Measured;
 }
 
-/** Checks each criterion; a conditional yields the results of its branch. */
-export function checkCriteria(
+/**
+ * The file (and conditional) criteria, checked against the workspace at the
+ * end of a step. Limit criteria are left to `checkLimits` (they compare with
+ * what was measured over the whole actor or round, known only later).
+ */
+export function checkFiles(
   criteria: readonly RoundCriterion[],
-  context: CriteriaContext,
+  context: FileContext,
 ): CriterionResult[] {
   return criteria.flatMap((criterion): CriterionResult[] => {
     if ('file' in criterion) return [checkFile(criterion.file, context)];
-    if ('limit' in criterion)
-      return checkLimit(criterion.limit, context.measured);
+    if ('limit' in criterion) return [];
     const held = conditionHolds(criterion.if, context.start);
-    const branch = held ? criterion.check : (criterion.else ?? []);
-    return checkCriteria(branch, context);
+    return checkFiles(held ? criterion.check : (criterion.else ?? []), context);
   });
+}
+
+/** The top-level limit criteria, compared with what was measured. */
+export function checkLimits(
+  criteria: readonly RoundCriterion[],
+  measured: Measured,
+): CriterionResult[] {
+  return criteria.flatMap((criterion) =>
+    'limit' in criterion ? checkLimit(criterion.limit, measured) : [],
+  );
 }
 
 // --- files ---
 
-function checkFile(
-  file: FileCriterion,
-  context: CriteriaContext,
-): CriterionResult {
+function checkFile(file: FileCriterion, context: FileContext): CriterionResult {
   const targets = targetsOf(file, context);
   const description = describeFile(file);
 
@@ -93,7 +100,7 @@ function checkFile(
 function fileFailure(
   file: FileCriterion,
   target: string,
-  { start, end, changed }: CriteriaContext,
+  { start, end, changed }: FileContext,
 ): string | undefined {
   const here = end.exists(target);
   if (file.exists === true && !here) return `${target} não existe.`;
@@ -138,10 +145,7 @@ function fileFailure(
 }
 
 /** The files a criterion is about: the name, or every match of a wildcard. */
-function targetsOf(
-  file: FileCriterion,
-  { start, end }: CriteriaContext,
-): string[] {
+function targetsOf(file: FileCriterion, { start, end }: FileContext): string[] {
   if (!hasWildcard(file.name)) return [file.name];
   const all = new Set([...start.list(), ...end.list()]);
   const ignores = file.ignore ?? [];

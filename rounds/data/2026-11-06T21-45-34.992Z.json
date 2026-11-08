@@ -253,17 +253,6 @@
       "tools": [],
       "changed": [],
       "diff": "",
-      "instructions": [
-        {
-          "check": "index.html existe",
-          "when": {
-            "check": "index.html existe",
-            "held": false
-          },
-          "met": false,
-          "detail": "index.html não existe."
-        }
-      ],
       "totals": {
         "tokens": {
           "input": 58951,
@@ -279,7 +268,14 @@
         "cited": 0,
         "valid": 0,
         "invalid": []
-      }
+      },
+      "criteria": [
+        {
+          "description": "index.html existe",
+          "met": false,
+          "detail": "index.html não existe."
+        }
+      ]
     }
   ],
   "usage": [
@@ -553,22 +549,6 @@
     "rules": [
       "no-questions"
     ],
-    "instructions": {
-      "product-owner": [
-        {
-          "when": {
-            "file": "index.html"
-          },
-          "check": {
-            "file": "index.html",
-            "contains": "background"
-          },
-          "otherwise": {
-            "file": "index.html"
-          }
-        }
-      ]
-    },
     "repeat": 1
   }
 }
