@@ -418,14 +418,14 @@ describe('OllamaProvider', () => {
     const claude = new OllamaProvider({
       cli: 'claude',
       model: 'm',
-      tools: ['Bash', 'Read'],
+      tools: ['shell', 'file_read'],
     });
     const args = claude.createCommand('oi').arguments ?? [];
     expect(
       args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 3),
     ).toEqual(['--tools', 'Bash', 'Read']);
     expect(
-      () => new OllamaProvider({ cli: 'codex', model: 'm', tools: ['Bash'] }),
+      () => new OllamaProvider({ cli: 'codex', model: 'm', tools: ['shell'] }),
     ).toThrow('só vale com cli: claude');
   });
 });

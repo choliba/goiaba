@@ -22,6 +22,7 @@ import type {
   TrafficEvent,
 } from './types';
 import { readOllamaTraffic } from './ollama-traffic';
+import type { GoiabaTool } from './tools';
 
 export type OllamaCli = 'claude' | 'codex';
 
@@ -38,10 +39,11 @@ export interface OllamaProviderOptions extends ProviderOptions {
   /** Only with `cli: 'codex'`: see `COMPACT_AT`. */
   readonly compactAt?: number;
   /**
-   * Only with `cli: 'claude'`: the tools the model sees (`ClaudeProvider`'s
-   * `tools`). Claude Code's full set is ~15k tokens on every request.
+   * Only with `cli: 'claude'`: the capabilities the model sees, in Goiaba's
+   * vocabulary (`file_read`, `shell`…; `ClaudeProvider`'s `tools`). Claude
+   * Code's full set is ~15k tokens on every request.
    */
-  readonly tools?: readonly string[];
+  readonly tools?: readonly GoiabaTool[];
   /**
    * Only with `cli: 'claude'`: `false` turns the model's thinking off (it
    * answers without reasoning first: fewer tokens and less time on each

@@ -79,15 +79,27 @@ describe('ClaudeProvider', () => {
   test('tools passa só as ferramentas escolhidas; [] não deixa nenhuma', () => {
     const some = new ClaudeProvider({
       model: 'modelo',
-      tools: ['Read', 'Grep'],
+      tools: ['file_read', 'file_search'],
     });
     const none = new ClaudeProvider({ model: 'modelo', tools: [] });
 
+    // file_read → Read; file_search → Glob + Grep (uma capacidade, dois tools).
     expect(some.createCommand('oi').arguments).toEqual(
-      expect.arrayContaining(['--tools', 'Read', 'Grep']),
+      expect.arrayContaining(['--tools', 'Read', 'Glob', 'Grep']),
     );
     const args = none.createCommand('oi').arguments ?? [];
     expect(args[args.indexOf('--tools') + 1]).toBe('');
+  });
+
+  test('uma capacidade que o claude não traduz é recusada', () => {
+    const provider = new ClaudeProvider({
+      model: 'modelo',
+      // @ts-expect-error: fora do vocabulário; só chega assim numa declaração à mão.
+      tools: ['telepatia'],
+    });
+    expect(() => provider.createCommand('oi')).toThrow(
+      'ainda não traduz a ferramenta telepatia',
+    );
   });
 
   test('com execution liga o hook do gate e roda em dontAsk', () => {

@@ -31,14 +31,15 @@ const productOwnerProvider = ProductOwnerProvider({
   model: 'qwen3.5:4b',
   // Quantos tokens de contexto o CLI acha que o modelo tem: perto disso
   // ele compacta o histórico (ollama ps mostra com quanto o modelo subiu).
-  contextWindow: 20000,
+  contextWindow: 100000,
   // Desliga o raciocínio do modelo: responde sem pensar antes, com menos
   // tokens e menos tempo por turno. O Goiaba escreve isso em cada pedido
   // ao Ollama, o que precisa de uma política (permissions, abaixo).
   think: false,
-  // Só a ferramenta da tarefa: escrever o ticket.md. O conjunto completo do
-  // Claude Code custa uns 15 mil tokens por pedido.
-  tools: ['Write'],
+  // Só a capacidade da tarefa, no vocabulário do Goiaba: escrever o
+  // ticket.md. O conjunto completo do Claude Code custa uns 15 mil tokens por
+  // pedido; o provider traduz file_write para o --tools Write do Claude.
+  tools: ['file_write'],
 });
 
 export default defineRound({

@@ -23,9 +23,42 @@ import type {
   TokenUsage,
   HostAccess,
 } from '../types';
+import type { GoiabaTool } from '../tools';
 
 // Tools that touch files; the sandbox decides which paths they reach.
 const FILE_TOOLS = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'NotebookEdit'];
+
+/**
+ * How each Goiaba capability becomes Claude Code tools (`--tools`). One
+ * capability may map to several tools (`file_search` → Glob + Grep). A new
+ * capability is one line here. Complete by construction: `satisfies` fails
+ * the typecheck if one is missing.
+ */
+const CLAUDE_TOOLS = {
+  file_read: ['Read'],
+  file_write: ['Write'],
+  file_edit: ['Edit'],
+  file_list: ['Glob'],
+  file_search: ['Glob', 'Grep'],
+  web_fetch: ['WebFetch'],
+  web_search: ['WebSearch'],
+  shell: ['Bash'],
+} satisfies Record<GoiabaTool, readonly string[]>;
+
+/** The Claude Code tools for a set of Goiaba capabilities, in order, deduped. */
+function claudeTools(tools: readonly GoiabaTool[]): readonly string[] {
+  const names: string[] = [];
+  for (const tool of tools) {
+    const mapped = CLAUDE_TOOLS[tool] as readonly string[] | undefined;
+    if (mapped === undefined) {
+      throw new UsageError(
+        `O provider claude ainda não traduz a ferramenta ${tool}.`,
+      );
+    }
+    for (const name of mapped) if (!names.includes(name)) names.push(name);
+  }
+  return names;
+}
 
 /** Long enough for a person to answer an approval prompt. */
 
@@ -49,11 +82,12 @@ interface ClaudeSettings {
 
 export interface ClaudeProviderOptions extends ProviderOptions {
   /**
-   * The built-in tools the model sees (`--tools`: `Bash`, `Read`, `Edit`…);
-   * `[]` leaves none. Without it, all of them: their definitions are most of
-   * every request, which a small local model reads slowly and poorly.
+   * The capabilities the model sees, in Goiaba's vocabulary (`file_read`,
+   * `shell`…); translated to the CLI's `--tools`. `[]` leaves none. Without
+   * it, all of them: their definitions are most of every request, which a
+   * small local model reads slowly and poorly.
    */
-  readonly tools?: readonly string[];
+  readonly tools?: readonly GoiabaTool[];
   /**
    * The interaction rules go with the first message of a session only (the
    * history keeps them), not with every one. Default false: every message.
@@ -71,7 +105,7 @@ export class ClaudeProvider
 
   private readonly executable: string;
   private readonly model: string;
-  private readonly tools: readonly string[] | undefined;
+  private readonly tools: readonly GoiabaTool[] | undefined;
   private readonly rulesOnce: boolean;
   private settings: ClaudeSettings | undefined;
   /** The live turn going on, whose messages each `result` answers. */
@@ -248,7 +282,10 @@ export class ClaudeProvider
         // `--tools` takes every value up to the next flag; none is `''`.
         ...(this.tools === undefined
           ? []
-          : ['--tools', ...(this.tools.length === 0 ? [''] : this.tools)]),
+          : [
+              '--tools',
+              ...(this.tools.length === 0 ? [''] : claudeTools(this.tools)),
+            ]),
         // User/project settings could allow more than the policy (or hook it).
         ...(this.settings === undefined
           ? []
