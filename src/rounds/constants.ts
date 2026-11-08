@@ -10,6 +10,11 @@ export const COST_TOLERANCE_USD = 1e-9;
 /** How long a git command of a round may take, in ms: all local and small. */
 export const GIT_TIMEOUT_MS = 30_000;
 
+/** Milliseconds in each unit a `limit`'s `time` may use (`20s`, `2min`, `1h`). */
+export const SECOND_MS = 1000;
+export const MINUTE_MS = 60 * SECOND_MS;
+export const HOUR_MS = 60 * MINUTE_MS;
+
 /**
  * Milliseconds between resource samples (CPU/GPU/RAM) during a round. One
  * second gives a useful resolution without weighing on the run: a single-shot

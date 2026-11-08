@@ -366,6 +366,79 @@ export interface InstructionResult {
   readonly detail: string;
 }
 
+// --- Criteria (new model; replaces RoundInstruction/limits as it is wired in) ---
+
+/**
+ * A criterion of a good round: an assertion about a file, a limit of
+ * time/tokens/cost, or a conditional that checks one branch or the other. A
+ * criterion is an object with a single key telling its kind.
+ */
+export type RoundCriterion =
+  | { readonly file: FileCriterion }
+  | { readonly limit: LimitCriterion }
+  | ConditionalCriterion;
+
+/**
+ * Assertions about a file (or many, with a wildcard in `name`), all holding
+ * together, checked at the end of the step. `matches` is `RegExp` as declared,
+ * stored as its source in the record.
+ */
+export interface FileCriterion {
+  /** Relative to the workspace root; wildcard `*`, `**`, `ticket-*.md`. */
+  readonly name: string;
+  /** With a wildcard in `name`: paths to leave out. */
+  readonly ignore?: readonly string[];
+  /** At the end: `true` must exist, `false` must not. */
+  readonly exists?: boolean;
+  /** Changed vs. the start (needs a git start): came to exist. */
+  readonly created?: boolean;
+  /** Changed vs. the start: ceased to exist. */
+  readonly deleted?: boolean;
+  /** `false` the git saw no change; `true` it changed. */
+  readonly changed?: boolean;
+  /** Contains ALL of these passages (case-insensitive). */
+  readonly contains?: readonly string[];
+  /** Matches ALL of these (record: the sources, as strings). */
+  readonly matches?: readonly (RegExp | string)[];
+  /** The content is exactly this. */
+  readonly equals?: string;
+}
+
+/** A limit of what a step or the round may spend. */
+export interface LimitCriterion {
+  /** `'20s'`, `'2min'`. */
+  readonly time?: string;
+  /** New tokens (fresh input + output). */
+  readonly tokens?: number;
+  /** USD, as `'0.05'`. */
+  readonly cost?: string;
+}
+
+/** A condition on a file, evaluated at the start of the step. */
+export interface Condition {
+  readonly name: string;
+  readonly exists?: boolean;
+  readonly contains?: readonly string[];
+}
+
+/**
+ * `if` holds at the start of the step → the `check` criteria apply; otherwise
+ * the `else` ones. (`check`, not `then`: an object with `then` is thenable.)
+ */
+export interface ConditionalCriterion {
+  readonly if: Condition;
+  readonly check: readonly RoundCriterion[];
+  readonly else?: readonly RoundCriterion[];
+}
+
+/** One criterion, checked; only the verdict is kept. */
+export interface CriterionResult {
+  /** What was checked, in the user's language. */
+  readonly description: string;
+  readonly met: boolean;
+  readonly detail: string;
+}
+
 /** What an agent did in one step of the flow. */
 export interface RoundStep {
   /**
