@@ -178,6 +178,14 @@ export function SampleChart({
     current === undefined
       ? undefined
       : activeStep?.tools.find((tool) => within(current.ts, tool.span));
+  // What it was doing: a tool, when one ran; otherwise, inside a turn, the
+  // model was producing the answer (what the GPU spends on).
+  const activity =
+    activeTool !== undefined
+      ? `${toolLabel(activeTool)}${activeTool.outcome === 'error' ? ' (erro)' : ''}`
+      : activeTurn !== undefined
+        ? 'o modelo gerando a resposta'
+        : undefined;
 
   return (
     <div className="sample-chart xy-chart">
@@ -307,11 +315,8 @@ export function SampleChart({
                   : ` · turno ${String(activeTurn.index)}`}
               </span>
             )}
-            {activeTool !== undefined && (
-              <span className="happened">
-                {toolLabel(activeTool)}{' '}
-                {activeTool.outcome === 'error' ? '(erro)' : ''}
-              </span>
+            {activity !== undefined && (
+              <span className="happened">{activity}</span>
             )}
             {series.map((s) => {
               const detail = s.detail(current);
