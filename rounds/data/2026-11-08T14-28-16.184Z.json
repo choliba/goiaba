@@ -1,0 +1,8288 @@
+{
+  "schema": 4,
+  "id": "2026-11-08T14-28-16.184Z",
+  "definition": {
+    "id": "ollama-product-owner",
+    "goal": "O agente implementa o ticket: troca o título da página por Goiaba"
+  },
+  "start": {
+    "tag": "rodada-base",
+    "commit": "cf093d6",
+    "fixture": "site-vazio"
+  },
+  "repeat": {
+    "index": 1,
+    "total": 1
+  },
+  "timing": {
+    "startedAt": "2026-11-08T14:28:16.184Z",
+    "endedAt": "2026-11-08T14:40:37.893Z",
+    "durationMs": 741709,
+    "actors": {
+      "product-owner": {
+        "startedAt": "2026-11-08T14:28:17.764Z",
+        "endedAt": "2026-11-08T14:40:37.878Z",
+        "durationMs": 740114,
+        "workspaceMs": null,
+        "gitCheckMs": 17,
+        "approvalMs": null
+      }
+    }
+  },
+  "actors": {
+    "product-owner": {
+      "role": "product-owner",
+      "provider": {
+        "id": "ollama-claude",
+        "name": "ollama",
+        "model": "qwen3.5:4b",
+        "cli": "claude",
+        "cliVersion": null,
+        "options": {},
+        "contextWindow": 20000,
+        "readableContext": 15000,
+        "think": false
+      },
+      "workspace": {
+        "type": "bubblewrap",
+        "image": null,
+        "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": {
+          "default": "deny",
+          "allow": [],
+          "requireApproval": [],
+          "deny": []
+        },
+        "alwaysAllow": [
+          "127.0.0.1:11434"
+        ],
+        "alwaysDeny": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
+        "decisions": [
+          {
+            "ts": "2026-11-08T14:28:18.447Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          }
+        ]
+      },
+      "policy": {
+        "default": "deny",
+        "allow": {
+          "filesystem": [
+            {
+              "operations": [
+                "*"
+              ],
+              "paths": [
+                "/workspace/**"
+              ]
+            }
+          ],
+          "execution": [
+            {
+              "commands": [
+                "ls *",
+                "cat *",
+                "find *",
+                "pwd",
+                "git status",
+                "git diff *",
+                "git log *"
+              ]
+            }
+          ]
+        }
+      },
+      "readOnly": false,
+      "configHash": "519968ddfbb72b16a91cce5f266c68bbd9855946cf76909331588e221f831ba8"
+    }
+  },
+  "configHash": "c28aff4e36022c1dc37d95529164775599a725dd8921e8e58e6242cbdbf288e2",
+  "steps": [
+    {
+      "key": "product-owner#1",
+      "actor": "product-owner",
+      "by": null,
+      "prompt": {
+        "text": "leia o arquivo só o for pra implementar do ticket.txt\nCom base nas instruções dele implemente a alteração no index.html **NADA MAIS**\nApenas implemente a solicitação escrita em ticket.txt\no nome do arquivo a ser lido é ticket.txt\n**NÃO TENTE ACESSAR NENHUM SITE NA WEB**",
+        "hash": "8d0df7468552cbb71af5499c32af97003d2295d6bd1e4a10464082b27ac0a64a"
+      },
+      "span": {
+        "startedAt": "2026-11-08T14:28:17.764Z",
+        "endedAt": "2026-11-08T14:40:37.878Z",
+        "durationMs": 740114
+      },
+      "said": [
+        "Vou ler o arquivo ticket.txt para entender as instruções de implementação.",
+        "The task from ticket.txt has already been completed successfully! Looking at the current state of `index.html`:\n\n✅ **All three locations have been updated:**\n- Line 6: `<title>Site Vazio - Goiaba</title>` (was \"Ollama Product Owner\")\n- Line 75: `<h1>🚀 Goiaba</h1>` (was \"Ollama Product Owner\")  \n- Line 105: `<p>Goiaba &copy; 2026</p>` (was \"Ollama Product Owner\")\n\nThe page branding has been successfully changed from \"Ollama Product Owner\" to \"Goiaba\" across all instances. Ticket-140 is complete with no remaining tasks."
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-08T14:28:17.800Z",
+            "endedAt": "2026-11-08T14:40:37.865Z",
+            "durationMs": 740065
+          }
+        }
+      ],
+      "tools": [
+        {
+          "turn": 1,
+          "name": "Read",
+          "detail": {
+            "call_id": "call_bqpatgkz",
+            "tool": "Read",
+            "args": {
+              "file_path": "~/.local/share/goiaba/rodadas/ollama-product-owner/ticket.txt"
+            },
+            "bytes": 692
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-08T14:28:49.203Z",
+            "endedAt": "2026-11-08T14:28:49.250Z",
+            "durationMs": 47
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Read",
+          "detail": {
+            "call_id": "call_2yd25bb7",
+            "tool": "Read",
+            "args": {
+              "file_path": "~/.local/share/goiaba/rodadas/ollama-product-owner/index.html"
+            },
+            "bytes": 2647
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-08T14:31:07.031Z",
+            "endedAt": "2026-11-08T14:31:07.110Z",
+            "durationMs": 79
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Edit",
+          "detail": {
+            "call_id": "call_qw21scpp",
+            "tool": "Edit",
+            "args": {
+              "replace_all": false,
+              "file_path": "~/.local/share/goiaba/rodadas/ollama-product-owner/index.html",
+              "old_string": {
+                "bytes": 48
+              },
+              "new_string": {
+                "bytes": 34
+              }
+            },
+            "bytes": 179
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-08T14:35:59.389Z",
+            "endedAt": "2026-11-08T14:35:59.499Z",
+            "durationMs": 110
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Edit",
+          "detail": {
+            "call_id": "call_6ue5mp9r",
+            "tool": "Edit",
+            "args": {
+              "replace_all": false,
+              "file_path": "~/.local/share/goiaba/rodadas/ollama-product-owner/index.html",
+              "old_string": {
+                "bytes": 32
+              },
+              "new_string": {
+                "bytes": 18
+              }
+            },
+            "bytes": 179
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-08T14:36:15.978Z",
+            "endedAt": "2026-11-08T14:36:16.024Z",
+            "durationMs": 46
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Edit",
+          "detail": {
+            "call_id": "call_imx1or32",
+            "tool": "Edit",
+            "args": {
+              "replace_all": false,
+              "file_path": "~/.local/share/goiaba/rodadas/ollama-product-owner/index.html",
+              "old_string": {
+                "bytes": 39
+              },
+              "new_string": {
+                "bytes": 25
+              }
+            },
+            "bytes": 179
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-08T14:36:31.627Z",
+            "endedAt": "2026-11-08T14:36:31.674Z",
+            "durationMs": 47
+          }
+        }
+      ],
+      "changed": [
+        " M index.html"
+      ],
+      "diff": "diff --git a/index.html b/index.html\nindex d4f6b94..2bf5718 100644\n--- a/index.html\n+++ b/index.html\n@@ -3,7 +3,7 @@\n   <head>\n     <meta charset=\"UTF-8\" />\n     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n-    <title>Site Vazio - Ollama Product Owner</title>\n+    <title>Site Vazio - Goiaba</title>\n     <style>\n       * {\n         margin: 0;\n@@ -72,7 +72,7 @@\n   <body>\n     <header>\n       <div class=\"container\">\n-        <h1>🚀 Ollama Product Owner</h1>\n+        <h1>🚀 Goiaba</h1>\n         <p>Site Vazio - Preparado para sua primeira interação</p>\n       </div>\n     </header>\n@@ -102,7 +102,7 @@\n     </main>\n \n     <footer>\n-      <p>Ollama Product Owner &copy; 2026</p>\n+      <p>Goiaba &copy; 2026</p>\n     </footer>\n   </body>\n </html>\n",
+      "instructions": [
+        {
+          "check": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
+          "when": null,
+          "met": true,
+          "detail": "index.html contém \"<h1>🚀 Goiaba</h1>\"."
+        }
+      ],
+      "totals": {
+        "tokens": {
+          "input": 123117,
+          "output": 3993,
+          "cacheRead": 49786,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": 77324,
+        "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      }
+    }
+  ],
+  "usage": [
+    {
+      "ts": "2026-11-08T14:28:49.298Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 15529,
+        "output": 61,
+        "cacheRead": 0,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-08T14:30:35.291Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 17223,
+        "output": 735,
+        "cacheRead": 15525,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-08T14:31:07.194Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 16411,
+        "output": 44,
+        "cacheRead": 0,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-08T14:35:09.919Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 18856,
+        "output": 1534,
+        "cacheRead": 16407,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-08T14:36:31.770Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 17858,
+        "output": 285,
+        "cacheRead": 0,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-08T14:39:39.165Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 19701,
+        "output": 1175,
+        "cacheRead": 17854,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-08T14:40:37.787Z",
+      "actor": "product-owner",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 17539,
+        "output": 159,
+        "cacheRead": 0,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    }
+  ],
+  "totals": {
+    "round": {
+      "tokens": {
+        "input": 123117,
+        "output": 3993,
+        "cacheRead": 49786,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "fresh": 77324,
+      "costUsd": null
+    },
+    "actors": {
+      "product-owner": {
+        "tokens": {
+          "input": 123117,
+          "output": 3993,
+          "cacheRead": 49786,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": 77324,
+        "costUsd": null
+      }
+    }
+  },
+  "measures": {
+    "product-owner": {
+      "turns": 1,
+      "tools": 5,
+      "questions": 0,
+      "changedFiles": 1,
+      "tests": null,
+      "typecheck": null
+    }
+  },
+  "violations": [
+    {
+      "rule": "no-questions",
+      "actor": "product-owner",
+      "passed": true,
+      "detail": "Não fez nenhuma pergunta."
+    }
+  ],
+  "declaration": {
+    "id": "ollama-product-owner",
+    "goal": "O agente implementa o ticket: troca o título da página por Goiaba",
+    "start": {
+      "fixture": "site-vazio"
+    },
+    "actors": {
+      "product-owner": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen3.5:4b",
+          "contextWindow": 20000,
+          "think": false
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+          "hostState": "none"
+        },
+        "permissions": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "*"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "find *",
+                  "pwd",
+                  "git status",
+                  "git diff *",
+                  "git log *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      }
+    },
+    "flow": [
+      {
+        "actor": "product-owner",
+        "by": null,
+        "prompt": [
+          "leia o arquivo só o for pra implementar do ticket.txt",
+          "Com base nas instruções dele implemente a alteração no index.html **NADA MAIS**",
+          "Apenas implemente a solicitação escrita em ticket.txt",
+          "o nome do arquivo a ser lido é ticket.txt",
+          "**NÃO TENTE ACESSAR NENHUM SITE NA WEB**"
+        ]
+      }
+    ],
+    "rules": [
+      "no-questions"
+    ],
+    "instructions": {
+      "product-owner": [
+        {
+          "check": {
+            "file": "index.html",
+            "contains": "<h1>🚀 Goiaba</h1>"
+          }
+        }
+      ]
+    },
+    "repeat": 1
+  },
+  "resources": {
+    "machine": {
+      "os": "Linux 7.0.0-42-generic",
+      "bun": "1.4.2",
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i7-12650H",
+        "cores": 16
+      },
+      "memTotalMb": 15218,
+      "gpu": {
+        "name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+        "memTotalMb": 4096,
+        "driver": "595.99.02"
+      }
+    },
+    "intervalMs": 1000,
+    "samples": [
+      {
+        "ts": "2026-11-08T14:28:18.729Z",
+        "cpuPct": 12.99,
+        "memUsedMb": 6808,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 12,
+          "powerW": 13.48,
+          "tempC": 72
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:19.754Z",
+        "cpuPct": 12.09,
+        "memUsedMb": 6953,
+        "gpu": {
+          "utilPct": 1,
+          "memUsedMb": 12,
+          "powerW": 13.8,
+          "tempC": 72
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:20.776Z",
+        "cpuPct": 14.14,
+        "memUsedMb": 7246,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 90,
+          "powerW": 14.1,
+          "tempC": 72
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:21.802Z",
+        "cpuPct": 14.84,
+        "memUsedMb": 7278,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 90,
+          "powerW": 13.59,
+          "tempC": 72
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:22.825Z",
+        "cpuPct": 14.39,
+        "memUsedMb": 7238,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 90,
+          "powerW": 13.63,
+          "tempC": 72
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:23.848Z",
+        "cpuPct": 23.81,
+        "memUsedMb": 7187,
+        "gpu": {
+          "utilPct": 1,
+          "memUsedMb": 2684,
+          "powerW": 18.49,
+          "tempC": 73
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:24.872Z",
+        "cpuPct": 29.36,
+        "memUsedMb": 7214,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2914,
+          "powerW": 23.71,
+          "tempC": 73
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:25.898Z",
+        "cpuPct": 51.79,
+        "memUsedMb": 7267,
+        "gpu": {
+          "utilPct": 87,
+          "memUsedMb": 2924,
+          "powerW": 48.34,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:26.930Z",
+        "cpuPct": 45.69,
+        "memUsedMb": 7286,
+        "gpu": {
+          "utilPct": 93,
+          "memUsedMb": 2926,
+          "powerW": 57.45,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:27.961Z",
+        "cpuPct": 44.67,
+        "memUsedMb": 7302,
+        "gpu": {
+          "utilPct": 94,
+          "memUsedMb": 2928,
+          "powerW": 59.61,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:28.991Z",
+        "cpuPct": 49.97,
+        "memUsedMb": 7329,
+        "gpu": {
+          "utilPct": 93,
+          "memUsedMb": 2940,
+          "powerW": 57.19,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:30.024Z",
+        "cpuPct": 45.88,
+        "memUsedMb": 7331,
+        "gpu": {
+          "utilPct": 93,
+          "memUsedMb": 2942,
+          "powerW": 58.17,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:31.056Z",
+        "cpuPct": 44.72,
+        "memUsedMb": 7351,
+        "gpu": {
+          "utilPct": 95,
+          "memUsedMb": 2944,
+          "powerW": 58.52,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:32.089Z",
+        "cpuPct": 45.53,
+        "memUsedMb": 7367,
+        "gpu": {
+          "utilPct": 98,
+          "memUsedMb": 2944,
+          "powerW": 58.85,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:33.117Z",
+        "cpuPct": 46.01,
+        "memUsedMb": 7355,
+        "gpu": {
+          "utilPct": 94,
+          "memUsedMb": 2944,
+          "powerW": 59.02,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:34.150Z",
+        "cpuPct": 45.5,
+        "memUsedMb": 7343,
+        "gpu": {
+          "utilPct": 94,
+          "memUsedMb": 2944,
+          "powerW": 59.27,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:35.183Z",
+        "cpuPct": 45.94,
+        "memUsedMb": 7357,
+        "gpu": {
+          "utilPct": 93,
+          "memUsedMb": 2944,
+          "powerW": 58.94,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:36.220Z",
+        "cpuPct": 55.41,
+        "memUsedMb": 7363,
+        "gpu": {
+          "utilPct": 88,
+          "memUsedMb": 2944,
+          "powerW": 58.72,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:37.259Z",
+        "cpuPct": 46.21,
+        "memUsedMb": 7355,
+        "gpu": {
+          "utilPct": 98,
+          "memUsedMb": 2944,
+          "powerW": 59.97,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:38.296Z",
+        "cpuPct": 46.01,
+        "memUsedMb": 7354,
+        "gpu": {
+          "utilPct": 94,
+          "memUsedMb": 2946,
+          "powerW": 59.41,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:39.333Z",
+        "cpuPct": 45.2,
+        "memUsedMb": 7343,
+        "gpu": {
+          "utilPct": 86,
+          "memUsedMb": 2946,
+          "powerW": 59.2,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:40.367Z",
+        "cpuPct": 51.48,
+        "memUsedMb": 7326,
+        "gpu": {
+          "utilPct": 89,
+          "memUsedMb": 2946,
+          "powerW": 59.33,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:41.408Z",
+        "cpuPct": 45.62,
+        "memUsedMb": 7361,
+        "gpu": {
+          "utilPct": 94,
+          "memUsedMb": 2948,
+          "powerW": 55.36,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:42.443Z",
+        "cpuPct": 57.47,
+        "memUsedMb": 7376,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 35.31,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:43.477Z",
+        "cpuPct": 66.19,
+        "memUsedMb": 7393,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 27.09,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:44.514Z",
+        "cpuPct": 54.95,
+        "memUsedMb": 7412,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 20.86,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:45.553Z",
+        "cpuPct": 53.81,
+        "memUsedMb": 7400,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.74,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:46.587Z",
+        "cpuPct": 54.85,
+        "memUsedMb": 7415,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.28,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:47.624Z",
+        "cpuPct": 52.77,
+        "memUsedMb": 7408,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.32,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:48.671Z",
+        "cpuPct": 57.32,
+        "memUsedMb": 7425,
+        "gpu": {
+          "utilPct": 9,
+          "memUsedMb": 2948,
+          "powerW": 19.35,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:49.717Z",
+        "cpuPct": 58.88,
+        "memUsedMb": 7427,
+        "gpu": {
+          "utilPct": 46,
+          "memUsedMb": 2948,
+          "powerW": 18.85,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:50.751Z",
+        "cpuPct": 45.72,
+        "memUsedMb": 7429,
+        "gpu": {
+          "utilPct": 93,
+          "memUsedMb": 2948,
+          "powerW": 56.22,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:51.791Z",
+        "cpuPct": 49.63,
+        "memUsedMb": 7603,
+        "gpu": {
+          "utilPct": 93,
+          "memUsedMb": 2948,
+          "powerW": 53.68,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:52.829Z",
+        "cpuPct": 52.3,
+        "memUsedMb": 7500,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 34.16,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:53.875Z",
+        "cpuPct": 57.79,
+        "memUsedMb": 7552,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 29.31,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:54.915Z",
+        "cpuPct": 54.26,
+        "memUsedMb": 7537,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.58,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:55.958Z",
+        "cpuPct": 69.04,
+        "memUsedMb": 7673,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.9,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:57.008Z",
+        "cpuPct": 73.35,
+        "memUsedMb": 7688,
+        "gpu": {
+          "utilPct": 9,
+          "memUsedMb": 2948,
+          "powerW": 18.36,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:58.064Z",
+        "cpuPct": 73.49,
+        "memUsedMb": 7614,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:28:59.109Z",
+        "cpuPct": 80,
+        "memUsedMb": 7803,
+        "gpu": {
+          "utilPct": 3,
+          "memUsedMb": 2948,
+          "powerW": 18.37,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:00.159Z",
+        "cpuPct": 68.83,
+        "memUsedMb": 7724,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.3,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:01.210Z",
+        "cpuPct": 64.86,
+        "memUsedMb": 7750,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.84,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:02.252Z",
+        "cpuPct": 72.17,
+        "memUsedMb": 7761,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.76,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:03.293Z",
+        "cpuPct": 71.95,
+        "memUsedMb": 7748,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.79,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:04.337Z",
+        "cpuPct": 78.61,
+        "memUsedMb": 7798,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.26,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:05.387Z",
+        "cpuPct": 67.78,
+        "memUsedMb": 7798,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.28,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:06.431Z",
+        "cpuPct": 78.75,
+        "memUsedMb": 7843,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.28,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:07.489Z",
+        "cpuPct": 73.5,
+        "memUsedMb": 7866,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:08.539Z",
+        "cpuPct": 80.8,
+        "memUsedMb": 7882,
+        "gpu": {
+          "utilPct": 4,
+          "memUsedMb": 2948,
+          "powerW": 18.2,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:09.583Z",
+        "cpuPct": 73.49,
+        "memUsedMb": 7885,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.41,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:10.626Z",
+        "cpuPct": 70.15,
+        "memUsedMb": 7864,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:11.668Z",
+        "cpuPct": 73.7,
+        "memUsedMb": 7877,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.15,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:12.709Z",
+        "cpuPct": 66.2,
+        "memUsedMb": 7877,
+        "gpu": {
+          "utilPct": 6,
+          "memUsedMb": 2948,
+          "powerW": 18.23,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:13.755Z",
+        "cpuPct": 68.13,
+        "memUsedMb": 7854,
+        "gpu": {
+          "utilPct": 6,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:14.801Z",
+        "cpuPct": 68.94,
+        "memUsedMb": 7859,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:15.848Z",
+        "cpuPct": 66.08,
+        "memUsedMb": 7841,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.63,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:16.889Z",
+        "cpuPct": 66.28,
+        "memUsedMb": 7808,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.08,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:17.938Z",
+        "cpuPct": 53.33,
+        "memUsedMb": 7596,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.19,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:18.982Z",
+        "cpuPct": 59.71,
+        "memUsedMb": 7594,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.98,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:20.030Z",
+        "cpuPct": 57.95,
+        "memUsedMb": 7613,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.14,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:21.070Z",
+        "cpuPct": 63.19,
+        "memUsedMb": 7610,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.18,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:22.122Z",
+        "cpuPct": 76.09,
+        "memUsedMb": 7562,
+        "gpu": {
+          "utilPct": 9,
+          "memUsedMb": 2948,
+          "powerW": 18.61,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:23.172Z",
+        "cpuPct": 72.89,
+        "memUsedMb": 7518,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.13,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:24.226Z",
+        "cpuPct": 79.92,
+        "memUsedMb": 7883,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.61,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:25.275Z",
+        "cpuPct": 78.83,
+        "memUsedMb": 7669,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.1,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:26.321Z",
+        "cpuPct": 67.13,
+        "memUsedMb": 7696,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.16,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:27.378Z",
+        "cpuPct": 83.9,
+        "memUsedMb": 7819,
+        "gpu": {
+          "utilPct": 1,
+          "memUsedMb": 2948,
+          "powerW": 18.11,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:28.421Z",
+        "cpuPct": 80.38,
+        "memUsedMb": 7839,
+        "gpu": {
+          "utilPct": 2,
+          "memUsedMb": 2948,
+          "powerW": 17.6,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:29.471Z",
+        "cpuPct": 77.18,
+        "memUsedMb": 7853,
+        "gpu": {
+          "utilPct": 5,
+          "memUsedMb": 2948,
+          "powerW": 17.58,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:30.512Z",
+        "cpuPct": 82.91,
+        "memUsedMb": 7805,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.15,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:31.553Z",
+        "cpuPct": 73.13,
+        "memUsedMb": 7861,
+        "gpu": {
+          "utilPct": 2,
+          "memUsedMb": 2948,
+          "powerW": 18.21,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:32.608Z",
+        "cpuPct": 80.48,
+        "memUsedMb": 7901,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.1,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:33.651Z",
+        "cpuPct": 73.38,
+        "memUsedMb": 7898,
+        "gpu": {
+          "utilPct": 6,
+          "memUsedMb": 2948,
+          "powerW": 18.69,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:34.695Z",
+        "cpuPct": 73.03,
+        "memUsedMb": 7930,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.47,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:35.739Z",
+        "cpuPct": 76.5,
+        "memUsedMb": 7949,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.76,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:36.788Z",
+        "cpuPct": 76.2,
+        "memUsedMb": 7957,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.03,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:37.870Z",
+        "cpuPct": 70.29,
+        "memUsedMb": 7976,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.6,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:38.921Z",
+        "cpuPct": 71.09,
+        "memUsedMb": 7975,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.01,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:39.967Z",
+        "cpuPct": 71.22,
+        "memUsedMb": 7948,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.34,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:41.006Z",
+        "cpuPct": 68.46,
+        "memUsedMb": 7979,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.15,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:42.047Z",
+        "cpuPct": 67.09,
+        "memUsedMb": 7828,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.65,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:43.094Z",
+        "cpuPct": 75.11,
+        "memUsedMb": 7832,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.07,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:44.145Z",
+        "cpuPct": 70.96,
+        "memUsedMb": 7824,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.67,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:45.212Z",
+        "cpuPct": 66.59,
+        "memUsedMb": 7844,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.66,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:46.251Z",
+        "cpuPct": 74.77,
+        "memUsedMb": 7847,
+        "gpu": {
+          "utilPct": 7,
+          "memUsedMb": 2948,
+          "powerW": 18.09,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:47.305Z",
+        "cpuPct": 72.79,
+        "memUsedMb": 7935,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.07,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:48.350Z",
+        "cpuPct": 67.99,
+        "memUsedMb": 8025,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.72,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:49.400Z",
+        "cpuPct": 68.9,
+        "memUsedMb": 7731,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.7,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:50.442Z",
+        "cpuPct": 64.67,
+        "memUsedMb": 7768,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.29,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:51.488Z",
+        "cpuPct": 61.24,
+        "memUsedMb": 7801,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.32,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:52.533Z",
+        "cpuPct": 55.41,
+        "memUsedMb": 7811,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.77,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:53.578Z",
+        "cpuPct": 60.53,
+        "memUsedMb": 7829,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.77,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:54.614Z",
+        "cpuPct": 70.22,
+        "memUsedMb": 7831,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.69,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:55.654Z",
+        "cpuPct": 61.49,
+        "memUsedMb": 7844,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.15,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:56.708Z",
+        "cpuPct": 65.57,
+        "memUsedMb": 7861,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.66,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:57.752Z",
+        "cpuPct": 66.79,
+        "memUsedMb": 8106,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.2,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:58.798Z",
+        "cpuPct": 59.3,
+        "memUsedMb": 7756,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.66,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:29:59.845Z",
+        "cpuPct": 55.87,
+        "memUsedMb": 7775,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.21,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:00.889Z",
+        "cpuPct": 54.96,
+        "memUsedMb": 7754,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.81,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:01.944Z",
+        "cpuPct": 49,
+        "memUsedMb": 7730,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.75,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:02.995Z",
+        "cpuPct": 55.11,
+        "memUsedMb": 8015,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.76,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:04.044Z",
+        "cpuPct": 50.27,
+        "memUsedMb": 7740,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.3,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:05.086Z",
+        "cpuPct": 51.25,
+        "memUsedMb": 7737,
+        "gpu": {
+          "utilPct": 4,
+          "memUsedMb": 2948,
+          "powerW": 19.25,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:06.139Z",
+        "cpuPct": 58.03,
+        "memUsedMb": 7760,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.68,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:07.191Z",
+        "cpuPct": 63.49,
+        "memUsedMb": 7741,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.75,
+          "tempC": 77
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:08.232Z",
+        "cpuPct": 57.83,
+        "memUsedMb": 7750,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.2,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:09.281Z",
+        "cpuPct": 57.85,
+        "memUsedMb": 7791,
+        "gpu": {
+          "utilPct": 1,
+          "memUsedMb": 2948,
+          "powerW": 18.68,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:10.323Z",
+        "cpuPct": 56.86,
+        "memUsedMb": 7817,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.15,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:11.361Z",
+        "cpuPct": 49.69,
+        "memUsedMb": 7797,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.68,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:12.397Z",
+        "cpuPct": 53.4,
+        "memUsedMb": 7815,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.68,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:13.434Z",
+        "cpuPct": 58.15,
+        "memUsedMb": 7800,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.71,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:14.472Z",
+        "cpuPct": 49.11,
+        "memUsedMb": 7813,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.2,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:15.512Z",
+        "cpuPct": 53.46,
+        "memUsedMb": 7910,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.74,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:16.560Z",
+        "cpuPct": 58,
+        "memUsedMb": 7975,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.73,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:17.610Z",
+        "cpuPct": 57.63,
+        "memUsedMb": 8032,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.72,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:18.649Z",
+        "cpuPct": 48.29,
+        "memUsedMb": 8036,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.22,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:19.691Z",
+        "cpuPct": 49.54,
+        "memUsedMb": 8037,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.05,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:20.733Z",
+        "cpuPct": 49.66,
+        "memUsedMb": 8031,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.83,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:21.776Z",
+        "cpuPct": 48.99,
+        "memUsedMb": 8011,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.66,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:22.818Z",
+        "cpuPct": 48.6,
+        "memUsedMb": 8015,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.21,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:23.871Z",
+        "cpuPct": 49.06,
+        "memUsedMb": 8027,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.22,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:24.915Z",
+        "cpuPct": 49.42,
+        "memUsedMb": 8018,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.15,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:25.955Z",
+        "cpuPct": 50.09,
+        "memUsedMb": 8018,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.7,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:26.996Z",
+        "cpuPct": 49.05,
+        "memUsedMb": 8006,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.21,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:28.040Z",
+        "cpuPct": 55.93,
+        "memUsedMb": 7858,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.18,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:29.085Z",
+        "cpuPct": 52.95,
+        "memUsedMb": 7724,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.23,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:30.131Z",
+        "cpuPct": 50.43,
+        "memUsedMb": 7730,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.75,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:31.180Z",
+        "cpuPct": 52.19,
+        "memUsedMb": 7747,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.78,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:32.241Z",
+        "cpuPct": 57.81,
+        "memUsedMb": 7718,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.88,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:33.288Z",
+        "cpuPct": 49.45,
+        "memUsedMb": 7717,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.11,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:34.332Z",
+        "cpuPct": 49.79,
+        "memUsedMb": 7743,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.73,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:35.378Z",
+        "cpuPct": 49.97,
+        "memUsedMb": 7739,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.34,
+          "tempC": 78
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:36.410Z",
+        "cpuPct": 45.86,
+        "memUsedMb": 7548,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 43.94,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:37.457Z",
+        "cpuPct": 51.53,
+        "memUsedMb": 7569,
+        "gpu": {
+          "utilPct": 83,
+          "memUsedMb": 2948,
+          "powerW": 56.87,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:38.499Z",
+        "cpuPct": 47.26,
+        "memUsedMb": 7605,
+        "gpu": {
+          "utilPct": 91,
+          "memUsedMb": 2948,
+          "powerW": 57.83,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:39.538Z",
+        "cpuPct": 53.46,
+        "memUsedMb": 7604,
+        "gpu": {
+          "utilPct": 98,
+          "memUsedMb": 2948,
+          "powerW": 57.47,
+          "tempC": 84
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:40.581Z",
+        "cpuPct": 44.58,
+        "memUsedMb": 7609,
+        "gpu": {
+          "utilPct": 93,
+          "memUsedMb": 2948,
+          "powerW": 59.19,
+          "tempC": 84
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:41.616Z",
+        "cpuPct": 47.39,
+        "memUsedMb": 7603,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 58.69,
+          "tempC": 84
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:42.655Z",
+        "cpuPct": 47.18,
+        "memUsedMb": 7603,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 58.43,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:43.690Z",
+        "cpuPct": 44.75,
+        "memUsedMb": 7588,
+        "gpu": {
+          "utilPct": 93,
+          "memUsedMb": 2948,
+          "powerW": 59.12,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:44.723Z",
+        "cpuPct": 44.49,
+        "memUsedMb": 7556,
+        "gpu": {
+          "utilPct": 89,
+          "memUsedMb": 2948,
+          "powerW": 59.49,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:45.762Z",
+        "cpuPct": 51.99,
+        "memUsedMb": 7545,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 56.56,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:46.797Z",
+        "cpuPct": 45.76,
+        "memUsedMb": 7556,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 59.54,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:47.833Z",
+        "cpuPct": 45.52,
+        "memUsedMb": 7555,
+        "gpu": {
+          "utilPct": 90,
+          "memUsedMb": 2948,
+          "powerW": 59.54,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:48.882Z",
+        "cpuPct": 46.61,
+        "memUsedMb": 7550,
+        "gpu": {
+          "utilPct": 100,
+          "memUsedMb": 2948,
+          "powerW": 58.99,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:49.934Z",
+        "cpuPct": 45.98,
+        "memUsedMb": 7563,
+        "gpu": {
+          "utilPct": 88,
+          "memUsedMb": 2948,
+          "powerW": 59.67,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:50.991Z",
+        "cpuPct": 45.78,
+        "memUsedMb": 7545,
+        "gpu": {
+          "utilPct": 84,
+          "memUsedMb": 2948,
+          "powerW": 57.05,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:52.040Z",
+        "cpuPct": 46.61,
+        "memUsedMb": 7538,
+        "gpu": {
+          "utilPct": 100,
+          "memUsedMb": 2948,
+          "powerW": 59.78,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:53.088Z",
+        "cpuPct": 59.42,
+        "memUsedMb": 7510,
+        "gpu": {
+          "utilPct": 78,
+          "memUsedMb": 2948,
+          "powerW": 55.81,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:54.162Z",
+        "cpuPct": 55.57,
+        "memUsedMb": 7516,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 24.19,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:55.244Z",
+        "cpuPct": 56.17,
+        "memUsedMb": 7517,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 21.83,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:56.348Z",
+        "cpuPct": 65.99,
+        "memUsedMb": 7520,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 15.32,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:57.421Z",
+        "cpuPct": 59.61,
+        "memUsedMb": 7551,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 15.72,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:58.467Z",
+        "cpuPct": 52.01,
+        "memUsedMb": 7631,
+        "gpu": {
+          "utilPct": 35,
+          "memUsedMb": 2948,
+          "powerW": 38.86,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:30:59.552Z",
+        "cpuPct": 68.8,
+        "memUsedMb": 7640,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 26.67,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:00.618Z",
+        "cpuPct": 57.16,
+        "memUsedMb": 7641,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 21.7,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:01.708Z",
+        "cpuPct": 56.52,
+        "memUsedMb": 7636,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.13,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:02.788Z",
+        "cpuPct": 67.43,
+        "memUsedMb": 7623,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.57,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:03.864Z",
+        "cpuPct": 58.79,
+        "memUsedMb": 7623,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.55,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:04.946Z",
+        "cpuPct": 54.57,
+        "memUsedMb": 7632,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.66,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:06.008Z",
+        "cpuPct": 54.05,
+        "memUsedMb": 7628,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.34,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:07.053Z",
+        "cpuPct": 55.07,
+        "memUsedMb": 7609,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.87,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:08.128Z",
+        "cpuPct": 50.92,
+        "memUsedMb": 7628,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 33.78,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:09.170Z",
+        "cpuPct": 57.12,
+        "memUsedMb": 7629,
+        "gpu": {
+          "utilPct": 86,
+          "memUsedMb": 2948,
+          "powerW": 57.78,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:10.213Z",
+        "cpuPct": 47.25,
+        "memUsedMb": 7690,
+        "gpu": {
+          "utilPct": 90,
+          "memUsedMb": 2948,
+          "powerW": 58.42,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:11.260Z",
+        "cpuPct": 51.4,
+        "memUsedMb": 7735,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 43.1,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:12.323Z",
+        "cpuPct": 56.82,
+        "memUsedMb": 7728,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 28.53,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:13.368Z",
+        "cpuPct": 55.93,
+        "memUsedMb": 7721,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 20.66,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:14.430Z",
+        "cpuPct": 60.25,
+        "memUsedMb": 7738,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.75,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:15.514Z",
+        "cpuPct": 54.28,
+        "memUsedMb": 7733,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.68,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:16.589Z",
+        "cpuPct": 65.13,
+        "memUsedMb": 7726,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.9,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:17.649Z",
+        "cpuPct": 54.25,
+        "memUsedMb": 7745,
+        "gpu": {
+          "utilPct": 9,
+          "memUsedMb": 2948,
+          "powerW": 18.15,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:18.712Z",
+        "cpuPct": 54.5,
+        "memUsedMb": 7766,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.67,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:19.782Z",
+        "cpuPct": 54.56,
+        "memUsedMb": 7732,
+        "gpu": {
+          "utilPct": 10,
+          "memUsedMb": 2948,
+          "powerW": 18.1,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:20.840Z",
+        "cpuPct": 55.31,
+        "memUsedMb": 7727,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.28,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:21.900Z",
+        "cpuPct": 55.47,
+        "memUsedMb": 7731,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.07,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:22.964Z",
+        "cpuPct": 65.59,
+        "memUsedMb": 7726,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.06,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:24.032Z",
+        "cpuPct": 55.98,
+        "memUsedMb": 7733,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:25.089Z",
+        "cpuPct": 65.9,
+        "memUsedMb": 7736,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.04,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:26.163Z",
+        "cpuPct": 70.14,
+        "memUsedMb": 7749,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.5,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:27.255Z",
+        "cpuPct": 66.63,
+        "memUsedMb": 7675,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.08,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:28.325Z",
+        "cpuPct": 66.53,
+        "memUsedMb": 7699,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.5,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:29.385Z",
+        "cpuPct": 65.83,
+        "memUsedMb": 7691,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:30.438Z",
+        "cpuPct": 61.45,
+        "memUsedMb": 7720,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:31.499Z",
+        "cpuPct": 47.81,
+        "memUsedMb": 7712,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 19.04,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:32.540Z",
+        "cpuPct": 50.28,
+        "memUsedMb": 7687,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.11,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:33.596Z",
+        "cpuPct": 48.34,
+        "memUsedMb": 7692,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:34.655Z",
+        "cpuPct": 58.28,
+        "memUsedMb": 7631,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:35.714Z",
+        "cpuPct": 57.03,
+        "memUsedMb": 7614,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:36.767Z",
+        "cpuPct": 51.28,
+        "memUsedMb": 7624,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:37.824Z",
+        "cpuPct": 51.33,
+        "memUsedMb": 7587,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:38.875Z",
+        "cpuPct": 50.12,
+        "memUsedMb": 7603,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.72,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:39.928Z",
+        "cpuPct": 50.55,
+        "memUsedMb": 7631,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.89,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:40.979Z",
+        "cpuPct": 49.33,
+        "memUsedMb": 7607,
+        "gpu": {
+          "utilPct": 10,
+          "memUsedMb": 2948,
+          "powerW": 18.91,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:42.029Z",
+        "cpuPct": 51.52,
+        "memUsedMb": 7663,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.08,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:43.096Z",
+        "cpuPct": 58.95,
+        "memUsedMb": 7761,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.97,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:44.145Z",
+        "cpuPct": 50.82,
+        "memUsedMb": 7803,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.38,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:45.186Z",
+        "cpuPct": 49.11,
+        "memUsedMb": 7748,
+        "gpu": {
+          "utilPct": 6,
+          "memUsedMb": 2948,
+          "powerW": 19,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:46.232Z",
+        "cpuPct": 49.45,
+        "memUsedMb": 7813,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.02,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:47.286Z",
+        "cpuPct": 52.85,
+        "memUsedMb": 7869,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:48.349Z",
+        "cpuPct": 49.73,
+        "memUsedMb": 7436,
+        "gpu": {
+          "utilPct": 4,
+          "memUsedMb": 2948,
+          "powerW": 18.61,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:49.400Z",
+        "cpuPct": 49.27,
+        "memUsedMb": 7463,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:50.455Z",
+        "cpuPct": 48.58,
+        "memUsedMb": 7484,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:51.503Z",
+        "cpuPct": 48.96,
+        "memUsedMb": 7452,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:52.562Z",
+        "cpuPct": 49.79,
+        "memUsedMb": 7473,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.04,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:53.616Z",
+        "cpuPct": 49.54,
+        "memUsedMb": 7464,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.03,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:54.666Z",
+        "cpuPct": 48.41,
+        "memUsedMb": 7465,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.06,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:55.719Z",
+        "cpuPct": 49.73,
+        "memUsedMb": 7433,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.12,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:56.773Z",
+        "cpuPct": 48.52,
+        "memUsedMb": 7426,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.11,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:57.812Z",
+        "cpuPct": 50.43,
+        "memUsedMb": 7437,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.06,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:58.864Z",
+        "cpuPct": 49.24,
+        "memUsedMb": 7439,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.05,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:31:59.911Z",
+        "cpuPct": 50.91,
+        "memUsedMb": 7461,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.05,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:00.972Z",
+        "cpuPct": 57.06,
+        "memUsedMb": 7499,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:02.026Z",
+        "cpuPct": 51,
+        "memUsedMb": 7506,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:03.081Z",
+        "cpuPct": 53.31,
+        "memUsedMb": 7505,
+        "gpu": {
+          "utilPct": 7,
+          "memUsedMb": 2948,
+          "powerW": 18.99,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:04.125Z",
+        "cpuPct": 51.41,
+        "memUsedMb": 7516,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:05.171Z",
+        "cpuPct": 58.58,
+        "memUsedMb": 7527,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.92,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:06.218Z",
+        "cpuPct": 51.1,
+        "memUsedMb": 7531,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.97,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:07.275Z",
+        "cpuPct": 50.42,
+        "memUsedMb": 7509,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.06,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:08.332Z",
+        "cpuPct": 53.6,
+        "memUsedMb": 7488,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:09.387Z",
+        "cpuPct": 51.15,
+        "memUsedMb": 7480,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:10.437Z",
+        "cpuPct": 51.71,
+        "memUsedMb": 7492,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:11.489Z",
+        "cpuPct": 58.41,
+        "memUsedMb": 7496,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:12.540Z",
+        "cpuPct": 52.02,
+        "memUsedMb": 7506,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:13.592Z",
+        "cpuPct": 50.52,
+        "memUsedMb": 7495,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:14.642Z",
+        "cpuPct": 51.61,
+        "memUsedMb": 7508,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.98,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:15.702Z",
+        "cpuPct": 58.39,
+        "memUsedMb": 7545,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.24,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:16.749Z",
+        "cpuPct": 49.79,
+        "memUsedMb": 7547,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.06,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:17.791Z",
+        "cpuPct": 51.19,
+        "memUsedMb": 7575,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.08,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:18.833Z",
+        "cpuPct": 49.79,
+        "memUsedMb": 7566,
+        "gpu": {
+          "utilPct": 3,
+          "memUsedMb": 2948,
+          "powerW": 19.07,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:19.887Z",
+        "cpuPct": 50.97,
+        "memUsedMb": 7544,
+        "gpu": {
+          "utilPct": 3,
+          "memUsedMb": 2948,
+          "powerW": 19.05,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:20.937Z",
+        "cpuPct": 50.61,
+        "memUsedMb": 7529,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.03,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:21.989Z",
+        "cpuPct": 48.46,
+        "memUsedMb": 7513,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.06,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:23.041Z",
+        "cpuPct": 57.89,
+        "memUsedMb": 7524,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:24.093Z",
+        "cpuPct": 62.23,
+        "memUsedMb": 7554,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.91,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:25.145Z",
+        "cpuPct": 47.79,
+        "memUsedMb": 7574,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.91,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:26.201Z",
+        "cpuPct": 47.22,
+        "memUsedMb": 7581,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.93,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:27.250Z",
+        "cpuPct": 48.51,
+        "memUsedMb": 7564,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.56,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:28.295Z",
+        "cpuPct": 51.25,
+        "memUsedMb": 7560,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.02,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:29.348Z",
+        "cpuPct": 49.21,
+        "memUsedMb": 7551,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.93,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:30.404Z",
+        "cpuPct": 49.28,
+        "memUsedMb": 7533,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.05,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:31.456Z",
+        "cpuPct": 49.18,
+        "memUsedMb": 7542,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:32.507Z",
+        "cpuPct": 59.89,
+        "memUsedMb": 7503,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.7,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:33.566Z",
+        "cpuPct": 67.66,
+        "memUsedMb": 7564,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.15,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:34.610Z",
+        "cpuPct": 68.26,
+        "memUsedMb": 7594,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.41,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:35.664Z",
+        "cpuPct": 58.02,
+        "memUsedMb": 7591,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.98,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:36.701Z",
+        "cpuPct": 48.37,
+        "memUsedMb": 7574,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.96,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:37.750Z",
+        "cpuPct": 49.61,
+        "memUsedMb": 7583,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:38.801Z",
+        "cpuPct": 53.45,
+        "memUsedMb": 7577,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.98,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:39.848Z",
+        "cpuPct": 73.69,
+        "memUsedMb": 7397,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:40.906Z",
+        "cpuPct": 76.55,
+        "memUsedMb": 7453,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.95,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:41.954Z",
+        "cpuPct": 67.8,
+        "memUsedMb": 7097,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.04,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:43.010Z",
+        "cpuPct": 56.95,
+        "memUsedMb": 7156,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.98,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:44.064Z",
+        "cpuPct": 53.61,
+        "memUsedMb": 7278,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.99,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:45.115Z",
+        "cpuPct": 57.98,
+        "memUsedMb": 7302,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.06,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:46.160Z",
+        "cpuPct": 57.66,
+        "memUsedMb": 7316,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:47.216Z",
+        "cpuPct": 59.89,
+        "memUsedMb": 7367,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:48.266Z",
+        "cpuPct": 75.46,
+        "memUsedMb": 7417,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:49.321Z",
+        "cpuPct": 71.09,
+        "memUsedMb": 7453,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.43,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:50.382Z",
+        "cpuPct": 63.81,
+        "memUsedMb": 7500,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.35,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:51.431Z",
+        "cpuPct": 56.99,
+        "memUsedMb": 7522,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.92,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:52.479Z",
+        "cpuPct": 59.46,
+        "memUsedMb": 7532,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.42,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:53.534Z",
+        "cpuPct": 60.93,
+        "memUsedMb": 7539,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:54.589Z",
+        "cpuPct": 67.64,
+        "memUsedMb": 7600,
+        "gpu": {
+          "utilPct": 7,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:55.642Z",
+        "cpuPct": 83.72,
+        "memUsedMb": 7703,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.83,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:56.697Z",
+        "cpuPct": 80.81,
+        "memUsedMb": 7735,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.91,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:57.750Z",
+        "cpuPct": 76.6,
+        "memUsedMb": 7796,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.7,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:58.802Z",
+        "cpuPct": 67.68,
+        "memUsedMb": 7683,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.91,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:32:59.863Z",
+        "cpuPct": 63.63,
+        "memUsedMb": 7772,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.43,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:00.918Z",
+        "cpuPct": 61.27,
+        "memUsedMb": 7784,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:01.972Z",
+        "cpuPct": 65.96,
+        "memUsedMb": 7809,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:03.022Z",
+        "cpuPct": 58.83,
+        "memUsedMb": 7807,
+        "gpu": {
+          "utilPct": 5,
+          "memUsedMb": 2948,
+          "powerW": 17.97,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:04.073Z",
+        "cpuPct": 61.47,
+        "memUsedMb": 7812,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.03,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:05.125Z",
+        "cpuPct": 66.85,
+        "memUsedMb": 7782,
+        "gpu": {
+          "utilPct": 2,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:06.181Z",
+        "cpuPct": 73.18,
+        "memUsedMb": 7814,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.9,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:07.243Z",
+        "cpuPct": 76.46,
+        "memUsedMb": 7883,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.92,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:08.298Z",
+        "cpuPct": 82.03,
+        "memUsedMb": 7959,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.02,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:09.356Z",
+        "cpuPct": 60.54,
+        "memUsedMb": 8067,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:10.403Z",
+        "cpuPct": 54.4,
+        "memUsedMb": 8078,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:11.444Z",
+        "cpuPct": 53.35,
+        "memUsedMb": 8092,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.02,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:12.487Z",
+        "cpuPct": 52.57,
+        "memUsedMb": 8099,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:13.528Z",
+        "cpuPct": 54.57,
+        "memUsedMb": 7953,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:14.576Z",
+        "cpuPct": 72.34,
+        "memUsedMb": 7774,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:15.651Z",
+        "cpuPct": 65.12,
+        "memUsedMb": 7766,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.93,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:16.701Z",
+        "cpuPct": 60.6,
+        "memUsedMb": 7774,
+        "gpu": {
+          "utilPct": 9,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:17.762Z",
+        "cpuPct": 55.13,
+        "memUsedMb": 7776,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:18.814Z",
+        "cpuPct": 56.06,
+        "memUsedMb": 7766,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.04,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:19.864Z",
+        "cpuPct": 62.05,
+        "memUsedMb": 7773,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:20.913Z",
+        "cpuPct": 57.84,
+        "memUsedMb": 7738,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.44,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:21.969Z",
+        "cpuPct": 55,
+        "memUsedMb": 7727,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:23.024Z",
+        "cpuPct": 52.63,
+        "memUsedMb": 7726,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:24.074Z",
+        "cpuPct": 62.26,
+        "memUsedMb": 7715,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:25.126Z",
+        "cpuPct": 55.84,
+        "memUsedMb": 7710,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.44,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:26.174Z",
+        "cpuPct": 53.89,
+        "memUsedMb": 7718,
+        "gpu": {
+          "utilPct": 4,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:27.227Z",
+        "cpuPct": 61.24,
+        "memUsedMb": 7769,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:28.281Z",
+        "cpuPct": 92.17,
+        "memUsedMb": 8005,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.74,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:29.346Z",
+        "cpuPct": 84.09,
+        "memUsedMb": 7881,
+        "gpu": {
+          "utilPct": 9,
+          "memUsedMb": 2948,
+          "powerW": 17.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:30.391Z",
+        "cpuPct": 65.81,
+        "memUsedMb": 7965,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:31.445Z",
+        "cpuPct": 62.9,
+        "memUsedMb": 8008,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:32.497Z",
+        "cpuPct": 51.51,
+        "memUsedMb": 7970,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.16,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:33.544Z",
+        "cpuPct": 56.59,
+        "memUsedMb": 7988,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.91,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:34.594Z",
+        "cpuPct": 53.46,
+        "memUsedMb": 7941,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.04,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:35.644Z",
+        "cpuPct": 54.89,
+        "memUsedMb": 7981,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.13,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:36.691Z",
+        "cpuPct": 61.17,
+        "memUsedMb": 7994,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:37.738Z",
+        "cpuPct": 54.23,
+        "memUsedMb": 8018,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.11,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:38.794Z",
+        "cpuPct": 57.72,
+        "memUsedMb": 8012,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:39.832Z",
+        "cpuPct": 55.69,
+        "memUsedMb": 7943,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.02,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:40.885Z",
+        "cpuPct": 56.17,
+        "memUsedMb": 7984,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.72,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:41.935Z",
+        "cpuPct": 54.19,
+        "memUsedMb": 8004,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.11,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:42.989Z",
+        "cpuPct": 55.39,
+        "memUsedMb": 7999,
+        "gpu": {
+          "utilPct": 6,
+          "memUsedMb": 2948,
+          "powerW": 19.05,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:44.030Z",
+        "cpuPct": 71.95,
+        "memUsedMb": 8063,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:45.100Z",
+        "cpuPct": 73.46,
+        "memUsedMb": 8024,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.92,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:46.201Z",
+        "cpuPct": 68.05,
+        "memUsedMb": 8026,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.47,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:47.245Z",
+        "cpuPct": 62.39,
+        "memUsedMb": 8026,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.08,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:48.298Z",
+        "cpuPct": 57.56,
+        "memUsedMb": 8066,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.1,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:49.352Z",
+        "cpuPct": 52.06,
+        "memUsedMb": 8068,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.56,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:50.414Z",
+        "cpuPct": 54.52,
+        "memUsedMb": 8097,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.82,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:51.464Z",
+        "cpuPct": 53.63,
+        "memUsedMb": 8091,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.02,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:52.519Z",
+        "cpuPct": 69.43,
+        "memUsedMb": 7801,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.33,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:53.568Z",
+        "cpuPct": 61.14,
+        "memUsedMb": 7839,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.62,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:54.619Z",
+        "cpuPct": 60.57,
+        "memUsedMb": 7858,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.05,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:55.664Z",
+        "cpuPct": 59.47,
+        "memUsedMb": 7831,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:56.715Z",
+        "cpuPct": 56.89,
+        "memUsedMb": 7831,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:57.764Z",
+        "cpuPct": 53.25,
+        "memUsedMb": 7844,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:58.817Z",
+        "cpuPct": 63.88,
+        "memUsedMb": 8032,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:33:59.865Z",
+        "cpuPct": 52.46,
+        "memUsedMb": 7846,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.95,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:00.924Z",
+        "cpuPct": 78.44,
+        "memUsedMb": 7883,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.93,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:01.982Z",
+        "cpuPct": 76.4,
+        "memUsedMb": 7915,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:03.033Z",
+        "cpuPct": 64.95,
+        "memUsedMb": 8128,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.03,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:04.115Z",
+        "cpuPct": 81.62,
+        "memUsedMb": 8238,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.39,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:05.178Z",
+        "cpuPct": 61.44,
+        "memUsedMb": 7889,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:06.237Z",
+        "cpuPct": 72.93,
+        "memUsedMb": 7945,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:07.300Z",
+        "cpuPct": 82.07,
+        "memUsedMb": 7967,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.43,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:08.359Z",
+        "cpuPct": 85.13,
+        "memUsedMb": 7997,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.93,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:09.431Z",
+        "cpuPct": 79.56,
+        "memUsedMb": 8017,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.4,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:10.487Z",
+        "cpuPct": 72.13,
+        "memUsedMb": 8041,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.95,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:11.536Z",
+        "cpuPct": 73.41,
+        "memUsedMb": 8038,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.91,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:12.616Z",
+        "cpuPct": 78.08,
+        "memUsedMb": 8086,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.93,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:13.672Z",
+        "cpuPct": 65.34,
+        "memUsedMb": 8114,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:14.727Z",
+        "cpuPct": 63.26,
+        "memUsedMb": 8069,
+        "gpu": {
+          "utilPct": 7,
+          "memUsedMb": 2948,
+          "powerW": 18.6,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:15.780Z",
+        "cpuPct": 69.57,
+        "memUsedMb": 8041,
+        "gpu": {
+          "utilPct": 9,
+          "memUsedMb": 2948,
+          "powerW": 18.07,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:16.832Z",
+        "cpuPct": 69.98,
+        "memUsedMb": 8022,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.07,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:17.890Z",
+        "cpuPct": 68.09,
+        "memUsedMb": 8031,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:18.932Z",
+        "cpuPct": 69.54,
+        "memUsedMb": 8049,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:19.986Z",
+        "cpuPct": 64.03,
+        "memUsedMb": 8057,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:21.044Z",
+        "cpuPct": 63.23,
+        "memUsedMb": 8081,
+        "gpu": {
+          "utilPct": 4,
+          "memUsedMb": 2948,
+          "powerW": 18.47,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:22.089Z",
+        "cpuPct": 70.24,
+        "memUsedMb": 8092,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:23.145Z",
+        "cpuPct": 78.7,
+        "memUsedMb": 8146,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.95,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:24.211Z",
+        "cpuPct": 74.66,
+        "memUsedMb": 8130,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.98,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:25.253Z",
+        "cpuPct": 77.09,
+        "memUsedMb": 8106,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.04,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:26.308Z",
+        "cpuPct": 66.67,
+        "memUsedMb": 8252,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.02,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:27.350Z",
+        "cpuPct": 63.64,
+        "memUsedMb": 7957,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:28.398Z",
+        "cpuPct": 71.47,
+        "memUsedMb": 7953,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.56,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:29.446Z",
+        "cpuPct": 66.52,
+        "memUsedMb": 7952,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:30.501Z",
+        "cpuPct": 63.38,
+        "memUsedMb": 7963,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:31.556Z",
+        "cpuPct": 64.98,
+        "memUsedMb": 7979,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.42,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:32.607Z",
+        "cpuPct": 60.54,
+        "memUsedMb": 7981,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:33.659Z",
+        "cpuPct": 61.34,
+        "memUsedMb": 7964,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:34.697Z",
+        "cpuPct": 60.6,
+        "memUsedMb": 7951,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:35.752Z",
+        "cpuPct": 65.74,
+        "memUsedMb": 7953,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.83,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:36.806Z",
+        "cpuPct": 57.37,
+        "memUsedMb": 7956,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.47,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:37.853Z",
+        "cpuPct": 57.13,
+        "memUsedMb": 7954,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.98,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:38.903Z",
+        "cpuPct": 55.7,
+        "memUsedMb": 7943,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:39.962Z",
+        "cpuPct": 64.38,
+        "memUsedMb": 7941,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.47,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:41.009Z",
+        "cpuPct": 66.08,
+        "memUsedMb": 7952,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:42.065Z",
+        "cpuPct": 67.76,
+        "memUsedMb": 7936,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.98,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:43.115Z",
+        "cpuPct": 64.72,
+        "memUsedMb": 7960,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:44.167Z",
+        "cpuPct": 65.49,
+        "memUsedMb": 7974,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.47,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:45.222Z",
+        "cpuPct": 57.94,
+        "memUsedMb": 7949,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:46.273Z",
+        "cpuPct": 53.71,
+        "memUsedMb": 7922,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.88,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:47.321Z",
+        "cpuPct": 51.82,
+        "memUsedMb": 7923,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.1,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:48.375Z",
+        "cpuPct": 53.05,
+        "memUsedMb": 7903,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 19.09,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:49.430Z",
+        "cpuPct": 60.84,
+        "memUsedMb": 7891,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:50.483Z",
+        "cpuPct": 54.2,
+        "memUsedMb": 7894,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.07,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:51.541Z",
+        "cpuPct": 53.34,
+        "memUsedMb": 7886,
+        "gpu": {
+          "utilPct": 9,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:52.592Z",
+        "cpuPct": 63.31,
+        "memUsedMb": 7900,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:53.641Z",
+        "cpuPct": 52.04,
+        "memUsedMb": 7889,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:54.688Z",
+        "cpuPct": 62.82,
+        "memUsedMb": 7907,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:55.740Z",
+        "cpuPct": 57.06,
+        "memUsedMb": 7906,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.38,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:56.787Z",
+        "cpuPct": 63.54,
+        "memUsedMb": 7896,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:57.847Z",
+        "cpuPct": 56.01,
+        "memUsedMb": 7890,
+        "gpu": {
+          "utilPct": 5,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:58.901Z",
+        "cpuPct": 57,
+        "memUsedMb": 7900,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.39,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:34:59.966Z",
+        "cpuPct": 55.74,
+        "memUsedMb": 7912,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:01.028Z",
+        "cpuPct": 61.58,
+        "memUsedMb": 7942,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:02.080Z",
+        "cpuPct": 57.61,
+        "memUsedMb": 7942,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:03.126Z",
+        "cpuPct": 55.47,
+        "memUsedMb": 7905,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:04.183Z",
+        "cpuPct": 57.6,
+        "memUsedMb": 7922,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.47,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:05.237Z",
+        "cpuPct": 57.44,
+        "memUsedMb": 7933,
+        "gpu": {
+          "utilPct": 2,
+          "memUsedMb": 2948,
+          "powerW": 18.43,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:06.284Z",
+        "cpuPct": 56.25,
+        "memUsedMb": 7972,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.39,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:07.346Z",
+        "cpuPct": 70.35,
+        "memUsedMb": 7971,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.86,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:08.402Z",
+        "cpuPct": 58.95,
+        "memUsedMb": 8025,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:09.447Z",
+        "cpuPct": 57.64,
+        "memUsedMb": 8050,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.43,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:10.498Z",
+        "cpuPct": 55.43,
+        "memUsedMb": 7901,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.63,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:11.538Z",
+        "cpuPct": 48.81,
+        "memUsedMb": 7946,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 57.12,
+          "tempC": 84
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:12.582Z",
+        "cpuPct": 50.7,
+        "memUsedMb": 8009,
+        "gpu": {
+          "utilPct": 91,
+          "memUsedMb": 2948,
+          "powerW": 58.14,
+          "tempC": 84
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:13.625Z",
+        "cpuPct": 50.03,
+        "memUsedMb": 8044,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 58.56,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:14.666Z",
+        "cpuPct": 53.37,
+        "memUsedMb": 8094,
+        "gpu": {
+          "utilPct": 87,
+          "memUsedMb": 2948,
+          "powerW": 57.58,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:15.706Z",
+        "cpuPct": 52.45,
+        "memUsedMb": 8042,
+        "gpu": {
+          "utilPct": 89,
+          "memUsedMb": 2948,
+          "powerW": 57.87,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:16.749Z",
+        "cpuPct": 53.83,
+        "memUsedMb": 8118,
+        "gpu": {
+          "utilPct": 81,
+          "memUsedMb": 2948,
+          "powerW": 58.36,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:17.789Z",
+        "cpuPct": 61.37,
+        "memUsedMb": 8215,
+        "gpu": {
+          "utilPct": 76,
+          "memUsedMb": 2948,
+          "powerW": 52.83,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:18.852Z",
+        "cpuPct": 53.68,
+        "memUsedMb": 8174,
+        "gpu": {
+          "utilPct": 81,
+          "memUsedMb": 2948,
+          "powerW": 53.79,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:19.903Z",
+        "cpuPct": 52.04,
+        "memUsedMb": 8237,
+        "gpu": {
+          "utilPct": 80,
+          "memUsedMb": 2948,
+          "powerW": 56.45,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:20.947Z",
+        "cpuPct": 49.54,
+        "memUsedMb": 8187,
+        "gpu": {
+          "utilPct": 91,
+          "memUsedMb": 2948,
+          "powerW": 57.79,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:21.989Z",
+        "cpuPct": 57.75,
+        "memUsedMb": 8241,
+        "gpu": {
+          "utilPct": 87,
+          "memUsedMb": 2948,
+          "powerW": 57.06,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:23.029Z",
+        "cpuPct": 54.33,
+        "memUsedMb": 8316,
+        "gpu": {
+          "utilPct": 89,
+          "memUsedMb": 2948,
+          "powerW": 57.1,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:24.085Z",
+        "cpuPct": 60.72,
+        "memUsedMb": 8323,
+        "gpu": {
+          "utilPct": 90,
+          "memUsedMb": 2948,
+          "powerW": 52.12,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:25.132Z",
+        "cpuPct": 61.02,
+        "memUsedMb": 8365,
+        "gpu": {
+          "utilPct": 80,
+          "memUsedMb": 2948,
+          "powerW": 54.16,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:26.178Z",
+        "cpuPct": 62.79,
+        "memUsedMb": 8294,
+        "gpu": {
+          "utilPct": 74,
+          "memUsedMb": 2948,
+          "powerW": 49.75,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:27.234Z",
+        "cpuPct": 57,
+        "memUsedMb": 8330,
+        "gpu": {
+          "utilPct": 77,
+          "memUsedMb": 2948,
+          "powerW": 48.3,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:28.312Z",
+        "cpuPct": 72.49,
+        "memUsedMb": 8367,
+        "gpu": {
+          "utilPct": 61,
+          "memUsedMb": 2948,
+          "powerW": 46.17,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:29.376Z",
+        "cpuPct": 67.88,
+        "memUsedMb": 8461,
+        "gpu": {
+          "utilPct": 57,
+          "memUsedMb": 2948,
+          "powerW": 47.88,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:30.471Z",
+        "cpuPct": 60.34,
+        "memUsedMb": 8519,
+        "gpu": {
+          "utilPct": 63,
+          "memUsedMb": 2948,
+          "powerW": 47.65,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:31.569Z",
+        "cpuPct": 54.3,
+        "memUsedMb": 8532,
+        "gpu": {
+          "utilPct": 62,
+          "memUsedMb": 2948,
+          "powerW": 48.94,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:32.665Z",
+        "cpuPct": 66.65,
+        "memUsedMb": 8588,
+        "gpu": {
+          "utilPct": 51,
+          "memUsedMb": 2948,
+          "powerW": 41.19,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:33.801Z",
+        "cpuPct": 72.81,
+        "memUsedMb": 8578,
+        "gpu": {
+          "utilPct": 2,
+          "memUsedMb": 2948,
+          "powerW": 42.67,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:34.970Z",
+        "cpuPct": 78.97,
+        "memUsedMb": 8582,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 24.51,
+          "tempC": 84
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:36.094Z",
+        "cpuPct": 68.55,
+        "memUsedMb": 8592,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 20.55,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:37.249Z",
+        "cpuPct": 80.02,
+        "memUsedMb": 8529,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.2,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:38.382Z",
+        "cpuPct": 74.33,
+        "memUsedMb": 8482,
+        "gpu": {
+          "utilPct": 5,
+          "memUsedMb": 2948,
+          "powerW": 17.1,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:39.504Z",
+        "cpuPct": 69.11,
+        "memUsedMb": 8437,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.03,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:40.592Z",
+        "cpuPct": 61.91,
+        "memUsedMb": 8440,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.51,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:41.694Z",
+        "cpuPct": 57.83,
+        "memUsedMb": 8447,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.54,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:42.768Z",
+        "cpuPct": 60.23,
+        "memUsedMb": 8466,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.52,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:43.877Z",
+        "cpuPct": 66.14,
+        "memUsedMb": 8505,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 16.77,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:44.977Z",
+        "cpuPct": 63.21,
+        "memUsedMb": 8502,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.22,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:46.073Z",
+        "cpuPct": 65.3,
+        "memUsedMb": 8501,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.76,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:47.152Z",
+        "cpuPct": 61.68,
+        "memUsedMb": 8502,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.2,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:48.256Z",
+        "cpuPct": 65.83,
+        "memUsedMb": 8507,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.2,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:49.339Z",
+        "cpuPct": 59.05,
+        "memUsedMb": 8506,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.74,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:50.444Z",
+        "cpuPct": 63.82,
+        "memUsedMb": 8516,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.12,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:51.531Z",
+        "cpuPct": 61.57,
+        "memUsedMb": 8521,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.68,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:52.613Z",
+        "cpuPct": 69.1,
+        "memUsedMb": 8421,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.25,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:53.685Z",
+        "cpuPct": 64.35,
+        "memUsedMb": 8455,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.72,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:54.757Z",
+        "cpuPct": 65.05,
+        "memUsedMb": 8408,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.13,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:55.854Z",
+        "cpuPct": 60.76,
+        "memUsedMb": 8432,
+        "gpu": {
+          "utilPct": 7,
+          "memUsedMb": 2948,
+          "powerW": 17.12,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:56.928Z",
+        "cpuPct": 65.29,
+        "memUsedMb": 8436,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.66,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:58.009Z",
+        "cpuPct": 64.57,
+        "memUsedMb": 8454,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.63,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:35:59.082Z",
+        "cpuPct": 62.86,
+        "memUsedMb": 8405,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.54,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:00.152Z",
+        "cpuPct": 62.75,
+        "memUsedMb": 8417,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.54,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:01.224Z",
+        "cpuPct": 60.18,
+        "memUsedMb": 8447,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.08,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:02.293Z",
+        "cpuPct": 58.14,
+        "memUsedMb": 8459,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.14,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:03.376Z",
+        "cpuPct": 57.35,
+        "memUsedMb": 8485,
+        "gpu": {
+          "utilPct": 5,
+          "memUsedMb": 2948,
+          "powerW": 18.17,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:04.454Z",
+        "cpuPct": 60.17,
+        "memUsedMb": 8484,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.11,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:05.520Z",
+        "cpuPct": 62.44,
+        "memUsedMb": 8509,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.16,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:06.584Z",
+        "cpuPct": 60.44,
+        "memUsedMb": 7039,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.75,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:07.643Z",
+        "cpuPct": 53.16,
+        "memUsedMb": 7020,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.13,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:08.701Z",
+        "cpuPct": 47.38,
+        "memUsedMb": 7007,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.16,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:09.745Z",
+        "cpuPct": 47.1,
+        "memUsedMb": 7006,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.18,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:10.797Z",
+        "cpuPct": 55.14,
+        "memUsedMb": 7013,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.7,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:11.859Z",
+        "cpuPct": 68.87,
+        "memUsedMb": 7095,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.62,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:12.912Z",
+        "cpuPct": 72.75,
+        "memUsedMb": 7371,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.08,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:13.966Z",
+        "cpuPct": 75.61,
+        "memUsedMb": 7140,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.57,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:15.026Z",
+        "cpuPct": 77.22,
+        "memUsedMb": 7221,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.1,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:16.112Z",
+        "cpuPct": 79.94,
+        "memUsedMb": 7148,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.59,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:17.171Z",
+        "cpuPct": 63.71,
+        "memUsedMb": 7182,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:18.239Z",
+        "cpuPct": 55.14,
+        "memUsedMb": 7467,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.57,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:19.303Z",
+        "cpuPct": 51.14,
+        "memUsedMb": 7499,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:20.360Z",
+        "cpuPct": 46.72,
+        "memUsedMb": 7496,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.17,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:21.414Z",
+        "cpuPct": 51.55,
+        "memUsedMb": 7438,
+        "gpu": {
+          "utilPct": 3,
+          "memUsedMb": 2948,
+          "powerW": 18.63,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:22.473Z",
+        "cpuPct": 49.37,
+        "memUsedMb": 7435,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.62,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:23.528Z",
+        "cpuPct": 48.73,
+        "memUsedMb": 7090,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.16,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:24.572Z",
+        "cpuPct": 63.67,
+        "memUsedMb": 7090,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.09,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:25.626Z",
+        "cpuPct": 50.51,
+        "memUsedMb": 6880,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.67,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:26.686Z",
+        "cpuPct": 68.31,
+        "memUsedMb": 7002,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:27.743Z",
+        "cpuPct": 54.17,
+        "memUsedMb": 7021,
+        "gpu": {
+          "utilPct": 3,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:28.793Z",
+        "cpuPct": 54.04,
+        "memUsedMb": 7002,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:29.851Z",
+        "cpuPct": 54.98,
+        "memUsedMb": 7028,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.06,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:30.907Z",
+        "cpuPct": 52,
+        "memUsedMb": 7012,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:31.968Z",
+        "cpuPct": 53.67,
+        "memUsedMb": 7027,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:33.003Z",
+        "cpuPct": 47.66,
+        "memUsedMb": 7021,
+        "gpu": {
+          "utilPct": 81,
+          "memUsedMb": 2948,
+          "powerW": 44.21,
+          "tempC": 84
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:34.038Z",
+        "cpuPct": 46.62,
+        "memUsedMb": 7075,
+        "gpu": {
+          "utilPct": 74,
+          "memUsedMb": 2948,
+          "powerW": 54.7,
+          "tempC": 84
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:35.087Z",
+        "cpuPct": 54,
+        "memUsedMb": 7127,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 43.02,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:36.133Z",
+        "cpuPct": 54.39,
+        "memUsedMb": 7101,
+        "gpu": {
+          "utilPct": 7,
+          "memUsedMb": 2948,
+          "powerW": 29.13,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:37.184Z",
+        "cpuPct": 52.55,
+        "memUsedMb": 7122,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 21.44,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:38.259Z",
+        "cpuPct": 56.03,
+        "memUsedMb": 7120,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.28,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:39.320Z",
+        "cpuPct": 53,
+        "memUsedMb": 7108,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.7,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:40.384Z",
+        "cpuPct": 53.21,
+        "memUsedMb": 7115,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.68,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:41.440Z",
+        "cpuPct": 53.17,
+        "memUsedMb": 7125,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.73,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:42.499Z",
+        "cpuPct": 56.96,
+        "memUsedMb": 7129,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.12,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:43.564Z",
+        "cpuPct": 54.73,
+        "memUsedMb": 7137,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:44.625Z",
+        "cpuPct": 54.33,
+        "memUsedMb": 7159,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.16,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:45.683Z",
+        "cpuPct": 51.87,
+        "memUsedMb": 7160,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.72,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:46.741Z",
+        "cpuPct": 52.05,
+        "memUsedMb": 7145,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.2,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:47.785Z",
+        "cpuPct": 56.53,
+        "memUsedMb": 7076,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.64,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:48.839Z",
+        "cpuPct": 54.45,
+        "memUsedMb": 7078,
+        "gpu": {
+          "utilPct": 9,
+          "memUsedMb": 2948,
+          "powerW": 18.26,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:49.885Z",
+        "cpuPct": 50.37,
+        "memUsedMb": 7083,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:50.936Z",
+        "cpuPct": 53.46,
+        "memUsedMb": 7065,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.6,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:51.993Z",
+        "cpuPct": 53.59,
+        "memUsedMb": 7078,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.64,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:53.045Z",
+        "cpuPct": 55.68,
+        "memUsedMb": 7095,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.62,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:54.108Z",
+        "cpuPct": 53.84,
+        "memUsedMb": 7111,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.57,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:55.164Z",
+        "cpuPct": 58.65,
+        "memUsedMb": 7164,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 18.04,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:56.226Z",
+        "cpuPct": 63.44,
+        "memUsedMb": 7182,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.05,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:57.286Z",
+        "cpuPct": 67.03,
+        "memUsedMb": 7200,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.98,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:58.361Z",
+        "cpuPct": 69.73,
+        "memUsedMb": 7177,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:36:59.416Z",
+        "cpuPct": 58.89,
+        "memUsedMb": 7190,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.97,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:00.474Z",
+        "cpuPct": 57.63,
+        "memUsedMb": 7207,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:01.522Z",
+        "cpuPct": 59.49,
+        "memUsedMb": 7275,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.09,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:02.574Z",
+        "cpuPct": 50.12,
+        "memUsedMb": 7264,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.74,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:03.623Z",
+        "cpuPct": 49.48,
+        "memUsedMb": 7235,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:04.671Z",
+        "cpuPct": 49.66,
+        "memUsedMb": 7205,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:05.719Z",
+        "cpuPct": 51.01,
+        "memUsedMb": 7191,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.04,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:06.760Z",
+        "cpuPct": 50.06,
+        "memUsedMb": 7186,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.6,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:07.808Z",
+        "cpuPct": 51.98,
+        "memUsedMb": 7179,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:08.858Z",
+        "cpuPct": 52.64,
+        "memUsedMb": 7187,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:09.919Z",
+        "cpuPct": 53.91,
+        "memUsedMb": 7230,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:10.966Z",
+        "cpuPct": 49.42,
+        "memUsedMb": 7251,
+        "gpu": {
+          "utilPct": 4,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:12.019Z",
+        "cpuPct": 48.55,
+        "memUsedMb": 7251,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.09,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:13.064Z",
+        "cpuPct": 46.86,
+        "memUsedMb": 7221,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.05,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:14.114Z",
+        "cpuPct": 47.88,
+        "memUsedMb": 7203,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.04,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:15.162Z",
+        "cpuPct": 62.3,
+        "memUsedMb": 6979,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.03,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:16.225Z",
+        "cpuPct": 50,
+        "memUsedMb": 6962,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:17.269Z",
+        "cpuPct": 46.16,
+        "memUsedMb": 6924,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:18.326Z",
+        "cpuPct": 47.79,
+        "memUsedMb": 6928,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:19.369Z",
+        "cpuPct": 46.98,
+        "memUsedMb": 6909,
+        "gpu": {
+          "utilPct": 2,
+          "memUsedMb": 2948,
+          "powerW": 18.47,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:20.418Z",
+        "cpuPct": 47.82,
+        "memUsedMb": 6869,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:21.467Z",
+        "cpuPct": 46.91,
+        "memUsedMb": 6877,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 19.1,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:22.520Z",
+        "cpuPct": 49.27,
+        "memUsedMb": 6875,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.74,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:23.572Z",
+        "cpuPct": 51.2,
+        "memUsedMb": 6855,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.85,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:24.630Z",
+        "cpuPct": 48.02,
+        "memUsedMb": 6851,
+        "gpu": {
+          "utilPct": 5,
+          "memUsedMb": 2948,
+          "powerW": 19.09,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:25.685Z",
+        "cpuPct": 48.15,
+        "memUsedMb": 6844,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:26.735Z",
+        "cpuPct": 47.52,
+        "memUsedMb": 6851,
+        "gpu": {
+          "utilPct": 4,
+          "memUsedMb": 2948,
+          "powerW": 19.11,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:27.787Z",
+        "cpuPct": 47.46,
+        "memUsedMb": 6857,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.17,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:28.839Z",
+        "cpuPct": 47.31,
+        "memUsedMb": 6845,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.16,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:29.892Z",
+        "cpuPct": 47.55,
+        "memUsedMb": 6841,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.14,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:30.942Z",
+        "cpuPct": 47.85,
+        "memUsedMb": 6849,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.14,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:31.991Z",
+        "cpuPct": 47.61,
+        "memUsedMb": 6840,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:33.042Z",
+        "cpuPct": 59.5,
+        "memUsedMb": 6833,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.17,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:34.094Z",
+        "cpuPct": 59.51,
+        "memUsedMb": 6869,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.72,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:35.169Z",
+        "cpuPct": 54.72,
+        "memUsedMb": 6886,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.72,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:36.225Z",
+        "cpuPct": 49.91,
+        "memUsedMb": 6875,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.71,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:37.282Z",
+        "cpuPct": 50.15,
+        "memUsedMb": 6879,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.19,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:38.343Z",
+        "cpuPct": 51.59,
+        "memUsedMb": 6904,
+        "gpu": {
+          "utilPct": 5,
+          "memUsedMb": 2948,
+          "powerW": 18.62,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:39.383Z",
+        "cpuPct": 51.41,
+        "memUsedMb": 6891,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:40.427Z",
+        "cpuPct": 51.13,
+        "memUsedMb": 6894,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:41.469Z",
+        "cpuPct": 51.23,
+        "memUsedMb": 6877,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.08,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:42.513Z",
+        "cpuPct": 56.54,
+        "memUsedMb": 6872,
+        "gpu": {
+          "utilPct": 5,
+          "memUsedMb": 2948,
+          "powerW": 18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:43.559Z",
+        "cpuPct": 64.01,
+        "memUsedMb": 6911,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.1,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:44.607Z",
+        "cpuPct": 67.44,
+        "memUsedMb": 6915,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.12,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:45.658Z",
+        "cpuPct": 57.02,
+        "memUsedMb": 6935,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.6,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:46.702Z",
+        "cpuPct": 58.69,
+        "memUsedMb": 6927,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:47.749Z",
+        "cpuPct": 56.78,
+        "memUsedMb": 6936,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.29,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:48.795Z",
+        "cpuPct": 59.65,
+        "memUsedMb": 6960,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.13,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:49.839Z",
+        "cpuPct": 52.94,
+        "memUsedMb": 6950,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:50.891Z",
+        "cpuPct": 60.74,
+        "memUsedMb": 7006,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.07,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:51.947Z",
+        "cpuPct": 61.02,
+        "memUsedMb": 7011,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:52.989Z",
+        "cpuPct": 56.44,
+        "memUsedMb": 7007,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:54.038Z",
+        "cpuPct": 64.56,
+        "memUsedMb": 7054,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:55.090Z",
+        "cpuPct": 68.7,
+        "memUsedMb": 7045,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.02,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:56.141Z",
+        "cpuPct": 56.19,
+        "memUsedMb": 7071,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:57.185Z",
+        "cpuPct": 53.58,
+        "memUsedMb": 7063,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:58.239Z",
+        "cpuPct": 58.32,
+        "memUsedMb": 7050,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:37:59.287Z",
+        "cpuPct": 58.67,
+        "memUsedMb": 7054,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.05,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:00.342Z",
+        "cpuPct": 59.18,
+        "memUsedMb": 7060,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:01.389Z",
+        "cpuPct": 56.74,
+        "memUsedMb": 7077,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.64,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:02.442Z",
+        "cpuPct": 60.79,
+        "memUsedMb": 7097,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.08,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:03.500Z",
+        "cpuPct": 56.6,
+        "memUsedMb": 7091,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.6,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:04.555Z",
+        "cpuPct": 50.97,
+        "memUsedMb": 7040,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.66,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:05.609Z",
+        "cpuPct": 54.87,
+        "memUsedMb": 7031,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.62,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:06.660Z",
+        "cpuPct": 53.28,
+        "memUsedMb": 7047,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.08,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:07.713Z",
+        "cpuPct": 64.51,
+        "memUsedMb": 7003,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:08.756Z",
+        "cpuPct": 66.5,
+        "memUsedMb": 7046,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.46,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:09.807Z",
+        "cpuPct": 54.25,
+        "memUsedMb": 7032,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.63,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:10.848Z",
+        "cpuPct": 47.16,
+        "memUsedMb": 7027,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.85,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:11.903Z",
+        "cpuPct": 53.29,
+        "memUsedMb": 7005,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.55,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:12.958Z",
+        "cpuPct": 54.9,
+        "memUsedMb": 7020,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:14.003Z",
+        "cpuPct": 59.66,
+        "memUsedMb": 7032,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.94,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:15.058Z",
+        "cpuPct": 51.27,
+        "memUsedMb": 7058,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:16.105Z",
+        "cpuPct": 57.58,
+        "memUsedMb": 7037,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.26,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:17.156Z",
+        "cpuPct": 50.64,
+        "memUsedMb": 7005,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.71,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:18.202Z",
+        "cpuPct": 56.44,
+        "memUsedMb": 6994,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:19.253Z",
+        "cpuPct": 56.74,
+        "memUsedMb": 6993,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:20.296Z",
+        "cpuPct": 56.54,
+        "memUsedMb": 6972,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.57,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:21.345Z",
+        "cpuPct": 53.89,
+        "memUsedMb": 6976,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:22.395Z",
+        "cpuPct": 54.06,
+        "memUsedMb": 6980,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.58,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:23.441Z",
+        "cpuPct": 53.35,
+        "memUsedMb": 6989,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.18,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:24.493Z",
+        "cpuPct": 58.63,
+        "memUsedMb": 7001,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:25.547Z",
+        "cpuPct": 58.65,
+        "memUsedMb": 7000,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.6,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:26.601Z",
+        "cpuPct": 62.82,
+        "memUsedMb": 7024,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.59,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:27.656Z",
+        "cpuPct": 52.39,
+        "memUsedMb": 7015,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.07,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:28.706Z",
+        "cpuPct": 54.95,
+        "memUsedMb": 6983,
+        "gpu": {
+          "utilPct": 2,
+          "memUsedMb": 2948,
+          "powerW": 19.07,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:29.757Z",
+        "cpuPct": 55.86,
+        "memUsedMb": 6998,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:30.811Z",
+        "cpuPct": 54.8,
+        "memUsedMb": 7031,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.04,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:31.870Z",
+        "cpuPct": 56.33,
+        "memUsedMb": 7013,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:32.925Z",
+        "cpuPct": 55.72,
+        "memUsedMb": 6980,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:33.977Z",
+        "cpuPct": 55.24,
+        "memUsedMb": 6987,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:35.021Z",
+        "cpuPct": 61.6,
+        "memUsedMb": 7027,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:36.072Z",
+        "cpuPct": 53.96,
+        "memUsedMb": 6996,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:37.113Z",
+        "cpuPct": 57.34,
+        "memUsedMb": 6980,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:38.156Z",
+        "cpuPct": 53.53,
+        "memUsedMb": 6967,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:39.215Z",
+        "cpuPct": 63.46,
+        "memUsedMb": 7000,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:40.272Z",
+        "cpuPct": 58.7,
+        "memUsedMb": 7016,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:41.328Z",
+        "cpuPct": 53.73,
+        "memUsedMb": 7010,
+        "gpu": {
+          "utilPct": 2,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:42.374Z",
+        "cpuPct": 59.84,
+        "memUsedMb": 7048,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:43.426Z",
+        "cpuPct": 57.72,
+        "memUsedMb": 7020,
+        "gpu": {
+          "utilPct": 5,
+          "memUsedMb": 2948,
+          "powerW": 18.47,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:44.482Z",
+        "cpuPct": 61.28,
+        "memUsedMb": 7019,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:45.538Z",
+        "cpuPct": 55.33,
+        "memUsedMb": 7005,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.99,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:46.595Z",
+        "cpuPct": 62.17,
+        "memUsedMb": 7038,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.08,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:47.645Z",
+        "cpuPct": 55.12,
+        "memUsedMb": 7037,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:48.697Z",
+        "cpuPct": 57.51,
+        "memUsedMb": 7026,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.5,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:49.751Z",
+        "cpuPct": 60.4,
+        "memUsedMb": 7059,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.42,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:50.804Z",
+        "cpuPct": 52.61,
+        "memUsedMb": 7051,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:51.853Z",
+        "cpuPct": 55.26,
+        "memUsedMb": 7040,
+        "gpu": {
+          "utilPct": 8,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:52.914Z",
+        "cpuPct": 53.59,
+        "memUsedMb": 7035,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.41,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:53.967Z",
+        "cpuPct": 65.13,
+        "memUsedMb": 7032,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.84,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:55.022Z",
+        "cpuPct": 61.5,
+        "memUsedMb": 7075,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.41,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:56.070Z",
+        "cpuPct": 58.76,
+        "memUsedMb": 7047,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.86,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:57.130Z",
+        "cpuPct": 54.99,
+        "memUsedMb": 7055,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.89,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:58.176Z",
+        "cpuPct": 52.1,
+        "memUsedMb": 7032,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.03,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:38:59.221Z",
+        "cpuPct": 58.61,
+        "memUsedMb": 7038,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.33,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:00.279Z",
+        "cpuPct": 55.49,
+        "memUsedMb": 7041,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:01.338Z",
+        "cpuPct": 54.44,
+        "memUsedMb": 7026,
+        "gpu": {
+          "utilPct": 3,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:02.385Z",
+        "cpuPct": 55.78,
+        "memUsedMb": 7034,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.98,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:03.441Z",
+        "cpuPct": 59.26,
+        "memUsedMb": 7030,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.34,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:04.488Z",
+        "cpuPct": 59.54,
+        "memUsedMb": 7073,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:05.536Z",
+        "cpuPct": 60.61,
+        "memUsedMb": 7130,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.35,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:06.585Z",
+        "cpuPct": 52.83,
+        "memUsedMb": 7038,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:07.639Z",
+        "cpuPct": 51.05,
+        "memUsedMb": 7039,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.01,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:08.695Z",
+        "cpuPct": 65.44,
+        "memUsedMb": 7053,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:09.748Z",
+        "cpuPct": 59.04,
+        "memUsedMb": 7052,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.44,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:10.799Z",
+        "cpuPct": 62.61,
+        "memUsedMb": 7053,
+        "gpu": {
+          "utilPct": 2,
+          "memUsedMb": 2948,
+          "powerW": 17.93,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:11.853Z",
+        "cpuPct": 60.17,
+        "memUsedMb": 7096,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.89,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:12.917Z",
+        "cpuPct": 62,
+        "memUsedMb": 7114,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.42,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:13.976Z",
+        "cpuPct": 64.76,
+        "memUsedMb": 7154,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:15.032Z",
+        "cpuPct": 51.99,
+        "memUsedMb": 7128,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.03,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:16.082Z",
+        "cpuPct": 51.21,
+        "memUsedMb": 7141,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.09,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:17.135Z",
+        "cpuPct": 51.63,
+        "memUsedMb": 7150,
+        "gpu": {
+          "utilPct": 10,
+          "memUsedMb": 2948,
+          "powerW": 19.03,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:18.184Z",
+        "cpuPct": 56.08,
+        "memUsedMb": 7155,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:19.239Z",
+        "cpuPct": 54.41,
+        "memUsedMb": 7250,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:20.306Z",
+        "cpuPct": 58.03,
+        "memUsedMb": 7252,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:21.365Z",
+        "cpuPct": 60.1,
+        "memUsedMb": 7342,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.9,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:22.426Z",
+        "cpuPct": 60.72,
+        "memUsedMb": 7348,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.31,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:23.482Z",
+        "cpuPct": 57.87,
+        "memUsedMb": 7353,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:24.547Z",
+        "cpuPct": 52.1,
+        "memUsedMb": 7368,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.45,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:25.598Z",
+        "cpuPct": 51.06,
+        "memUsedMb": 7384,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:26.636Z",
+        "cpuPct": 51.66,
+        "memUsedMb": 7377,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.99,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:27.672Z",
+        "cpuPct": 51.02,
+        "memUsedMb": 7392,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.03,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:28.724Z",
+        "cpuPct": 55.79,
+        "memUsedMb": 7386,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.51,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:29.780Z",
+        "cpuPct": 51.99,
+        "memUsedMb": 7386,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:30.822Z",
+        "cpuPct": 51.44,
+        "memUsedMb": 7378,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.49,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:31.873Z",
+        "cpuPct": 51.4,
+        "memUsedMb": 7388,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.52,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:32.922Z",
+        "cpuPct": 64.3,
+        "memUsedMb": 7398,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:33.968Z",
+        "cpuPct": 52.87,
+        "memUsedMb": 7394,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2948,
+          "powerW": 18.48,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:35.025Z",
+        "cpuPct": 52.23,
+        "memUsedMb": 7377,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.99,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:36.082Z",
+        "cpuPct": 52.02,
+        "memUsedMb": 7355,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 19.02,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:37.137Z",
+        "cpuPct": 51.72,
+        "memUsedMb": 7355,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.53,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:38.192Z",
+        "cpuPct": 57.04,
+        "memUsedMb": 7357,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 19.06,
+          "tempC": 79
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:39.252Z",
+        "cpuPct": 52.1,
+        "memUsedMb": 7369,
+        "gpu": {
+          "utilPct": 6,
+          "memUsedMb": 2948,
+          "powerW": 18.54,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:40.291Z",
+        "cpuPct": 46.54,
+        "memUsedMb": 7156,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 37.53,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:41.329Z",
+        "cpuPct": 45.49,
+        "memUsedMb": 7158,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 58.33,
+          "tempC": 84
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:42.370Z",
+        "cpuPct": 48.41,
+        "memUsedMb": 7171,
+        "gpu": {
+          "utilPct": 91,
+          "memUsedMb": 2948,
+          "powerW": 58.12,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:43.406Z",
+        "cpuPct": 49.57,
+        "memUsedMb": 7173,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 57.01,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:44.450Z",
+        "cpuPct": 51.77,
+        "memUsedMb": 7176,
+        "gpu": {
+          "utilPct": 88,
+          "memUsedMb": 2948,
+          "powerW": 56.2,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:45.485Z",
+        "cpuPct": 47.41,
+        "memUsedMb": 7157,
+        "gpu": {
+          "utilPct": 91,
+          "memUsedMb": 2948,
+          "powerW": 58.1,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:46.523Z",
+        "cpuPct": 45.76,
+        "memUsedMb": 7167,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 58.3,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:47.576Z",
+        "cpuPct": 50.97,
+        "memUsedMb": 7176,
+        "gpu": {
+          "utilPct": 80,
+          "memUsedMb": 2948,
+          "powerW": 58.75,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:48.623Z",
+        "cpuPct": 46.01,
+        "memUsedMb": 7172,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2948,
+          "powerW": 59.51,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:49.668Z",
+        "cpuPct": 46.59,
+        "memUsedMb": 7159,
+        "gpu": {
+          "utilPct": 82,
+          "memUsedMb": 2948,
+          "powerW": 58.85,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:50.712Z",
+        "cpuPct": 45.89,
+        "memUsedMb": 7154,
+        "gpu": {
+          "utilPct": 89,
+          "memUsedMb": 2948,
+          "powerW": 54.92,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:51.753Z",
+        "cpuPct": 47.37,
+        "memUsedMb": 7169,
+        "gpu": {
+          "utilPct": 90,
+          "memUsedMb": 2948,
+          "powerW": 56.42,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:52.801Z",
+        "cpuPct": 50.27,
+        "memUsedMb": 7169,
+        "gpu": {
+          "utilPct": 78,
+          "memUsedMb": 2948,
+          "powerW": 54.21,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:53.846Z",
+        "cpuPct": 46.42,
+        "memUsedMb": 7152,
+        "gpu": {
+          "utilPct": 91,
+          "memUsedMb": 2948,
+          "powerW": 53.77,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:54.898Z",
+        "cpuPct": 46.57,
+        "memUsedMb": 7161,
+        "gpu": {
+          "utilPct": 84,
+          "memUsedMb": 2948,
+          "powerW": 48.78,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:55.945Z",
+        "cpuPct": 58.51,
+        "memUsedMb": 7155,
+        "gpu": {
+          "utilPct": 80,
+          "memUsedMb": 2948,
+          "powerW": 46.92,
+          "tempC": 87
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:56.991Z",
+        "cpuPct": 46.92,
+        "memUsedMb": 7141,
+        "gpu": {
+          "utilPct": 96,
+          "memUsedMb": 2948,
+          "powerW": 47.33,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:58.062Z",
+        "cpuPct": 62.09,
+        "memUsedMb": 7143,
+        "gpu": {
+          "utilPct": 56,
+          "memUsedMb": 2948,
+          "powerW": 43.18,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:39:59.114Z",
+        "cpuPct": 50.94,
+        "memUsedMb": 6969,
+        "gpu": {
+          "utilPct": 59,
+          "memUsedMb": 2948,
+          "powerW": 44.67,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:00.206Z",
+        "cpuPct": 64.21,
+        "memUsedMb": 6881,
+        "gpu": {
+          "utilPct": 53,
+          "memUsedMb": 2948,
+          "powerW": 40.87,
+          "tempC": 86
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:01.300Z",
+        "cpuPct": 54.27,
+        "memUsedMb": 6933,
+        "gpu": {
+          "utilPct": 60,
+          "memUsedMb": 2948,
+          "powerW": 44.83,
+          "tempC": 88
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:02.405Z",
+        "cpuPct": 71.8,
+        "memUsedMb": 6944,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 24.56,
+          "tempC": 85
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:03.629Z",
+        "cpuPct": 68.39,
+        "memUsedMb": 6959,
+        "gpu": {
+          "utilPct": 4,
+          "memUsedMb": 2948,
+          "powerW": 21.89,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:04.737Z",
+        "cpuPct": 67.69,
+        "memUsedMb": 6975,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.09,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:05.843Z",
+        "cpuPct": 56.68,
+        "memUsedMb": 6953,
+        "gpu": {
+          "utilPct": 6,
+          "memUsedMb": 2948,
+          "powerW": 17.58,
+          "tempC": 83
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:06.951Z",
+        "cpuPct": 59.03,
+        "memUsedMb": 6962,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.52,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:08.056Z",
+        "cpuPct": 65.45,
+        "memUsedMb": 6953,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.4,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:09.195Z",
+        "cpuPct": 62.79,
+        "memUsedMb": 6933,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 16.93,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:10.274Z",
+        "cpuPct": 55.21,
+        "memUsedMb": 6933,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.48,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:11.364Z",
+        "cpuPct": 57.84,
+        "memUsedMb": 6906,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.02,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:12.441Z",
+        "cpuPct": 56.1,
+        "memUsedMb": 6917,
+        "gpu": {
+          "utilPct": 4,
+          "memUsedMb": 2948,
+          "powerW": 17.47,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:13.543Z",
+        "cpuPct": 67.34,
+        "memUsedMb": 6900,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.35,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:14.643Z",
+        "cpuPct": 56.13,
+        "memUsedMb": 6915,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.13,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:15.730Z",
+        "cpuPct": 56.45,
+        "memUsedMb": 6924,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.66,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:16.807Z",
+        "cpuPct": 53.23,
+        "memUsedMb": 6902,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.67,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:17.892Z",
+        "cpuPct": 63.88,
+        "memUsedMb": 6911,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.6,
+          "tempC": 82
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:18.972Z",
+        "cpuPct": 54.42,
+        "memUsedMb": 6917,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.58,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:20.043Z",
+        "cpuPct": 55.02,
+        "memUsedMb": 6896,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.11,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:21.136Z",
+        "cpuPct": 52.72,
+        "memUsedMb": 6896,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.65,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:22.196Z",
+        "cpuPct": 62.33,
+        "memUsedMb": 6908,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.66,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:23.288Z",
+        "cpuPct": 54.33,
+        "memUsedMb": 6888,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.66,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:24.356Z",
+        "cpuPct": 54.71,
+        "memUsedMb": 6894,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.68,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:25.438Z",
+        "cpuPct": 52.69,
+        "memUsedMb": 6905,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.12,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:26.508Z",
+        "cpuPct": 54.54,
+        "memUsedMb": 6913,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.02,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:27.580Z",
+        "cpuPct": 58.98,
+        "memUsedMb": 6913,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.07,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:28.662Z",
+        "cpuPct": 54.62,
+        "memUsedMb": 6908,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.85,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:29.730Z",
+        "cpuPct": 52.12,
+        "memUsedMb": 6891,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.01,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:30.804Z",
+        "cpuPct": 54.2,
+        "memUsedMb": 6912,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 17.45,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:31.862Z",
+        "cpuPct": 60.91,
+        "memUsedMb": 6903,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.05,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:32.941Z",
+        "cpuPct": 54.58,
+        "memUsedMb": 6904,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 17.54,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:34.012Z",
+        "cpuPct": 53.54,
+        "memUsedMb": 6896,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.14,
+          "tempC": 81
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:35.071Z",
+        "cpuPct": 53.95,
+        "memUsedMb": 6872,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.08,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:36.135Z",
+        "cpuPct": 57.58,
+        "memUsedMb": 6883,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2948,
+          "powerW": 18.03,
+          "tempC": 80
+        }
+      },
+      {
+        "ts": "2026-11-08T14:40:37.211Z",
+        "cpuPct": 54.55,
+        "memUsedMb": 6916,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 2948,
+          "powerW": 18.03,
+          "tempC": 80
+        }
+      }
+    ],
+    "round": {
+      "cpu": {
+        "avgPct": 57.82,
+        "peakPct": 92.17
+      },
+      "mem": {
+        "avgMb": 7535.97,
+        "peakMb": 8592
+      },
+      "gpu": {
+        "avgUtilPct": 16.78,
+        "peakUtilPct": 100,
+        "avgMemMb": 2926.8,
+        "peakMemMb": 2948,
+        "energyWh": 4.71
+      }
+    },
+    "actors": {
+      "product-owner": {
+        "cpu": {
+          "avgPct": 57.82,
+          "peakPct": 92.17
+        },
+        "mem": {
+          "avgMb": 7535.97,
+          "peakMb": 8592
+        },
+        "gpu": {
+          "avgUtilPct": 16.78,
+          "peakUtilPct": 100,
+          "avgMemMb": 2926.8,
+          "peakMemMb": 2948,
+          "energyWh": 4.71
+        }
+      }
+    }
+  }
+}
