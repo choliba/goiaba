@@ -92,7 +92,7 @@ export interface ToolEvent {
 /**
  * Every provider takes the same options: an agent is configured the same way
  * whatever the CLI. CLI-specific behavior is derived from what is common (the
- * sandbox, `permissions`), never configured per provider.
+ * sandbox, `policy`), never configured per provider.
  */
 export interface ProviderOptions {
   readonly model: string;
@@ -102,7 +102,7 @@ export interface ProviderOptions {
 /**
  * Where execution decisions are made. The provider wires its CLI's PreToolUse
  * hook to `hookCommand`; the hook asks Goiaba's policy engine, so every CLI
- * enforces the same `permissions.execution`.
+ * enforces the same `policy.execution`.
  */
 export interface ExecutionGate {
   /** argv of the hook, runnable inside the sandbox. */
@@ -193,7 +193,7 @@ export interface Provider<TInput, TOutput> {
    * exactly; providers without it refuse those categories.
    */
   applyPermissions?(
-    permissions: AgentPolicy,
+    policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[];
   createCommand(

@@ -348,7 +348,7 @@
           "root": "~/.local/share/goiaba/rodadas/product-owner",
           "hostState": "none"
         },
-        "permissions": {
+        "policy": {
           "default": "deny",
           "allow": {
             "filesystem": [

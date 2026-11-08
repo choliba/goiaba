@@ -60,8 +60,8 @@ const SOURCES = [
 ] as const;
 
 export class PolicyEngine {
-  public constructor(private readonly permissions: AgentPolicy) {
-    validatePermissions(permissions);
+  public constructor(private readonly policy: AgentPolicy) {
+    validatePermissions(policy);
   }
 
   public check(action: AgentAction): PolicyDecision {
@@ -69,7 +69,7 @@ export class PolicyEngine {
 
     for (const [source, policy] of SOURCES) {
       const rules: readonly PolicyRule[] | undefined =
-        this.permissions[source]?.[action.category];
+        this.policy[source]?.[action.category];
       const rule = rules?.findLast((candidate) =>
         matchesRule(candidate, action),
       );
@@ -79,14 +79,14 @@ export class PolicyEngine {
           policy,
           source,
           rule,
-          reason: `A ação corresponde a permissions.${source}.${action.category}.`,
+          reason: `A ação corresponde a policy.${source}.${action.category}.`,
         };
       }
     }
 
     return (
       decision ?? {
-        policy: this.permissions.default,
+        policy: this.policy.default,
         source: 'default',
         reason: NO_RULE_REASON,
       }
@@ -175,20 +175,20 @@ export function compileFilesystemAccess(
   rawPermissions: AgentPolicy,
   workspaceRoot: string,
 ): FilesystemAccess {
-  const permissions = aliasWorkspaceRoot(rawPermissions, workspaceRoot);
-  validatePermissions(permissions);
+  const policy = aliasWorkspaceRoot(rawPermissions, workspaceRoot);
+  validatePermissions(policy);
 
-  if (permissions.default !== 'deny') {
+  if (policy.default !== 'deny') {
     throw new UsageError('O enforcement de filesystem exige default deny.');
   }
 
-  if ((permissions.requireApproval?.filesystem?.length ?? 0) > 0) {
+  if ((policy.requireApproval?.filesystem?.length ?? 0) > 0) {
     throw new UsageError(
       'Aprovação de filesystem ainda não possui interceptor seguro.',
     );
   }
 
-  const allow = permissions.allow?.filesystem ?? [];
+  const allow = policy.allow?.filesystem ?? [];
   const writable: string[] = [];
 
   for (const rule of allow) {
@@ -225,7 +225,7 @@ export function compileFilesystemAccess(
     }
   }
 
-  for (const rule of permissions.deny?.filesystem ?? []) {
+  for (const rule of policy.deny?.filesystem ?? []) {
     // Ignored paths stay out of the mask; one that is missing has nothing to
     // keep visible.
     const kept = new Set(
@@ -289,7 +289,7 @@ function writableFolder(pattern: string, root: string): string {
 
 /** Rewrites filesystem patterns written with the real root to the /workspace alias. */
 function aliasWorkspaceRoot(
-  permissions: AgentPolicy,
+  policy: AgentPolicy,
   workspaceRoot: string,
 ): AgentPolicy {
   const root = resolve(workspaceRoot);
@@ -313,10 +313,10 @@ function aliasWorkspaceRoot(
     groups.filesystem === undefined
       ? groups
       : { ...groups, filesystem: aliasRules(groups.filesystem) };
-  const { allow, requireApproval, deny } = permissions;
+  const { allow, requireApproval, deny } = policy;
 
   return {
-    ...permissions,
+    ...policy,
     ...(allow === undefined ? {} : { allow: aliasGroups(allow) }),
     ...(requireApproval === undefined
       ? {}
@@ -486,11 +486,11 @@ export type DelegatedCategory = 'web' | 'execution' | 'communication';
  * its CLI's own permission mechanism, or refuses them.
  */
 export function delegatedCategories(
-  permissions: AgentPolicy,
+  policy: AgentPolicy,
 ): readonly DelegatedCategory[] {
   return (['web', 'execution', 'communication'] as const).filter((category) =>
     (['allow', 'deny', 'requireApproval'] as const).some(
-      (source) => (permissions[source]?.[category]?.length ?? 0) > 0,
+      (source) => (policy[source]?.[category]?.length ?? 0) > 0,
     ),
   );
 }
@@ -506,15 +506,15 @@ const CATEGORIES: readonly PolicyCategory[] = [
   'secrets',
 ];
 
-function validatePermissions(permissions: AgentPolicy): void {
-  if (!['allow', 'deny', 'require_approval'].includes(permissions.default)) {
+function validatePermissions(policy: AgentPolicy): void {
+  if (!['allow', 'deny', 'require_approval'].includes(policy.default)) {
     throw new UsageError(
-      `Política padrão inválida: ${permissions.default as string}`,
+      `Política padrão inválida: ${policy.default as string}`,
     );
   }
 
   for (const [source] of SOURCES) {
-    const groups = permissions[source];
+    const groups = policy[source];
     if (groups === undefined) continue;
 
     for (const category of CATEGORIES) {

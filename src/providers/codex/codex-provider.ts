@@ -123,10 +123,10 @@ export class CodexProvider
   }
 
   public applyPermissions(
-    permissions: AgentPolicy,
+    policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[] {
-    const categories = delegatedCategories(permissions);
+    const categories = delegatedCategories(policy);
     const unsupported = categories.find(
       (category) => category !== 'execution' && category !== 'web',
     );
@@ -137,7 +137,7 @@ export class CodexProvider
       );
     }
 
-    const translated = this.buildPermissions(permissions);
+    const translated = this.buildPermissions(policy);
     refuseUnsupportedWeb(translated.unsupported);
     this.webSearchConfig = translated.native.config['tools.web_search'];
 

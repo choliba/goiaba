@@ -351,7 +351,7 @@ test('debug registra os comandos executados pelo agente', async () => {
       prompt: 'mensagem',
       provider: { name: 'echo', model: 'eco-1', cli: 'node' },
       workspace: { type: 'bubblewrap', root: cwd, hostState: 'login' },
-      permissions: null,
+      policy: null,
       conversation: false,
       goiaba: {
         debug: true,

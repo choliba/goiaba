@@ -23,7 +23,7 @@ import { Workspace } from '../../../src/workspace/index';
 
 /**
  * Só as regras de rede: o que esta sandbox pode acessar. Num agente, elas
- * vêm da política por `networkRulesOf(permissions)`; aqui, escritas direto.
+ * vêm da política por `networkRulesOf(policy)`; aqui, escritas direto.
  * Qualquer outro destino: o `default`.
  */
 const rules: NetworkRules = {

@@ -7,7 +7,7 @@ import type { AgentPolicy } from '../../../src';
  * boundary, which is what reads Ollama's traffic: without one, the tokens
  * are not measured.
  */
-export const WRITE_WORKSPACE: AgentPolicy = {
+export const policy: AgentPolicy = {
   default: 'deny',
   allow: {
     filesystem: [

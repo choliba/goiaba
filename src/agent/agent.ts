@@ -96,7 +96,7 @@ export class Agent {
   private readonly conversation: boolean;
   /** Continues an interrupted task on its own (`resume`). */
   private readonly resumes: boolean;
-  private readonly permissions: AgentPolicy | undefined;
+  private readonly policy: AgentPolicy | undefined;
   private readonly subscribers: readonly AgentSubscriber[];
   /** What the agent said while the approvals screen was open; shown after. */
   private held: string[] | undefined;
@@ -134,7 +134,7 @@ export class Agent {
     executor,
     output,
     interaction = agentConversation(),
-    permissions,
+    policy,
     signal = scriptSignal(),
     approve,
     store,
@@ -167,7 +167,7 @@ export class Agent {
     this.resumes = resume;
     this.approvalPollMs = approvalPollMs;
     this.thinkingTickMs = thinkingTickMs;
-    this.permissions = permissions;
+    this.policy = policy;
     this.subscribers = subscribe;
     // Forces one session (e.g. relaunched by `approvals`); otherwise the store
     // decides whether to continue (see `resumableSession`).
@@ -175,16 +175,16 @@ export class Agent {
     this.store = store ?? defaultStore();
     // The requests are changed on their way through the network boundary,
     // and only a policy sets one up.
-    if (permissions === undefined && provider.rewriteRequest !== undefined) {
+    if (policy === undefined && provider.rewriteRequest !== undefined) {
       throw new UsageError(
-        `O provider ${provider.id} precisa ajustar os pedidos ao modelo (como o think: false do OllamaProvider), e isso só acontece com uma política: dê ao agente permissions.`,
+        `O provider ${provider.id} precisa ajustar os pedidos ao modelo (como o think: false do OllamaProvider), e isso só acontece com uma política: dê ao agente policy.`,
       );
     }
     const enforced =
-      permissions === undefined
+      policy === undefined
         ? undefined
         : enforcePermissions({
-            permissions,
+            policy,
             provider,
             workspace,
             approve: this.whileApproving(
@@ -195,7 +195,7 @@ export class Agent {
           });
     this.broker = enforced?.broker;
     this.networkLedger = enforced?.networkLedger;
-    shareHost(workspace, provider, permissions);
+    shareHost(workspace, provider, policy);
   }
 
   /**
@@ -405,7 +405,7 @@ export class Agent {
         ...this.workspace.options,
         hostState: this.workspace.hostState,
       },
-      permissions: this.permissions ?? null,
+      policy: this.policy ?? null,
       gate: this.broker !== undefined,
       conversation: this.conversation,
       resume: this.resumes,
@@ -1270,14 +1270,14 @@ function defaultStore(): Store | undefined {
  * if there are execution rules.
  */
 function enforcePermissions({
-  permissions,
+  policy,
   provider,
   workspace,
   approve,
   store,
   onTraffic,
 }: {
-  readonly permissions: AgentPolicy;
+  readonly policy: AgentPolicy;
   readonly provider: AgentProvider;
   readonly workspace: Workspace;
   readonly approve: CommandApprover;
@@ -1287,19 +1287,19 @@ function enforcePermissions({
   readonly broker: ApprovalBroker | undefined;
   readonly networkLedger: StoreNetworkLedger | undefined;
 } {
-  rejectUnenforced(permissions);
+  rejectUnenforced(policy);
   const ledger =
     store === undefined
       ? undefined
       : networkLedger(store, { root: workspace.root, provider: provider.id });
   workspace.applyPermissions(
-    permissions,
+    policy,
     networkOptions(provider, approve, ledger, onTraffic),
   );
 
-  const broker = needsGate(permissions, provider)
+  const broker = needsGate(policy, provider)
     ? new ApprovalBroker({
-        permissions,
+        policy,
         provider: provider.id,
         root: workspace.root,
         approve,
@@ -1318,7 +1318,7 @@ function enforcePermissions({
             ? { sharedHome: userHome() }
             : {}),
         };
-  const cliFiles = applyProviderPermissions(provider, permissions, gate);
+  const cliFiles = applyProviderPermissions(provider, policy, gate);
 
   // What enforces the policy stays read-only for the agent.
   workspace.protect([
@@ -1412,7 +1412,7 @@ function trafficObservers(
 function shareHost(
   workspace: Workspace,
   provider: AgentProvider,
-  permissions: AgentPolicy | undefined,
+  policy: AgentPolicy | undefined,
 ): void {
   const access = provider.hostAccess?.() ?? {
     credentialFiles: [],
@@ -1420,11 +1420,10 @@ function shareHost(
     sharedState: [],
   };
 
-  const policy =
-    permissions === undefined ? undefined : new PolicyEngine(permissions);
+  const engine = policy === undefined ? undefined : new PolicyEngine(policy);
   // `requireApproval` cannot ask when the variable is read: not let in.
   const allowSecret = (name: string): boolean =>
-    policy?.check({ category: 'secrets', operation: 'read', secret: name })
+    engine?.check({ category: 'secrets', operation: 'read', secret: name })
       .policy === 'allow';
   workspace.useHost(
     sandboxHost(access, environment(), allowSecret, {
@@ -1455,23 +1454,23 @@ function rejectUnenforced(policy: AgentPolicy): void {
   }
 }
 
-function needsGate(permissions: AgentPolicy, provider: AgentProvider): boolean {
+function needsGate(policy: AgentPolicy, provider: AgentProvider): boolean {
   return (
-    delegatedCategories(permissions).includes('execution') &&
+    delegatedCategories(policy).includes('execution') &&
     provider.applyPermissions !== undefined
   );
 }
 
 function applyProviderPermissions(
   provider: AgentProvider,
-  permissions: AgentPolicy,
+  policy: AgentPolicy,
   gate: ExecutionGate | undefined,
 ): readonly string[] {
   if (provider.applyPermissions !== undefined) {
-    return provider.applyPermissions(permissions, gate);
+    return provider.applyPermissions(policy, gate);
   }
 
-  const category = delegatedCategories(permissions).at(0);
+  const category = delegatedCategories(policy).at(0);
 
   if (category !== undefined) {
     throw new UsageError(

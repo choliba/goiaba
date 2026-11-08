@@ -15,7 +15,7 @@ const agenteGoiaba = new Agent({
   name: 'dev',
   prompt: 'vamos conversar',
   provider: new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' }),
-  permissions: todasAsPermissoes,
+  policy: todasAsPermissoes,
   subscribe: [listener],
   workspace: new Workspace({ type: 'bubblewrap', root }),
 });

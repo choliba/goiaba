@@ -36,7 +36,7 @@ const local = (): AgentProvider =>
     contextWindow: 20000,
     // Desliga o raciocínio do modelo: responde sem pensar antes, com menos
     // tokens e menos tempo por turno. O Goiaba escreve isso em cada pedido
-    // ao Ollama, o que precisa de uma política (permissions, abaixo).
+    // ao Ollama, o que precisa de uma política (policy, abaixo).
     think: false,
   });
 
@@ -61,7 +61,7 @@ export default defineRound({
       workspace: workspace(id),
       // A política dele: o que pode ler, escrever e rodar. Sem readOnly:
       // alterar o index.html é a tarefa.
-      permissions: WRITE_WORKSPACE,
+      policy: WRITE_WORKSPACE,
     },
   },
   // Os passos, em ordem: aqui, um só.

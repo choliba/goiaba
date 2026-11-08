@@ -91,7 +91,7 @@ export function decideByRules(
       return {
         policy,
         source,
-        reason: `A ação corresponde a permissions.${source}.network.`,
+        reason: `A ação corresponde a policy.${source}.network.`,
       };
     }
   }

@@ -184,7 +184,7 @@ export interface DeclaredActor {
     /** As declared; `null` when left to the default. */
     readonly hostState: RoundHostState | null;
   };
-  readonly permissions: AgentPolicy | null;
+  readonly policy: AgentPolicy | null;
   readonly readOnly: boolean;
 }
 

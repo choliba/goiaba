@@ -52,7 +52,7 @@ await runScript(async ({ signal }) => {
     prompt: 'Diga oi em uma linha e pergunte em que pode ajudar.',
     provider: new OllamaProvider({ cli, model: MODEL }),
     workspace: new Workspace({ type: 'bubblewrap', root }),
-    permissions: todasAsPermissoes,
+    policy: todasAsPermissoes,
     interaction: tui,
     approve: humanApprover(tui, signal),
     signal,

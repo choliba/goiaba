@@ -23,7 +23,7 @@ import type { ApprovalScope } from '../src/store/index';
 import { Store } from '../src/store/index';
 import { Workspace } from '../src/workspace/index';
 
-const permissions: AgentPolicy = {
+const policy: AgentPolicy = {
   default: 'deny',
   allow: { execution: [{ commands: ['mkdir *', 'ls *', 'cd *'] }] },
   requireApproval: { execution: [{ commands: ['touch *', 'rm *'] }] },
@@ -54,7 +54,7 @@ function broker(
     asked,
     store,
     broker: new ApprovalBroker({
-      permissions,
+      policy,
       provider: 'claude',
       root: '/w',
       store,

@@ -34,7 +34,7 @@ test('Agent recusa categoria que o provider não aplica', () => {
           prompt: 'mensagem',
           provider: new EchoProvider(),
           workspace: new Workspace({ type: 'bubblewrap', root }),
-          permissions: {
+          policy: {
             default: 'deny',
             allow: {
               filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
@@ -1421,7 +1421,7 @@ test('Agent aceita regras de rede no docker', () => {
           image: 'FROM imagem',
         }),
         interaction: { ask: unusedAsk, write: () => undefined },
-        permissions: {
+        policy: {
           default: 'deny',
           allow: {
             filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
@@ -1453,7 +1453,7 @@ function agentOn(workspace: Workspace, withPermissions: boolean): Agent {
     interaction: { ask: unusedAsk, write: () => undefined },
     ...(withPermissions
       ? {
-          permissions: {
+          policy: {
             default: 'deny',
             allow: {
               filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
@@ -1496,7 +1496,7 @@ test('Agent recusa regras de categorias que o Goiaba ainda não aplica', () => {
           provider: new EchoProvider(),
           workspace: new Workspace({ type: 'bubblewrap', root: process.cwd() }),
           interaction: { ask: unusedAsk, write: () => undefined },
-          permissions: { default: 'deny', deny: policy },
+          policy: { default: 'deny', deny: policy },
         }),
     ).toThrow(
       `O Goiaba ainda não aplica a categoria ${Object.keys(policy)[0] ?? ''}`,

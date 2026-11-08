@@ -59,7 +59,7 @@ export interface Provider<TInput, TOutput, TPermissions> {
    * exactly; providers without it refuse those categories.
    */
   applyPermissions?(
-    permissions: AgentPolicy,
+    policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[];
   createCommand(
@@ -162,7 +162,7 @@ export interface ToolEvent {
 /**
  * Where execution decisions are made. The provider wires its CLI's PreToolUse
  * hook to `hookCommand`; the hook asks Goiaba's policy engine, so every CLI
- * enforces the same `permissions.execution`.
+ * enforces the same `policy.execution`.
  */
 export interface ExecutionGate {
   /** argv of the hook, runnable inside the sandbox. */

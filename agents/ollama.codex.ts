@@ -63,7 +63,7 @@ await runScript(async ({ signal }) => {
         join(homedir(), '.npm'),
       ],
     }),
-    permissions: todasAsPermissoes,
+    policy: todasAsPermissoes,
     interaction,
     // Out 2: one or more functions that receive everything.
     subscribe: [centerListener],

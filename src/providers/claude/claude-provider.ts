@@ -63,7 +63,7 @@ function claudeTools(tools: readonly GoiabaTool[]): readonly string[] {
 /** Long enough for a person to answer an approval prompt. */
 
 interface ClaudeSettings {
-  readonly permissions: {
+  readonly policy: {
     readonly allow: readonly string[];
     readonly deny: readonly string[];
   };
@@ -168,10 +168,10 @@ export class ClaudeProvider
   }
 
   public applyPermissions(
-    permissions: AgentPolicy,
+    policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[] {
-    const categories = delegatedCategories(permissions);
+    const categories = delegatedCategories(policy);
     const unsupported = categories.find(
       (category) => category !== 'execution' && category !== 'web',
     );
@@ -184,13 +184,13 @@ export class ClaudeProvider
 
     if (gate === undefined && !categories.includes('web')) return [];
 
-    const web = webSettings(this.buildPermissions(permissions));
+    const web = webSettings(this.buildPermissions(policy));
 
     // dontAsk runs only what is pre-approved: file tools (the sandbox limits
     // their paths), the web tools the rules allow and Bash calls the gate's
     // hook allows. Without execution rules the sandbox is Bash's limit.
     this.settings = {
-      permissions: {
+      policy: {
         allow: [
           ...FILE_TOOLS,
           ...(gate === undefined ? ['Bash'] : []),

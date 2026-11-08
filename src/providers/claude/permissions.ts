@@ -10,7 +10,7 @@ import type {
   UnsupportedRule,
 } from '../provider.interface';
 
-/** Claude Code's own permission lists (`permissions` in its settings). */
+/** Claude Code's own permission lists (`policy` in its settings). */
 export interface ClaudePermissions {
   readonly allow: readonly string[];
   readonly ask: readonly string[];

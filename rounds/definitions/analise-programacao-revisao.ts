@@ -114,18 +114,18 @@ export default defineRound({
     analista: {
       provider: local(),
       workspace,
-      permissions: READ_ONLY,
+      policy: READ_ONLY,
       readOnly: true,
     },
     programador: {
       provider: local(),
       workspace,
-      permissions: WRITE_WORKSPACE,
+      policy: WRITE_WORKSPACE,
     },
     revisor: {
       provider: local(),
       workspace,
-      permissions: READ_ONLY,
+      policy: READ_ONLY,
       readOnly: true,
     },
   },

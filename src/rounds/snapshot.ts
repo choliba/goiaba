@@ -17,7 +17,7 @@ export interface ActorPieces {
   readonly role: string;
   readonly provider: AgentProvider;
   readonly workspace: Workspace;
-  readonly permissions: AgentPolicy | undefined;
+  readonly policy: AgentPolicy | undefined;
   readonly readOnly: boolean;
 }
 
@@ -48,7 +48,7 @@ export const promptOf = (text: string): Prompt => ({
  * committed (the project's path, the home).
  */
 export function snapshotActor(
-  { role, provider, workspace, permissions, readOnly }: ActorPieces,
+  { role, provider, workspace, policy, readOnly }: ActorPieces,
   clean: (text: string) => string = (text) => text,
 ): ActorSnapshot {
   const described = provider.describe?.();
@@ -79,12 +79,12 @@ export function snapshotActor(
       ports: options.ports ?? [],
     },
     network: {
-      rules: permissions === undefined ? null : networkRulesOf(permissions),
+      rules: policy === undefined ? null : networkRulesOf(policy),
       alwaysAllow: provider.networkEndpoints?.() ?? [],
       alwaysDeny: provider.networkBlocked?.() ?? [],
       decisions: [],
     },
-    policy: permissions ?? null,
+    policy: policy ?? null,
     readOnly,
   };
   return { ...pieces, configHash: configHash(pieces) };

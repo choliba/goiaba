@@ -40,7 +40,7 @@ const agent = new Agent({
   prompt: 'rode os testes e corrija o que falhar',
   provider: new OllamaProvider({ cli: 'claude', model: 'qwen3.5:4b' }),
   workspace: new Workspace({ type: 'bubblewrap', root: currentDirectory() }),
-  permissions: policy, // o mesmo objeto que um PolicyEngine leria
+  policy: policy, // o mesmo objeto que um PolicyEngine leria
   conversation: false,
 });
 

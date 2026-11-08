@@ -73,7 +73,7 @@ export function captureDeclaration(
             root: workspace.root,
             hostState: workspace.hostState ?? null,
           },
-          permissions: actor.permissions ?? null,
+          policy: actor.policy ?? null,
           readOnly: actor.readOnly ?? false,
         };
         return [name, declared];

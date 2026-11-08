@@ -225,15 +225,15 @@ export class OllamaProvider implements Provider<string, string> {
 
   /** Same policy enforcement as the CLI's own provider (execution gate). */
   public applyPermissions(
-    permissions: AgentPolicy,
+    policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[] {
     // Codex's web_search is hosted by OpenAI: through Ollama there is none.
     // No web at all is stricter than any web rule, so it is turned off
     // instead of refusing the policy.
     return this.inner instanceof CodexProvider
-      ? this.inner.applyPermissions(withoutWeb(permissions), gate)
-      : this.inner.applyPermissions(permissions, gate);
+      ? this.inner.applyPermissions(withoutWeb(policy), gate)
+      : this.inner.applyPermissions(policy, gate);
   }
 
   public createCommand(input: string, sessionId?: string): ProgramCommand {
@@ -282,13 +282,13 @@ async function* withoutCliEstimates(
 }
 
 /** The same policy with every web operation denied (web_search off). */
-function withoutWeb(permissions: AgentPolicy): AgentPolicy {
+function withoutWeb(policy: AgentPolicy): AgentPolicy {
   return {
-    ...permissions,
-    allow: { ...permissions.allow, web: [] },
-    requireApproval: { ...permissions.requireApproval, web: [] },
+    ...policy,
+    allow: { ...policy.allow, web: [] },
+    requireApproval: { ...policy.requireApproval, web: [] },
     deny: {
-      ...permissions.deny,
+      ...policy.deny,
       web: [{ operations: ['*'], domains: ['*'] }],
     },
   };

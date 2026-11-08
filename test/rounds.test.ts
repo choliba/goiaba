@@ -401,7 +401,7 @@ test('snapshotActor copia as peças e o hash muda só com a configuração', () 
       root: '/projeto/ws',
       hostState: 'none',
     }),
-    permissions: {
+    policy: {
       default: 'deny' as const,
       allow: {
         network: [{ operations: ['connect' as const], hosts: ['example.com'] }],
@@ -431,7 +431,7 @@ test('snapshotActor copia as peças e o hash muda só com a configuração', () 
     requireApproval: [],
     deny: [],
   });
-  expect(snapshot.policy).toEqual(pieces.permissions);
+  expect(snapshot.policy).toEqual(pieces.policy);
 
   expect(snapshotActor(pieces).configHash).toBe(
     snapshotActor(pieces).configHash,
@@ -1055,7 +1055,7 @@ test('a declaração vira dados e volta a ser um arquivo que declara a mesma rod
           root: '/tmp/rodada',
           hostState: 'none',
         },
-        permissions: {
+        policy: {
           default: 'deny',
           allow: {
             filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
@@ -1167,7 +1167,7 @@ test('agentSource gera um agente de agents/ com provider, workspace, política e
       root: '<projeto>/x',
       hostState: 'none',
     },
-    permissions: { default: 'deny' },
+    policy: { default: 'deny' },
     readOnly: false,
   });
 
@@ -1178,7 +1178,7 @@ test('agentSource gera um agente de agents/ com provider, workspace, política e
   );
   // O workspace aponta para a pasta configurada, não a da rodada.
   expect(source).toContain('root: getConfig().workspaces.dir');
-  expect(source).toContain('permissions: {');
+  expect(source).toContain('policy: {');
   expect(source).toContain('}).run();');
 });
 

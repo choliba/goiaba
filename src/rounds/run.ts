@@ -251,7 +251,7 @@ async function runOnce(
         role: name,
         provider: actor.provider,
         workspace,
-        permissions: actor.permissions,
+        policy: actor.policy,
         readOnly,
       },
       (path) => sanitize(path, project),
@@ -318,9 +318,7 @@ async function runOnce(
         awaitApprovals: false,
         provider: actor.provider,
         workspace,
-        ...(actor.permissions === undefined
-          ? {}
-          : { permissions: actor.permissions }),
+        ...(actor.policy === undefined ? {} : { policy: actor.policy }),
         ...(signal === undefined ? {} : { signal }),
         interaction,
         subscribe: [

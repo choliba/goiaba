@@ -40,7 +40,7 @@ export interface AgentOptions {
   /** Where every CLI turn's events are also published, for whoever follows them all. */
   readonly output?: OutputDispatcher<ProviderEvent<string>>;
   readonly interaction?: Interaction;
-  readonly permissions?: AgentPolicy;
+  readonly policy?: AgentPolicy;
   /** Stops the agent: kills the CLI and closes the workspace. Defaults to the runScript signal. */
   readonly signal?: AbortSignal;
   /**

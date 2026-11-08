@@ -308,7 +308,7 @@ const declaredActor = object({
     hostState: nullable(oneOf(HOST_STATES)),
   }),
   // Its shape is the policy module's to check.
-  permissions: nullable(anyObject),
+  policy: nullable(anyObject),
   readOnly: boolean,
 });
 

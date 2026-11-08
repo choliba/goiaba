@@ -81,7 +81,7 @@ export function createInstructor({
       type: 'bubblewrap',
       root,
     }),
-    permissions: instructorPermissions,
+    policy: instructorPermissions,
     approve: sandboxApprover,
     interaction,
     signal,

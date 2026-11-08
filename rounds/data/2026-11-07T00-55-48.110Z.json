@@ -489,7 +489,7 @@
           "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
           "hostState": "none"
         },
-        "permissions": {
+        "policy": {
           "default": "deny",
           "allow": {
             "filesystem": [

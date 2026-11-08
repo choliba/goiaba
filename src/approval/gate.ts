@@ -31,7 +31,7 @@ export interface CommandDecision {
 }
 
 export interface CommandGateOptions {
-  readonly permissions: AgentPolicy;
+  readonly policy: AgentPolicy;
   readonly provider: string;
   readonly root: string;
   readonly approve: CommandApprover;
@@ -84,7 +84,7 @@ export class CommandGate {
   private queue: Promise<unknown> = Promise.resolve();
 
   public constructor(private readonly options: CommandGateOptions) {
-    this.policy = new PolicyEngine(options.permissions);
+    this.policy = new PolicyEngine(options.policy);
     this.approvals = new SavedApprovals(options.root, options.store);
   }
 

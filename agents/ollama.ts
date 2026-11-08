@@ -92,7 +92,7 @@ await runScript(async ({ signal }) => {
       'já inicie a conversa gerendo um texto de 5 linhas DE 20 CARACTERES **SEM MANDAR NADA PARA O TERMINAL** sobre qualquer assunto, e depois aguarde instruções. **NÃO** use o terminal para escrever nada, apenas gere o texto e aguarde.',
     provider,
     workspace: workspaceFor(cli, provider),
-    permissions: todasAsPermissoes,
+    policy: todasAsPermissoes,
     interaction: terminal,
     approve: humanApprover(terminal, signal),
     signal,

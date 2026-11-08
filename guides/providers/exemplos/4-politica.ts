@@ -11,7 +11,7 @@ const policy: AgentPolicy = {
   },
 };
 
-const permissions = buildClaudePermissions(policy);
+const claude = buildClaudePermissions(policy);
 
-writeOut(`permitidas: ${permissions.native.allow.join(', ')}\n`);
-writeOut(`não expressas: ${permissions.unsupported.length}\n`);
+writeOut(`permitidas: ${claude.native.allow.join(', ')}\n`);
+writeOut(`não expressas: ${claude.unsupported.length}\n`);

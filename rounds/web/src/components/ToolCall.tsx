@@ -29,7 +29,7 @@ const COMPLEX =
   'o comando tem redirecionamento, substituição ou script (como 2>/dev/null ou $(…)), e o efeito disso nenhuma regra lê: ele pede aprovação, e numa rodada ninguém aprova.';
 
 /**
- * What to change in the actor's policy (`permissions` in the definition)
+ * What to change in the actor's policy (`policy` in the definition)
  * to allow or deny a command the gate denied, from the gate's decision.
  */
 function PolicyAdvice({

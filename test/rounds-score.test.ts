@@ -198,7 +198,7 @@ test('eficácia pelas instruções do prompt, e eficiência escalada por ela', (
 /** The Permissões criterion of the analyst. */
 const permissionsOf = (record: RoundRecord) =>
   scoreRound(record, []).actors['analista'].effectiveness.criteria.find(
-    (c) => c.id === 'permissions',
+    (c) => c.id === 'policy',
   );
 
 test('permissões: dentro do que a política libera dá 5; fora dela, 0', () => {

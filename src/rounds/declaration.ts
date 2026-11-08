@@ -102,8 +102,8 @@ export function declarationSource(declaration: RoundDeclaration): string {
       `      provider: ${providerSource(actor.provider)},`,
       `      workspace: { ${ws.join(', ')} },`,
     ];
-    if (actor.permissions !== null) {
-      lines.push(`      permissions: ${literal(actor.permissions, '      ')},`);
+    if (actor.policy !== null) {
+      lines.push(`      policy: ${literal(actor.policy, '      ')},`);
     }
     if (actor.readOnly) lines.push('      readOnly: true,');
     lines.push('    },');
@@ -236,9 +236,9 @@ export function agentSource(
     "    prompt: 'TODO: o pedido ao agente.',",
     `    provider: ${providerSource(provider)},`,
     `    workspace: new Workspace({ ${ws.join(', ')} }),`,
-    ...(actor.permissions === null
+    ...(actor.policy === null
       ? []
-      : [`    permissions: ${literal(actor.permissions, '    ')},`]),
+      : [`    policy: ${literal(actor.policy, '    ')},`]),
     '  }).run();',
     '});',
     '',

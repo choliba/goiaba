@@ -45,7 +45,7 @@ try {
     prompt: 'rode os testes',
     provider: new PlainProvider(),
     workspace: new Workspace({ type: 'bubblewrap', root }),
-    permissions: {
+    policy: {
       default: 'deny',
       allow: {
         filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],

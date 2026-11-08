@@ -144,11 +144,11 @@ export class Workspace {
    * only its `observe` is added there, since reading changes no decision.
    */
   public applyPermissions(
-    permissions: AgentPolicy,
+    policy: AgentPolicy,
     network?: WorkspaceNetworkOptions,
   ): void {
     this.sandbox.configureFilesystem(
-      compileFilesystemAccess(permissions, this.root),
+      compileFilesystemAccess(policy, this.root),
     );
     if (network === undefined) return;
     if (this.network !== undefined) {
@@ -163,7 +163,7 @@ export class Workspace {
     }
 
     this.configureNetwork(
-      new NetworkBoundary({ rules: networkRulesOf(permissions), ...network }),
+      new NetworkBoundary({ rules: networkRulesOf(policy), ...network }),
     );
   }
 

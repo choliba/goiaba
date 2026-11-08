@@ -4,7 +4,7 @@
  *
  * Per agent, 0 to 5 (rounds/README.md):
  * - effectiveness (what): did it do what its prompt asked, within its
- *   permissions, whatever it cost;
+ *   policy, whatever it cost;
  * - efficiency (how): what it spent and wasted to get there, scaled by the
  *   share of the goal it reached (most result for least resources);
  * - final: effectiveness and efficiency weighed together (`RUBRIC.weights`),
@@ -167,7 +167,7 @@ function instructions(record: RoundRecord, actor: string): CriterionScore {
  * write (when told not to change files) and tried no destination the policy
  * denies. Not evaluated for an agent with neither a policy nor `readOnly`.
  */
-function permissions(record: RoundRecord, actor: string): CriterionScore {
+function policy(record: RoundRecord, actor: string): CriterionScore {
   const label = 'Permissões';
   const snapshot = entry(record.actors, actor);
   if (
@@ -175,7 +175,7 @@ function permissions(record: RoundRecord, actor: string): CriterionScore {
     (snapshot.policy === null && !snapshot.readOnly)
   ) {
     return {
-      id: 'permissions',
+      id: 'policy',
       label,
       score: null,
       detail: 'Sem política nem readOnly para conferir.',
@@ -196,14 +196,14 @@ function permissions(record: RoundRecord, actor: string): CriterionScore {
   );
   if (outside.length > 0) {
     return {
-      id: 'permissions',
+      id: 'policy',
       label,
       score: 0,
       detail: `Alterou fora do que a política libera para escrita: ${outside.join(', ')}.`,
     };
   }
   return {
-    id: 'permissions',
+    id: 'policy',
     label,
     score: Math.max(0, 5 - denied.length * RUBRIC.wastePenalty),
     detail:
@@ -330,7 +330,7 @@ function actorScore(
   const eliminated = eliminations(record, actor);
   const effectivenessCriteria = [
     instructions(record, actor),
-    permissions(record, actor),
+    policy(record, actor),
     references(record, actor),
     limit(
       'time-limit',

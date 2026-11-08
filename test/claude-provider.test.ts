@@ -20,12 +20,9 @@ afterEach(() => {
   clearConfigCache();
 });
 
-function apply(permissions: AgentPolicy): () => readonly string[] {
+function apply(policy: AgentPolicy): () => readonly string[] {
   return () =>
-    new ClaudeProvider({ model: 'modelo' }).applyPermissions(
-      permissions,
-      undefined,
-    );
+    new ClaudeProvider({ model: 'modelo' }).applyPermissions(policy, undefined);
 }
 
 describe('ClaudeProvider', () => {
@@ -125,7 +122,7 @@ describe('ClaudeProvider', () => {
       '',
     ]);
     expect(JSON.parse(args[args.indexOf('--settings') + 1] ?? '')).toEqual({
-      permissions: {
+      policy: {
         allow: ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'NotebookEdit'],
         deny: [],
       },
@@ -201,7 +198,7 @@ describe('ClaudeProvider', () => {
 
     expect(args).toContain('dontAsk');
     expect(JSON.parse(args[args.indexOf('--settings') + 1] ?? '')).toEqual({
-      permissions: {
+      policy: {
         allow: [
           'Read',
           'Edit',
@@ -243,7 +240,7 @@ describe('ClaudeProvider', () => {
     );
 
     expect(settings).toMatchObject({
-      permissions: {
+      policy: {
         allow: expect.arrayContaining(['WebFetch']),
         deny: ['WebFetch(domain:google.com)'],
       },
@@ -274,7 +271,7 @@ describe('ClaudeProvider', () => {
     expect(
       JSON.parse(args[args.indexOf('--settings') + 1] ?? ''),
     ).toMatchObject({
-      permissions: {
+      policy: {
         deny: ['WebFetch(domain:google.com)', 'WebFetch(domain:*.google.com)'],
       },
     });

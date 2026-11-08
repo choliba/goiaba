@@ -16,7 +16,7 @@ export interface RoundActor {
   readonly provider: AgentProvider;
   /** A new workspace with these options for every step of the actor. */
   readonly workspace: WorkspaceOptions;
-  readonly permissions?: AgentPolicy;
+  readonly policy?: AgentPolicy;
   /** Told not to change any file: the git checks it (`readOnlyRespected`). */
   readonly readOnly?: boolean;
 }
