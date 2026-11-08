@@ -17,7 +17,7 @@ import {
 } from '../filesystem/index';
 import { localPorts } from './rules';
 import { NetworkGate, type NetworkGateOptions } from './gate';
-import type { TrafficObserver } from './types';
+import type { RequestRewriter, TrafficObserver } from './types';
 import { PROXY_PORT, READY_POLL_MS, READY_TIMEOUT_MS } from './constants';
 import { NetworkProxy } from './proxy';
 import { PublishedPorts, socketFor } from './publish';
@@ -39,6 +39,10 @@ export interface NetworkBoundaryOptions extends NetworkGateOptions {
   readonly readyTimeoutMs?: number;
   /** See `MAX_OBSERVED_BYTES`. */
   readonly maxObservedBytes?: number;
+  /** Change what these destinations receive (e.g. a local model's options). */
+  readonly rewrite?: readonly RequestRewriter[];
+  /** See `MAX_REWRITE_BODY_BYTES`. */
+  readonly maxRewriteBodyBytes?: number;
 }
 
 const SOCKET_FILE = 'proxy.sock';
@@ -78,6 +82,8 @@ export class NetworkBoundary {
       this.gate,
       options.observe,
       options.maxObservedBytes,
+      options.rewrite,
+      options.maxRewriteBodyBytes,
     );
     this.proxyPort = options.proxyPort ?? PROXY_PORT;
     this.readyTimeoutMs = options.readyTimeoutMs ?? READY_TIMEOUT_MS;
@@ -92,6 +98,11 @@ export class NetworkBoundary {
   /** Reads a destination's traffic too; the decisions do not change. */
   public observe(observer: TrafficObserver): void {
     this.proxy.observe(observer);
+  }
+
+  /** Changes what a destination receives too; the decisions do not change. */
+  public rewrite(rewriter: RequestRewriter): void {
+    this.proxy.rewrite(rewriter);
   }
 
   /**

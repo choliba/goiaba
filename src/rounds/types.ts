@@ -64,6 +64,80 @@ export interface RoundRecord {
    * (`declarationSource`). Absent in records from before it was kept.
    */
   readonly declaration?: RoundDeclaration;
+  /**
+   * What the machine was and how much of it the round used (CPU/GPU/RAM),
+   * sampled over time. Of the round, not of any provider: which model ran is
+   * in `actors`. Volatile, so out of `configHash`. Absent in records from
+   * before it was measured, or when the machine could not be read.
+   */
+  readonly resources?: RoundResources;
+}
+
+/**
+ * The machine a round ran on, read once at the start. No provider or model
+ * here: that lives in each `ActorSnapshot`.
+ */
+export interface MachineSnapshot {
+  /** `Linux 7.0.0-42-generic`: kernel type and release. */
+  readonly os: string;
+  /** The Bun runtime's version. */
+  readonly bun: string;
+  readonly cpu: {
+    readonly model: string;
+    /** Logical processors. */
+    readonly cores: number;
+  };
+  readonly memTotalMb: number;
+  /** `null` when there is no NVIDIA GPU, or `nvidia-smi` is absent. */
+  readonly gpu: {
+    readonly name: string;
+    readonly memTotalMb: number;
+    readonly driver: string;
+  } | null;
+}
+
+/** One reading of the machine's use, taken every `RoundResources.intervalMs`. */
+export interface ResourceSample {
+  readonly ts: string;
+  /** Whole-machine CPU use since the previous sample, 0–100. */
+  readonly cpuPct: number;
+  readonly memUsedMb: number;
+  /** `null` when the machine has no GPU, or the query failed this time. */
+  readonly gpu: {
+    readonly utilPct: number;
+    readonly memUsedMb: number;
+    /** Watts; `null` when the driver does not report it. */
+    readonly powerW: number | null;
+    /** Celsius; `null` when the driver does not report it. */
+    readonly tempC: number | null;
+  } | null;
+}
+
+/** Average and peak of a set of samples. */
+export interface ResourceSummary {
+  readonly cpu: { readonly avgPct: number; readonly peakPct: number };
+  readonly mem: { readonly avgMb: number; readonly peakMb: number };
+  /** `null` when no sample in the set had a GPU reading. */
+  readonly gpu: {
+    readonly avgUtilPct: number;
+    readonly peakUtilPct: number;
+    readonly avgMemMb: number;
+    readonly peakMemMb: number;
+    /** Power integrated over time, Wh; `null` when no sample reported power. */
+    readonly energyWh: number | null;
+  } | null;
+}
+
+/** A round's resource use: the machine, the raw samples and the summaries. */
+export interface RoundResources {
+  readonly machine: MachineSnapshot;
+  readonly intervalMs: number;
+  /** Every sample of the whole round, in order. */
+  readonly samples: readonly ResourceSample[];
+  /** Over all samples. */
+  readonly round: ResourceSummary;
+  /** By the agent's name: over the samples inside that agent's steps. */
+  readonly actors: Readonly<Record<string, ResourceSummary>>;
 }
 
 /**
@@ -97,6 +171,8 @@ export interface DeclaredActor {
     readonly model: string | null;
     /** See `ProviderSnapshot.contextWindow`. */
     readonly contextWindow?: number;
+    /** See `ProviderSnapshot.think`. */
+    readonly think?: boolean;
   };
   readonly workspace: {
     readonly type: RoundWorkspaceType;
@@ -203,6 +279,8 @@ export interface ProviderSnapshot {
   readonly contextWindow?: number;
   /** Of it, what the model can read before the CLI compacts (`describe()`). */
   readonly readableContext?: number;
+  /** `false` when the model's thinking was off (`describe()`). */
+  readonly think?: boolean;
 }
 
 export interface WorkspaceSnapshot {

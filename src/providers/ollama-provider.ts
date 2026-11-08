@@ -18,6 +18,7 @@ import type {
   ProviderOptions,
   HostAccess,
   LiveTurn,
+  ModelRequest,
   TrafficEvent,
 } from './types';
 import { readOllamaTraffic } from './ollama-traffic';
@@ -41,6 +42,15 @@ export interface OllamaProviderOptions extends ProviderOptions {
    * `tools`). Claude Code's full set is ~15k tokens on every request.
    */
   readonly tools?: readonly string[];
+  /**
+   * Only with `cli: 'claude'`: `false` turns the model's thinking off (it
+   * answers without reasoning first: fewer tokens and less time on each
+   * turn). Claude Code never asks Ollama for that, so Goiaba writes it into
+   * each request on the way (`thinking: { type: 'disabled' }`); that needs
+   * the network boundary, which any policy gives. Left out, the model's own
+   * default holds (qwen3.5 thinks).
+   */
+  readonly think?: boolean;
 }
 
 /**
@@ -69,6 +79,15 @@ export class OllamaProvider implements Provider<string, string> {
   private readonly contextWindow: number;
   private readonly compactAt: number;
   private readonly endpoint: string;
+  private readonly think: boolean | undefined;
+
+  /**
+   * Only with `think: false`: what turns the thinking off in each request
+   * to Ollama (see `OllamaProviderOptions.think`).
+   */
+  public readonly rewriteRequest?: (
+    request: ModelRequest,
+  ) => Uint8Array | undefined;
 
   /**
    * Only with the Claude CLI, which takes messages on an open stdin: what
@@ -89,6 +108,18 @@ export class OllamaProvider implements Provider<string, string> {
       options.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
     );
     this.compactAt = options.compactAt ?? COMPACT_AT;
+    if (options.think !== undefined && typeof options.think !== 'boolean') {
+      throw new UsageError(
+        'A opção think do OllamaProvider é true ou false: false desliga o raciocínio do modelo.',
+      );
+    }
+    if (options.think === false && options.cli !== 'claude') {
+      throw new UsageError(
+        'A opção think: false do OllamaProvider só vale com cli: claude. Tire-a ou use o Claude.',
+      );
+    }
+    this.think = options.think;
+    if (options.think === false) this.rewriteRequest = withoutThinking;
 
     const providerOptions: ProviderOptions = {
       model: options.model,
@@ -138,6 +169,7 @@ export class OllamaProvider implements Provider<string, string> {
       model: this.model,
       cli: this.cli,
       contextWindow: this.contextWindow,
+      ...(this.think === undefined ? {} : { think: this.think }),
       readableContext:
         this.cli === 'claude'
           ? this.contextWindow - claudeReplyReserve(this.contextWindow)
@@ -271,6 +303,30 @@ function readBaseUrl(value: string): string {
   }
 
   return value.replace(/\/+$/, '');
+}
+
+/**
+ * A request to Ollama's `/v1/messages` (Anthropic's format, Claude Code)
+ * with the thinking off, whatever the CLI asked (`adaptive`, or nothing,
+ * which leaves the model's default). Any other request goes as it came.
+ */
+function withoutThinking(request: ModelRequest): Uint8Array | undefined {
+  if (request.method !== 'POST') return undefined;
+  if (new URL(request.path, 'http://ollama').pathname !== '/v1/messages') {
+    return undefined;
+  }
+  let body: unknown;
+  try {
+    body = JSON.parse(new TextDecoder().decode(request.body));
+  } catch {
+    return undefined;
+  }
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return undefined;
+  }
+  return new TextEncoder().encode(
+    JSON.stringify({ ...body, thinking: { type: 'disabled' } }),
+  );
 }
 
 /**

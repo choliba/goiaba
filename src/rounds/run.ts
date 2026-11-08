@@ -13,7 +13,7 @@ import { getConfig } from '../config/index';
 import { UsageError } from '../errors';
 import { join, realPathOfNearest } from '../filesystem/index';
 import { Workspace } from '../workspace/index';
-import { FIXTURE_TAG, NO_ONE_ANSWERS } from './constants';
+import { FIXTURE_TAG, NO_ONE_ANSWERS, RESOURCE_SAMPLE_MS } from './constants';
 import { writableOf } from './permissions';
 import type { RoundDefinition, RoundFlowStep } from './define';
 import { captureDeclaration } from './capture';
@@ -31,6 +31,12 @@ import { checkInstructions, conditionsAt } from './instructions';
 import { checkReferences } from './references';
 import { spanOf, StepRecorder } from './measures';
 import { measuresOf, sanitize, writeRound } from './record';
+import {
+  beginResources,
+  summarize,
+  summarizeWithin,
+  type ResourceSampler,
+} from './resources';
 import { promptOf, roundConfigHash, snapshotActor } from './snapshot';
 import { totalOf } from './totals';
 import {
@@ -38,7 +44,9 @@ import {
   type ActorSnapshot,
   type ActorTiming,
   type NetworkDecisionRecord,
+  type ResourceSample,
   type RoundRecord,
+  type RoundResources,
   type RoundStart,
   type RoundStep,
   type TokenCounts,
@@ -162,6 +170,14 @@ async function runOnce(
   const said: Record<string, string> = {};
   let start: RoundStart | null = null;
   let file = '';
+  // The machine's use through the whole round; left out when it cannot be read.
+  let sampler: ResourceSampler | undefined;
+  let samples: ResourceSample[] = [];
+  try {
+    sampler = await beginResources();
+  } catch {
+    // A host we cannot read is not a reason to lose the round.
+  }
 
   if (repeat.total > 1) {
     screen.write(
@@ -210,6 +226,7 @@ async function runOnce(
       said[step.actor] = answer;
     }
   } finally {
+    if (sampler !== undefined) samples = await sampler.stop();
     // A round that failed before any agent ran (no such tag, say) is not a
     // round: nothing to record, and the error says what to fix.
     if (steps.length > 0) {
@@ -374,6 +391,7 @@ async function runOnce(
 
   function record(): RoundRecord {
     const endedAt = now();
+    const resources = resourcesOf();
     const usage = steps.flatMap((step) => step.usage);
     const names = Object.keys(actors);
     const withDecisions = Object.fromEntries(
@@ -457,6 +475,29 @@ async function runOnce(
         ? {}
         : { criteria: { limits: definition.limits } }),
       declaration: captureDeclaration(definition, label),
+      ...(resources === undefined ? {} : { resources }),
+    };
+  }
+
+  /** The round's resource use, by agent too; `undefined` when not measured. */
+  function resourcesOf(): RoundResources | undefined {
+    if (sampler === undefined || samples.length === 0) return undefined;
+    return {
+      machine: sampler.machine,
+      intervalMs: RESOURCE_SAMPLE_MS,
+      samples,
+      round: summarize(samples),
+      actors: Object.fromEntries(
+        Object.keys(actors).map((name) => [
+          name,
+          summarizeWithin(
+            samples,
+            steps
+              .filter((step) => step.actor === name)
+              .map((step) => step.span),
+          ),
+        ]),
+      ),
     };
   }
 }

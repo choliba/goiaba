@@ -11,6 +11,7 @@ import {
   validatePorts,
   type NetworkApprover,
   type NetworkLedger,
+  type RequestRewriter,
   type TrafficObserver,
 } from '../network/index';
 import { DEFAULT_DOCKER_IMAGE } from './constants';
@@ -81,6 +82,7 @@ export interface WorkspaceNetworkOptions {
   readonly alwaysAllow?: readonly string[];
   readonly alwaysDeny?: readonly string[];
   readonly observe?: readonly TrafficObserver[];
+  readonly rewrite?: readonly RequestRewriter[];
 }
 
 export class Workspace {
@@ -152,6 +154,10 @@ export class Workspace {
     if (this.network !== undefined) {
       for (const observer of network.observe ?? []) {
         this.network.observe(observer);
+      }
+      // The agent's own model options: its requests, not a decision.
+      for (const rewriter of network.rewrite ?? []) {
+        this.network.rewrite(rewriter);
       }
       return;
     }

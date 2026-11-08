@@ -35,3 +35,18 @@ export const BAD_GATEWAY = 502;
 
 /** HTTP status for a destination the policy denies. Fixed: protocol. */
 export const FORBIDDEN = 403;
+
+/**
+ * The largest request body, in bytes, a rewriter gets to change
+ * (`NetworkBoundary`, option `maxRewriteBodyBytes`): a model request with a
+ * full context is a few hundred KB; past this the request goes on as it
+ * came, never held in memory.
+ */
+export const MAX_REWRITE_BODY_BYTES = 32 * 1024 * 1024;
+
+/**
+ * The largest request head, in bytes, read while looking for its end: an
+ * HTTP head is a few KB. Past it the connection is passed on untouched.
+ * Fixed: a limit of the parsing, not a choice.
+ */
+export const MAX_REQUEST_HEAD_BYTES = 64 * 1024;

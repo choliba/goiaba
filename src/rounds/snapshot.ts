@@ -68,6 +68,7 @@ export function snapshotActor(
       ...(described?.readableContext === undefined
         ? {}
         : { readableContext: described.readableContext }),
+      ...(described?.think === undefined ? {} : { think: described.think }),
     },
     workspace: {
       type: options.type,

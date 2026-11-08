@@ -207,6 +207,7 @@ const actor = object({
     options: anyObject,
     'contextWindow?': positive,
     'readableContext?': positive,
+    'think?': boolean,
   }),
   workspace: object({
     type: oneOf(WORKSPACE_TYPES),
@@ -297,6 +298,7 @@ const declaredActor = object({
     cli: nullable(nonEmpty),
     model: nullable(nonEmpty),
     'contextWindow?': positive,
+    'think?': boolean,
   }),
   workspace: object({
     type: oneOf(WORKSPACE_TYPES),
@@ -326,6 +328,48 @@ const declaration = object({
   'instructions?': anyObject,
   'limits?': anyObject,
   repeat: positive,
+});
+
+const resourceSummary = object({
+  cpu: object({ avgPct: amount, peakPct: amount }),
+  mem: object({ avgMb: amount, peakMb: amount }),
+  gpu: nullable(
+    object({
+      avgUtilPct: amount,
+      peakUtilPct: amount,
+      avgMemMb: amount,
+      peakMemMb: amount,
+      energyWh: nullable(amount),
+    }),
+  ),
+});
+
+const resources = object({
+  machine: object({
+    os: string,
+    bun: string,
+    cpu: object({ model: string, cores: count }),
+    memTotalMb: amount,
+    gpu: nullable(object({ name: string, memTotalMb: amount, driver: string })),
+  }),
+  intervalMs: positive,
+  samples: list(
+    object({
+      ts: isoDate,
+      cpuPct: amount,
+      memUsedMb: amount,
+      gpu: nullable(
+        object({
+          utilPct: amount,
+          memUsedMb: amount,
+          powerW: nullable(amount),
+          tempC: nullable(amount),
+        }),
+      ),
+    }),
+  ),
+  round: resourceSummary,
+  actors: record(resourceSummary),
 });
 
 const roundRecord = object({
@@ -394,6 +438,7 @@ const roundRecord = object({
     }),
   }),
   'declaration?': declaration,
+  'resources?': resources,
 });
 
 /** Every agent the record names somewhere is one of `actors`. */

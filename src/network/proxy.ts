@@ -10,9 +10,20 @@ import { connect } from 'node:net';
 import { PassThrough, type Duplex } from 'node:stream';
 
 import { log } from '../logger/index';
-import { BAD_GATEWAY, FORBIDDEN, MAX_OBSERVED_BYTES } from './constants';
+import {
+  BAD_GATEWAY,
+  FORBIDDEN,
+  MAX_OBSERVED_BYTES,
+  MAX_REWRITE_BODY_BYTES,
+} from './constants';
 import type { NetworkGate } from './gate';
-import type { NetworkRequest, TrafficObserver } from './types';
+import { RequestRewriteStream } from './rewrite';
+import type {
+  NetworkRequest,
+  RequestRewriter,
+  RewriteRequest,
+  TrafficObserver,
+} from './types';
 
 /**
  * HTTP proxy (plain requests and CONNECT tunnels) on a unix socket: the only
@@ -24,32 +35,46 @@ export class NetworkProxy {
   private socketPath: string | undefined;
 
   private readonly observers: TrafficObserver[];
+  private readonly rewriters: RequestRewriter[];
 
   public constructor(
     private readonly gate: NetworkGate,
     observers: readonly TrafficObserver[] = [],
     /** See `MAX_OBSERVED_BYTES`. */
     private readonly maxObservedBytes = MAX_OBSERVED_BYTES,
+    rewriters: readonly RequestRewriter[] = [],
+    /** See `MAX_REWRITE_BODY_BYTES`. */
+    private readonly maxRewriteBodyBytes = MAX_REWRITE_BODY_BYTES,
   ) {
     this.observers = [...observers];
+    this.rewriters = [...rewriters];
     this.server.on('request', (request, response) => {
-      void forwardHttp(this.gate, request, response);
-    });
-    this.server.on('connect', (request, socket, head) => {
-      void forwardTunnel(
+      void forwardHttp(
         this.gate,
         request,
-        socket,
-        head,
-        this.observers,
-        this.maxObservedBytes,
+        response,
+        this.rewriters,
+        this.maxRewriteBodyBytes,
       );
+    });
+    this.server.on('connect', (request, socket, head) => {
+      void forwardTunnel(this.gate, request, socket, head, {
+        observers: this.observers,
+        maxObservedBytes: this.maxObservedBytes,
+        rewriters: this.rewriters,
+        maxRewriteBodyBytes: this.maxRewriteBodyBytes,
+      });
     });
   }
 
   /** Reads `observer.destination`'s traffic from the next connection on. */
   public observe(observer: TrafficObserver): void {
     this.observers.push(observer);
+  }
+
+  /** Changes what `rewriter.destination` receives, from the next connection on. */
+  public rewrite(rewriter: RequestRewriter): void {
+    this.rewriters.push(rewriter);
   }
 
   /** Listens on `path`; again on the same path is a no-op. */
@@ -71,10 +96,50 @@ export class NetworkProxy {
   }
 }
 
+/**
+ * The rewriters of `request`'s destination as one: each gets the body the
+ * one before left. `undefined` when the destination has none.
+ */
+function rewriterFor(
+  rewriters: readonly RequestRewriter[],
+  request: NetworkRequest,
+): RewriteRequest | undefined {
+  const destination = `${request.hostname}:${String(request.port)}`;
+  const own = rewriters.filter(
+    (rewriter) => rewriter.destination === destination,
+  );
+  if (own.length === 0) return undefined;
+  return (parts) => {
+    let body: Uint8Array | undefined;
+    for (const { rewrite } of own) {
+      body = rewrite({ ...parts, body: body ?? parts.body }) ?? body;
+    }
+    return body;
+  };
+}
+
+/** The whole body of `incoming`, or `undefined` past `maxBytes`. */
+async function readBody(
+  incoming: IncomingMessage,
+  maxBytes: number,
+): Promise<Buffer | undefined> {
+  const parts: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of incoming) {
+    const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+    total += part.length;
+    if (total > maxBytes) return undefined;
+    parts.push(part);
+  }
+  return Buffer.concat(parts);
+}
+
 async function forwardHttp(
   gate: NetworkGate,
   incoming: IncomingMessage,
   response: ServerResponse,
+  rewriters: readonly RequestRewriter[],
+  maxRewriteBodyBytes: number,
 ): Promise<void> {
   const target = httpTarget(incoming);
   if (target === undefined) {
@@ -87,10 +152,40 @@ async function forwardHttp(
     return;
   }
 
+  const rewrite =
+    target.url.protocol === 'http:'
+      ? rewriterFor(rewriters, target.request)
+      : undefined;
+  // A body to change is read whole first; past the limit it is refused
+  // rather than sent half changed.
+  const body =
+    rewrite === undefined
+      ? undefined
+      : await readBody(incoming, maxRewriteBodyBytes);
+  if (rewrite !== undefined && body === undefined) {
+    response.writeHead(BAD_GATEWAY).end('Pedido grande demais para ajustar.');
+    return;
+  }
+  const rewritten =
+    rewrite === undefined || body === undefined
+      ? undefined
+      : (rewrite({
+          method: incoming.method ?? 'GET',
+          path: `${target.url.pathname}${target.url.search}`,
+          body,
+        }) ?? body);
+
   const send = target.url.protocol === 'https:' ? httpsRequest : httpRequest;
+  const headers = withoutProxyHeaders(incoming.headers);
   const outgoing = send(target.url, {
     method: incoming.method,
-    headers: withoutProxyHeaders(incoming.headers),
+    headers:
+      rewritten === undefined
+        ? headers
+        : {
+            ...withoutFraming(headers),
+            'content-length': String(rewritten.length),
+          },
   });
   outgoing.on('response', (upstream) => {
     response.writeHead(upstream.statusCode ?? BAD_GATEWAY, upstream.headers);
@@ -101,7 +196,8 @@ async function forwardHttp(
     if (!response.headersSent) response.writeHead(BAD_GATEWAY);
     response.end('Falha no destino.');
   });
-  incoming.pipe(outgoing);
+  if (rewritten === undefined) incoming.pipe(outgoing);
+  else outgoing.end(rewritten);
 }
 
 async function forwardTunnel(
@@ -109,8 +205,17 @@ async function forwardTunnel(
   incoming: IncomingMessage,
   client: Duplex,
   head: Buffer,
-  observers: readonly TrafficObserver[],
-  maxObservedBytes: number,
+  {
+    observers,
+    maxObservedBytes,
+    rewriters,
+    maxRewriteBodyBytes,
+  }: {
+    readonly observers: readonly TrafficObserver[];
+    readonly maxObservedBytes: number;
+    readonly rewriters: readonly RequestRewriter[];
+    readonly maxRewriteBodyBytes: number;
+  },
 ): Promise<void> {
   client.on('error', () => undefined);
   const request = tunnelTarget(incoming.url);
@@ -125,11 +230,22 @@ async function forwardTunnel(
   }
 
   const upstream = connect(request.port, request.hostname);
+  const rewrite = rewriterFor(rewriters, request);
   upstream.once('connect', () => {
     client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-    if (head.length > 0) upstream.write(head);
     upstream.pipe(client);
-    client.pipe(upstream);
+    if (rewrite === undefined) {
+      if (head.length > 0) upstream.write(head);
+      client.pipe(upstream);
+    } else {
+      // The requests go through the rewriter, `head` (what came with the
+      // CONNECT) first.
+      const rewriting = new RequestRewriteStream(rewrite, maxRewriteBodyBytes);
+      rewriting.on('error', () => upstream.destroy());
+      rewriting.pipe(upstream);
+      if (head.length > 0) rewriting.write(head);
+      client.pipe(rewriting);
+    }
     observe(observers, request, client, upstream, maxObservedBytes);
   });
   upstream.on('error', (error) => {
@@ -250,6 +366,18 @@ function withoutProxyHeaders(
   const {
     'proxy-authorization': _authorization,
     'proxy-connection': _connection,
+    ...kept
+  } = headers;
+  return kept;
+}
+
+/** Headers without their body framing, for a body sent with a new length. */
+function withoutFraming(
+  headers: IncomingMessage['headers'],
+): IncomingMessage['headers'] {
+  const {
+    'content-length': _length,
+    'transfer-encoding': _encoding,
     ...kept
   } = headers;
   return kept;

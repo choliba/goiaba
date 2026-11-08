@@ -51,6 +51,7 @@ function providerSource(provider: DeclaredActor['provider']): string {
     ...(provider.contextWindow === undefined
       ? {}
       : { contextWindow: provider.contextWindow }),
+    ...(provider.think === undefined ? {} : { think: provider.think }),
   };
   return name === undefined
     ? `undefined /* provider "${provider.name}": escolha a classe */`

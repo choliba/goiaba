@@ -30,6 +30,13 @@ export interface Provider<TInput, TOutput, TPermissions> {
     responses: AsyncIterable<Uint8Array>,
   ): AsyncIterable<TrafficEvent>;
   /**
+   * The new body of a request its CLI sends to one of its
+   * `networkEndpoints`, or `undefined` to send it as it came: an option the
+   * model takes that the CLI does not send. Applied where that traffic
+   * passes through Goiaba (the network boundary, with a policy).
+   */
+  rewriteRequest?(request: ModelRequest): Uint8Array | undefined;
+  /**
    * What of the host its CLI needs: the paths where it keeps state (mounted
    * in the sandbox; nothing else of the home is), and its own credentials,
    * files and variables. Any other known credential stays out of the sandbox.
@@ -191,6 +198,8 @@ export interface ProviderDescription {
    * (Codex). Past it the history is compacted.
    */
   readonly readableContext?: number;
+  /** `false` when the provider turns the model's thinking off; left out, the model's default. */
+  readonly think?: boolean;
 }
 
 /** An `AgentPolicy` as one provider expresses it. */
@@ -238,4 +247,12 @@ export interface HostAccess {
   readonly homeEnv?: Readonly<Record<string, string>>;
   /** With `hostState: 'share'` only: the CLI's state on the host, writable. */
   readonly sharedState: readonly string[];
+}
+
+/** A request to the model's API, whole, as `rewriteRequest` gets it. */
+export interface ModelRequest {
+  readonly method: string;
+  /** As in the request line: `/v1/messages?beta=true`. */
+  readonly path: string;
+  readonly body: Uint8Array;
 }

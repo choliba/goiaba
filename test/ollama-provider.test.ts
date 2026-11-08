@@ -10,6 +10,47 @@ import { CodexProvider } from '../src/providers/codex/codex-provider';
 import { OllamaProvider } from '../src/providers/ollama-provider';
 
 describe('OllamaProvider', () => {
+  test('think: false desliga o raciocínio em cada pedido ao /v1/messages', () => {
+    const provider = new OllamaProvider({
+      cli: 'claude',
+      model: 'qwen3.5:4b',
+      think: false,
+    });
+    const body = new TextEncoder().encode(
+      JSON.stringify({
+        model: 'qwen3.5:4b',
+        thinking: { type: 'adaptive', display: 'omitted' },
+      }),
+    );
+    const rewritten = provider.rewriteRequest?.({
+      method: 'POST',
+      path: '/v1/messages?beta=true',
+      body,
+    });
+    expect(
+      JSON.parse(new TextDecoder().decode(rewritten ?? new Uint8Array())),
+    ).toEqual({ model: 'qwen3.5:4b', thinking: { type: 'disabled' } });
+    // Other routes go as they came.
+    expect(
+      provider.rewriteRequest?.({
+        method: 'POST',
+        path: '/v1/messages/count_tokens',
+        body,
+      }),
+    ).toBeUndefined();
+    expect(provider.describe()).toMatchObject({ think: false });
+  });
+
+  test('sem think, nenhum pedido é ajustado; com o codex, think: false é recusado', () => {
+    expect(
+      new OllamaProvider({ cli: 'claude', model: 'qwen3.5:4b' }).rewriteRequest,
+    ).toBeUndefined();
+    expect(
+      () =>
+        new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b', think: false }),
+    ).toThrow('só vale com cli: claude');
+  });
+
   test('aponta o claude para o Ollama por variáveis de ambiente', () => {
     const provider = new OllamaProvider({ cli: 'claude', model: 'qwen3.5:4b' });
     const command = provider.createCommand('pergunta');

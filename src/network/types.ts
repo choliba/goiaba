@@ -82,3 +82,28 @@ export interface TrafficObserver {
   readonly destination: string;
   observe(traffic: Traffic): void;
 }
+
+/** One HTTP request as a rewriter sees it: whole, its body as bytes. */
+export interface HttpRequestParts {
+  readonly method: string;
+  /** As in the request line: `/v1/messages?beta=true`. */
+  readonly path: string;
+  readonly body: Uint8Array;
+}
+
+/** The new body of a request, or `undefined` to send it as it came. */
+export type RewriteRequest = (
+  request: HttpRequestParts,
+) => Uint8Array | undefined;
+
+/**
+ * Who changes what a destination receives: the bodies of plain-HTTP
+ * requests to it, as they pass through the proxy (e.g. an option a local
+ * model takes that its CLI does not send). Unlike an observer, it changes
+ * the traffic; the decisions on the destination do not change.
+ */
+export interface RequestRewriter {
+  /** `host:port`, as the rules write it. */
+  readonly destination: string;
+  readonly rewrite: RewriteRequest;
+}

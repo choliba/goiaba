@@ -59,6 +59,9 @@ export function captureDeclaration(
             ...(described?.contextWindow === undefined
               ? {}
               : { contextWindow: described.contextWindow }),
+            ...(described?.think === undefined
+              ? {}
+              : { think: described.think }),
           },
           workspace: {
             type: workspace.type,

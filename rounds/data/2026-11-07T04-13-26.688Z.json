@@ -1,0 +1,292 @@
+{
+  "schema": 4,
+  "id": "2026-11-07T04-13-26.688Z",
+  "definition": {
+    "id": "ollama-product-owner",
+    "goal": "O agente implementa o ticket: troca o título da página por Goiaba"
+  },
+  "start": {
+    "tag": "rodada-base",
+    "commit": "835e26b",
+    "fixture": "site-vazio"
+  },
+  "repeat": {
+    "index": 1,
+    "total": 1
+  },
+  "timing": {
+    "startedAt": "2026-11-07T04:13:26.688Z",
+    "endedAt": "2026-11-07T04:13:28.373Z",
+    "durationMs": 1685,
+    "actors": {
+      "product-owner": {
+        "startedAt": "2026-11-07T04:13:26.715Z",
+        "endedAt": "2026-11-07T04:13:28.367Z",
+        "durationMs": 1652,
+        "workspaceMs": null,
+        "gitCheckMs": 11,
+        "approvalMs": null
+      }
+    }
+  },
+  "actors": {
+    "product-owner": {
+      "role": "product-owner",
+      "provider": {
+        "id": "ollama-claude",
+        "name": "ollama",
+        "model": "qwen3.5:4b",
+        "cli": "claude",
+        "cliVersion": null,
+        "options": {},
+        "contextWindow": 32768,
+        "readableContext": 24576
+      },
+      "workspace": {
+        "type": "bubblewrap",
+        "image": null,
+        "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": {
+          "default": "deny",
+          "allow": [],
+          "requireApproval": [],
+          "deny": []
+        },
+        "alwaysAllow": [
+          "127.0.0.1:11434"
+        ],
+        "alwaysDeny": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
+        "decisions": [
+          {
+            "ts": "2026-11-07T04:13:27.261Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          }
+        ]
+      },
+      "policy": {
+        "default": "deny",
+        "allow": {
+          "filesystem": [
+            {
+              "operations": [
+                "read",
+                "write"
+              ],
+              "paths": [
+                "/workspace/**"
+              ]
+            }
+          ],
+          "execution": [
+            {
+              "commands": [
+                "ls *",
+                "cat *",
+                "find *",
+                "pwd",
+                "git status",
+                "git diff *",
+                "git log *"
+              ]
+            }
+          ]
+        }
+      },
+      "readOnly": false,
+      "configHash": "ef40dfc7564831a8bb69029d1fb459a6c38bd76c032629ef28c2daa3663b67ad"
+    }
+  },
+  "configHash": "d769f833bd3392bef1ecd6edbfddde1298f0058e75eb91cbcabdb7d03b962913",
+  "steps": [
+    {
+      "key": "product-owner#1",
+      "actor": "product-owner",
+      "by": null,
+      "prompt": {
+        "text": "leia o arquivo ticket.txt\nCom base nas instruções dele implemente a alteração no index.html\nApenas implemente a solicitação escrita em ticket.txt\no nome do arquivo a ser lido é ticket.txt\n**NÃO TENTE ACESSAR NENHUM SITE NA WEB**",
+        "hash": "25757b799cc8a57a8ff211c48a3e40db464a2414003b6736257e6903a914fd6f"
+      },
+      "span": {
+        "startedAt": "2026-11-07T04:13:26.715Z",
+        "endedAt": "2026-11-07T04:13:28.367Z",
+        "durationMs": 1652
+      },
+      "said": [],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-07T04:13:26.739Z",
+            "endedAt": "2026-11-07T04:13:28.366Z",
+            "durationMs": 1627
+          }
+        }
+      ],
+      "tools": [],
+      "changed": [],
+      "diff": "",
+      "instructions": [
+        {
+          "check": "index.html contém \"<h1>🚀 Goiaba</h1>\"",
+          "when": null,
+          "met": false,
+          "detail": "index.html existe, mas não contém \"<h1>🚀 Goiaba</h1>\"."
+        }
+      ],
+      "totals": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      }
+    }
+  ],
+  "usage": [],
+  "totals": {
+    "round": {
+      "tokens": {
+        "input": null,
+        "output": null,
+        "cacheRead": null,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "fresh": null,
+      "costUsd": null
+    },
+    "actors": {
+      "product-owner": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      }
+    }
+  },
+  "measures": {
+    "product-owner": {
+      "turns": 1,
+      "tools": 0,
+      "questions": 0,
+      "changedFiles": 0,
+      "tests": null,
+      "typecheck": null
+    }
+  },
+  "violations": [
+    {
+      "rule": "no-questions",
+      "actor": "product-owner",
+      "passed": true,
+      "detail": "Não fez nenhuma pergunta."
+    }
+  ],
+  "declaration": {
+    "id": "ollama-product-owner",
+    "goal": "O agente implementa o ticket: troca o título da página por Goiaba",
+    "start": {
+      "fixture": "site-vazio"
+    },
+    "actors": {
+      "product-owner": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen3.5:4b",
+          "contextWindow": 32768
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/ollama-product-owner",
+          "hostState": "none"
+        },
+        "permissions": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "read",
+                  "write"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "find *",
+                  "pwd",
+                  "git status",
+                  "git diff *",
+                  "git log *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      }
+    },
+    "flow": [
+      {
+        "actor": "product-owner",
+        "by": null,
+        "prompt": [
+          "leia o arquivo ticket.txt",
+          "Com base nas instruções dele implemente a alteração no index.html",
+          "Apenas implemente a solicitação escrita em ticket.txt",
+          "o nome do arquivo a ser lido é ticket.txt",
+          "**NÃO TENTE ACESSAR NENHUM SITE NA WEB**"
+        ]
+      }
+    ],
+    "rules": [
+      "no-questions"
+    ],
+    "instructions": {
+      "product-owner": [
+        {
+          "check": {
+            "file": "index.html",
+            "contains": "<h1>🚀 Goiaba</h1>"
+          }
+        }
+      ]
+    },
+    "repeat": 1
+  }
+}

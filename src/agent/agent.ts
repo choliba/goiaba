@@ -62,7 +62,7 @@ import {
 import { listenForInterrupt } from '../execute/interrupt';
 import { scriptSignal } from '../usage';
 import type { Workspace, WorkspaceNetworkOptions } from '../workspace/index';
-import type { TrafficObserver } from '../network/index';
+import type { RequestRewriter, TrafficObserver } from '../network/index';
 import {
   currentProcessCommand,
   environment,
@@ -173,6 +173,13 @@ export class Agent {
     // decides whether to continue (see `resumableSession`).
     this.forced = forcedSession();
     this.store = store ?? defaultStore();
+    // The requests are changed on their way through the network boundary,
+    // and only a policy sets one up.
+    if (permissions === undefined && provider.rewriteRequest !== undefined) {
+      throw new UsageError(
+        `O provider ${provider.id} precisa ajustar os pedidos ao modelo (como o think: false do OllamaProvider), e isso só acontece com uma política: dê ao agente permissions.`,
+      );
+    }
     const enforced =
       permissions === undefined
         ? undefined
@@ -1338,6 +1345,7 @@ function networkOptions(
 ): WorkspaceNetworkOptions {
   return {
     ...trafficObservers(provider, onTraffic),
+    ...requestRewriters(provider),
     alwaysAllow: provider.networkEndpoints?.() ?? [],
     alwaysDeny: provider.networkBlocked?.() ?? [],
     approve: (request) =>
@@ -1349,6 +1357,23 @@ function networkOptions(
         category: 'network',
       }),
     ...(ledger === undefined ? {} : { ledger }),
+  };
+}
+
+/**
+ * What the provider changes in its requests to its model (an option the
+ * CLI does not send), at each of its endpoints. None for the others.
+ */
+function requestRewriters(provider: AgentProvider): {
+  readonly rewrite?: readonly RequestRewriter[];
+} {
+  const rewrite = provider.rewriteRequest?.bind(provider);
+  if (rewrite === undefined) return {};
+  return {
+    rewrite: (provider.networkEndpoints?.() ?? []).map((destination) => ({
+      destination,
+      rewrite,
+    })),
   };
 }
 

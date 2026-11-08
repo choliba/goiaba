@@ -12,7 +12,7 @@ export const WRITE_WORKSPACE: AgentPolicy = {
   allow: {
     filesystem: [
       {
-        operations: ['read', 'write'],
+        operations: ['*'],
         // Inside the sandbox the workspace is `/workspace` (singular), the
         // only root the policy accepts. Writing is granted to the whole
         // tree or to a folder that already exists, never to a lone file

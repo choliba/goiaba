@@ -31,6 +31,13 @@ const local = (): AgentProvider =>
     cli: 'claude',
     // O nome do modelo no Ollama (ollama list).
     model: 'qwen3.5:4b',
+    // Quantos tokens de contexto o CLI acha que o modelo tem: perto disso
+    // ele compacta o histórico (ollama ps mostra com quanto o modelo subiu).
+    contextWindow: 20000,
+    // Desliga o raciocínio do modelo: responde sem pensar antes, com menos
+    // tokens e menos tempo por turno. O Goiaba escreve isso em cada pedido
+    // ao Ollama, o que precisa de uma política (permissions, abaixo).
+    think: false,
   });
 
 export default defineRound({

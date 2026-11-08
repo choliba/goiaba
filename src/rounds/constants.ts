@@ -10,6 +10,20 @@ export const COST_TOLERANCE_USD = 1e-9;
 /** How long a git command of a round may take, in ms: all local and small. */
 export const GIT_TIMEOUT_MS = 30_000;
 
+/**
+ * Milliseconds between resource samples (CPU/GPU/RAM) during a round. One
+ * second gives a useful resolution without weighing on the run: a single-shot
+ * `nvidia-smi` answers in tens of ms.
+ */
+export const RESOURCE_SAMPLE_MS = 1000;
+
+/**
+ * How long a single `nvidia-smi` query may take, in ms, before that sample
+ * gives up on the GPU: the tool answers fast; more than this means it is
+ * stuck, and one lost sample must not hold the round.
+ */
+export const NVIDIA_SMI_TIMEOUT_MS = 2000;
+
 /** Environment variables whose value is a secret, by name. */
 export const CREDENTIAL_NAME = /KEY|TOKEN|SECRET|PASS|AUTH|CREDENTIAL/i;
 
