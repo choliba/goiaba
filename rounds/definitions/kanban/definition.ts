@@ -28,7 +28,7 @@ export const definition: RoundDefinition = {
   // Todos com o mesmo modelo; para variar por ator, decida pelo `name`.
   actors: actors(ACTOR_NAMES, () =>
     actor({
-      provider: provider({ model: 'qwen3.5:4b', contextWindow: 100_000 }),
+      provider: provider({ model: 'qwen3.5:4b', contextWindow: 32768 }),
       workspace: workspace(ID),
       policy: policy(['ls *', 'cat *', 'pwd', 'git status', 'git diff *']),
     }),
