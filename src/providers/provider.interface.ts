@@ -5,7 +5,7 @@ import type { AgentPolicy, PolicyCategory } from '../policy/policy.interface';
  * What every provider must implement: what `Provider` (types.ts) has today,
  * plus `translatePolicy`, the one place where an `AgentPolicy` becomes the
  * provider's own language. Self-contained, so types.ts can go away; not
- * wired yet.
+ * wired yet. Claude, Codex and Cursor implement it alongside `types.ts`.
  */
 export interface Provider<TInput, TOutput, TNative> {
   readonly id: string;

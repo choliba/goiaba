@@ -35,17 +35,18 @@ política. Criar um comando com `createCommand` **não inicia** a CLI.
 Cada provider tem a sua pasta. Na raiz de `src/providers/` fica só o que é comum a todos (`types.ts`,
 `provider.interface.ts`, `tools.ts`, `constants.ts`). Quem tem `policy.ts` traduz a política para a sua CLI.
 
-| Arquivo                     | Papel                                                                                                                                                                                                     |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `types.ts`                  | O contrato `Provider<TInput, TOutput>` atualmente usado pelo agente, os eventos, opções, descrição e `HostAccess`.                                                                                        |
-| `provider.interface.ts`     | Uma interface mais ampla com `translatePolicy`; hoje Claude e Codex a implementam junto do contrato atual. O comentário no próprio arquivo registra que ela ainda não está conectada como contrato único. |
-| `claude/claude-provider.ts` | Monta comandos para Claude Code, interpreta `stream-json` e entrega à CLI as configurações que o `policy.ts` monta.                                                                                       |
-| `claude/policy.ts`          | Traduz `AgentPolicy` para as listas `allow`, `ask` e `deny` do Claude, relata o que não representa exatamente e monta as configurações (`--settings`) com as chaves do Claude Code.                       |
-| `codex/codex-provider.ts`   | Monta comandos Codex, interpreta JSONL e grava o `hooks.json` e as regras que o `policy.ts` monta.                                                                                                        |
-| `codex/policy.ts`           | Traduz a política para configurações e regras nativas do Codex, registra incompatibilidades e monta o `hooks.json`.                                                                                       |
-| `cursor/cursor-provider.ts` | Monta comandos e converte eventos JSON da CLI Cursor. Sem `policy.ts`: a sandbox é o limite para os comandos executados por ela.                                                                          |
-| `ollama/ollama-provider.ts` | Aponta Claude Code ou Codex para um servidor Ollama local, preservando o parser e os recursos da CLI interna. Sem `policy.ts`: quem aplica a política é a CLI que conduz o modelo.                        |
-| `ollama/ollama-traffic.ts`  | Lê o tráfego do Ollama na fronteira de rede: o texto da resposta e o uso de tokens de cada pedido.                                                                                                        |
+| Arquivo                     | Papel                                                                                                                                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `types.ts`                  | O contrato `Provider<TInput, TOutput>` atualmente usado pelo agente, os eventos, opções, descrição e `HostAccess`.                                                                                                |
+| `provider.interface.ts`     | Uma interface mais ampla com `translatePolicy`; hoje Claude, Codex e Cursor a implementam junto do contrato atual. O comentário no próprio arquivo registra que ela ainda não está conectada como contrato único. |
+| `claude/claude-provider.ts` | Monta comandos para Claude Code, interpreta `stream-json` e entrega à CLI as configurações que o `policy.ts` monta.                                                                                               |
+| `claude/policy.ts`          | Traduz `AgentPolicy` para as listas `allow`, `ask` e `deny` do Claude, relata o que não representa exatamente e monta as configurações (`--settings`) com as chaves do Claude Code.                               |
+| `codex/codex-provider.ts`   | Monta comandos Codex, interpreta JSONL e grava o `hooks.json` e as regras que o `policy.ts` monta.                                                                                                                |
+| `codex/policy.ts`           | Traduz a política para configurações e regras nativas do Codex, registra incompatibilidades e monta o `hooks.json`.                                                                                               |
+| `cursor/cursor-provider.ts` | Monta comandos e converte eventos JSON da CLI Cursor; entrega à CLI só o que o `policy.ts` monta.                                                                                                                 |
+| `cursor/policy.ts`          | Traduz `AgentPolicy` para o que a CLI `agent` entende (`--force` no `--print`) e recusa categorias que ela não aplica (`execution`, `web`, `communication`).                                                      |
+| `ollama/ollama-provider.ts` | Aponta Claude Code ou Codex para um servidor Ollama local, preservando o parser e os recursos da CLI interna. Sem `policy.ts`: quem aplica a política é a CLI que conduz o modelo.                                |
+| `ollama/ollama-traffic.ts`  | Lê o tráfego do Ollama na fronteira de rede: o texto da resposta e o uso de tokens de cada pedido.                                                                                                                |
 
 [↑ topo](#topo)
 
@@ -123,19 +124,19 @@ permite ao agente pedir a resposta e passá-la ao próximo turno.
 
 A sandbox aplica os limites de filesystem e rede que o workspace suporta. Há categorias que ela não interpreta,
 como as ferramentas web ou decisões sobre comandos executados dentro da CLI. Claude e Codex traduzem essas regras
-para o formato próprio e conectam o hook do Goiaba para decisões de execução.
+para o formato próprio e conectam o hook do Goiaba para decisões de execução. O Cursor recusa as categorias que a CLI `agent` não aplica.
 
 Cada provider traduz a política num arquivo só, `src/providers/<nome>/policy.ts`. Ele recebe a `AgentPolicy`, na
 linguagem do Goiaba, e devolve o formato da CLI, nas palavras dela: as chaves `permissions` e `hooks` das
-configurações do Claude Code, o `hooks.json` e as regras do Codex. Fora do `policy.ts`, ninguém conhece esse formato;
+configurações do Claude Code, o `hooks.json` e as regras do Codex, o `--force` do Cursor. Fora do `policy.ts`, ninguém conhece esse formato;
 dentro dele, as palavras são as da CLI, nunca as do Goiaba. Assim, renomear algo no Goiaba não muda o que a CLI recebe.
 
-As funções `translateClaudePolicy` e `translateCodexPolicy` são traduções puras: devolvem regras nativas e uma
-lista `unsupported`. `claudeSettings` e `applicableCodexPolicy`, no mesmo arquivo, montam o que a CLI recebe, e
+As funções `translateClaudePolicy`, `translateCodexPolicy` e `translateCursorPolicy` são traduções puras: devolvem regras nativas e uma
+lista `unsupported`. `claudeSettings`, `applicableCodexPolicy` e `cursorCommandPolicy`, no mesmo arquivo, montam o que a CLI recebe, e
 `applyPolicy` só entrega isso à CLI. Se o provider não consegue aplicar
 uma categoria da política, deve falhar com `UsageError`, em vez de fingir que a regra foi aplicada.
 
-Cursor não implementa `applyPolicy`; nesse caso, o limite de comandos é o da sandbox. Ollama delega ao provider
+A CLI do Cursor não tem `--settings` nem hook PreToolUse: `cursorCommandPolicy` deixa `--trust --force` quando a sandbox basta (filesystem, network) e recusa `execution`, `web` e `communication`. Ollama delega ao provider
 interno correspondente. Para Codex local, desliga a busca web hospedada: essa restrição é mais fechada que qualquer
 permissão web e evita que a CLI local use a conta da nuvem.
 
@@ -148,7 +149,7 @@ da nuvem.
 `homeEnv` associa variáveis que a CLI usa para encontrar sua configuração a caminhos relativos ao home do workspace. Claude recebe `CLAUDE_CONFIG_DIR=.claude`; Codex recebe `CODEX_HOME=.codex`. O workspace transforma esses valores em caminhos absolutos. Assim, sessão, histórico e configuração persistem por raiz sem ler o estado de outra CLI no host.
 
 `networkEndpoints` lista destinos necessários. O agente permite esses destinos pela fronteira de rede do
-workspace. `networkBlocked` lista domínios supérfluos que uma CLI ainda tenta acessar; por exemplo, o provider
+workspace. O Cursor declara `api2.cursor.sh:443`. `networkBlocked` lista domínios supérfluos que uma CLI ainda tenta acessar; por exemplo, o provider
 Ollama bloqueia os endpoints da nuvem do Claude ou do Codex. O proxy continua controlando os outros destinos pela
 política de rede.
 

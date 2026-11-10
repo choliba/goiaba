@@ -1,7 +1,19 @@
 import { userHome } from '../../execute/process';
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
 import { join } from '../../filesystem/index';
+import type { AgentPolicy } from '../../policy/index';
+import {
+  cursorCommandPolicy,
+  translateCursorPolicy,
+  type CursorCommandPolicy,
+  type CursorPermissions,
+} from './policy';
 import type {
+  Provider as ProviderContract,
+  PolicyTranslation,
+} from '../provider.interface';
+import type {
+  ExecutionGate,
   Provider,
   ProviderDescription,
   ProviderEvent,
@@ -11,11 +23,16 @@ import type {
   HostAccess,
 } from '../types';
 
-export class CursorProvider implements Provider<string, string> {
+export class CursorProvider
+  implements
+    Provider<string, string>,
+    ProviderContract<string, string, CursorPermissions>
+{
   public readonly id = 'cursor';
 
   private readonly executable: string;
   private readonly model: string;
+  private commandPolicy: CursorCommandPolicy | undefined;
 
   public constructor({ executable = 'agent', model }: ProviderOptions) {
     if (model.trim().length === 0) {
@@ -28,6 +45,26 @@ export class CursorProvider implements Provider<string, string> {
 
   public describe(): ProviderDescription {
     return { name: 'cursor', model: this.model };
+  }
+
+  /** The Cursor API; `--print` has nobody to approve extra destinations. */
+  public networkEndpoints(): readonly string[] {
+    return ['api2.cursor.sh:443'];
+  }
+
+  /** The policy as `--force` in `--print`; the sandbox is the rest. */
+  public translatePolicy(
+    policy: AgentPolicy,
+  ): PolicyTranslation<CursorPermissions> {
+    return translateCursorPolicy(policy);
+  }
+
+  public applyPolicy(
+    policy: AgentPolicy,
+    gate: ExecutionGate | undefined,
+  ): readonly string[] {
+    this.commandPolicy = cursorCommandPolicy(policy, gate);
+    return [];
   }
 
   /** Its state and its install; it logs in with CURSOR_API_KEY. */
@@ -62,6 +99,7 @@ export class CursorProvider implements Provider<string, string> {
         // --print has nobody to approve commands; the sandbox is the limit.
         '--trust',
         '--force',
+        ...(this.commandPolicy?.arguments ?? []),
         ...(sessionId === undefined ? [] : ['--resume', sessionId]),
       ],
       input: appendInteractionProtocol(input),

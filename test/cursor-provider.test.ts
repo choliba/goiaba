@@ -243,6 +243,56 @@ describe('CursorProvider', () => {
       '--force',
     ]);
   });
+
+  test('informa o endpoint da API do modelo', () => {
+    expect(new CursorProvider({ model: 'modelo' }).networkEndpoints()).toEqual([
+      'api2.cursor.sh:443',
+    ]);
+  });
+
+  test('sem permissões delegadas deixa a sandbox como limite', () => {
+    const provider = new CursorProvider({ model: 'modelo' });
+    const protectedFiles = provider.applyPolicy(
+      {
+        default: 'deny',
+        allow: {
+          filesystem: [{ operations: ['read'], paths: ['/workspace/**'] }],
+        },
+      },
+      undefined,
+    );
+
+    expect(protectedFiles).toEqual([]);
+    expect(provider.createCommand('pergunta').arguments).toEqual([
+      '--print',
+      '--output-format',
+      'stream-json',
+      '--model',
+      'modelo',
+      '--trust',
+      '--force',
+    ]);
+  });
+
+  test.each([
+    ['execution', { execution: [{ commands: ['bun *'] }] }],
+    ['web', { web: [{ operations: ['search' as const], domains: ['*'] }] }],
+    [
+      'communication',
+      {
+        communication: [
+          { operations: ['send_email' as const], channels: ['*'] },
+        ],
+      },
+    ],
+  ] as const)('recusa a categoria %s', (category, allow) => {
+    expect(() =>
+      new CursorProvider({ model: 'modelo' }).applyPolicy(
+        { default: 'deny', allow },
+        undefined,
+      ),
+    ).toThrow(`O provider cursor ainda não aplica a categoria ${category}.`);
+  });
 });
 
 async function* source(
