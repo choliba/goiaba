@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 
 import type { ActorSnapshot, RoundRecord } from '../../../../src/rounds/types';
 import { providerOf, title } from '../format';
+import { declaredActor } from '../declaration';
 import { ExtractAgent } from './ExtractAgent';
 
 /** The network as one line: the host's, or the rules' default and lists. */
@@ -32,14 +33,17 @@ function network(actor: ActorSnapshot): string {
 
 export function ActorConfigs({
   round,
+  open,
 }: {
   readonly round: RoundRecord;
+  /** The agent whose code opens at once (`?agente=` in the address). */
+  readonly open?: string | undefined;
 }): ReactNode {
   return (
     <div className="actors">
       {Object.entries(round.actors).map(([name, actor]) => {
-        // Kept by records since the declaration was: extract it as an agent.
-        const declared = round.declaration?.actors[name];
+        // As declared, or rebuilt from what an older record kept of it.
+        const declared = declaredActor(round, name);
         return (
           <article key={name} className="actor">
             <h3>{title(name)}</h3>
@@ -74,7 +78,11 @@ export function ActorConfigs({
               </dd>
             </dl>
             {declared !== undefined && (
-              <ExtractAgent name={name} actor={declared} />
+              <ExtractAgent
+                name={name}
+                actor={declared}
+                initiallyOpen={name === open}
+              />
             )}
           </article>
         );

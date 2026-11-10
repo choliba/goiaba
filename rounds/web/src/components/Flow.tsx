@@ -3,10 +3,11 @@
  * step in the lane of who did it, and an arrow where the work passes from
  * one lane to another. Everything comes from what the round recorded: the
  * step's prompt, what was said, its tools, time, tokens and what the git
- * saw. Nobody writes anything here after the run.
+ * saw. Nobody writes anything here after the run. A card says the step in
+ * short; a click opens all of it in a modal.
  */
 
-import type { CSSProperties, MouseEvent, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 
 import type { RoundRecord, RoundStep } from '../../../../src/rounds/types';
 import {
@@ -18,7 +19,9 @@ import {
   tokensShort,
 } from '../format';
 import { ContextUse } from './ContextUse';
-import { ToolCall } from './ToolCall';
+import { Modal } from './Modal';
+import { Badge } from './Status';
+import { ToolList } from './ToolList';
 
 /** Lane colors, in order of the actors' first step. */
 const PALETTE = ['--guava', '--violet', '--leaf', '--amber', '--sky'];
@@ -27,17 +30,10 @@ const PALETTE = ['--guava', '--violet', '--leaf', '--amber', '--sky'];
 const arrowLabel = (step: RoundStep): string =>
   step.by === null ? 'pedido' : `${title(step.by)} consulta ${step.actor}`;
 
-function Facts({
-  round,
-  step,
-  index,
-}: {
-  readonly round: RoundRecord;
-  readonly step: RoundStep;
-  readonly index: number;
-}): ReactNode {
+/** The step's facts in one line: time, turns, tools, tokens, questions, files. */
+function factsOf(round: RoundRecord, step: RoundStep): string {
   const checked = round.start !== null;
-  const facts = [
+  return [
     duration(step.span.durationMs),
     count(step.turns.length, 'turno', 'turnos'),
     count(step.tools.length, 'ferramenta', 'ferramentas'),
@@ -50,78 +46,121 @@ function Facts({
         ? 'não alterou arquivos'
         : count(step.changed.length, 'arquivo alterado', 'arquivos alterados')
       : 'alterações não conferidas',
-  ];
-  const lastSaid = step.said.at(-1)?.trim() ?? '';
+  ].join(' · ');
+}
+
+/** Everything about one step, organized: what its modal shows. */
+function StepDetails({
+  round,
+  step,
+  index,
+}: {
+  readonly round: RoundRecord;
+  readonly step: RoundStep;
+  readonly index: number;
+}): ReactNode {
   return (
-    <>
-      <p className="facts">{facts.join(' · ')}</p>
+    <div className="step-details">
+      <p className="facts">{factsOf(round, step)}</p>
       <ContextUse round={round} step={step} index={index} />
-      {lastSaid.length > 0 && (
-        <p className="quote">
-          {lastSaid.slice(0, 280)}
-          {lastSaid.length > 280 ? '…' : ''}
-        </p>
-      )}
-      <details>
-        <summary>Pedido, falas, ferramentas e diff</summary>
-        <h4>Pedido</h4>
+      <section>
+        <h3>Pedido</h3>
         <pre>{step.prompt.text}</pre>
-        <h4>{count(step.said.length, 'fala', 'falas')}</h4>
+      </section>
+      <section>
+        <h3>{count(step.said.length, 'fala', 'falas')}</h3>
         {step.said.map((said, i) => (
           <pre key={i}>{said}</pre>
         ))}
-        {step.asked.length > 0 && (
-          <>
-            <h4>Perguntas</h4>
-            {step.asked.map((asked, i) => (
-              <pre key={i}>{asked}</pre>
-            ))}
-          </>
-        )}
-        {step.tools.length > 0 && (
-          <>
-            <h4>Ferramentas</h4>
-            <ol className="tools">
-              {step.tools.map((tool, i) => (
-                <li key={i} className={tool.outcome}>
-                  <ToolCall tool={tool} />
-                </li>
-              ))}
-            </ol>
-          </>
-        )}
-        {step.references !== null && step.references.invalid.length > 0 && (
-          <>
-            <h4>Referências que não existem</h4>
-            <pre>{step.references.invalid.join('\n')}</pre>
-          </>
-        )}
-        {step.changed.length > 0 && (
-          <>
-            <h4>O que o git mostrou</h4>
-            <pre>{step.changed.join('\n')}</pre>
-            {step.diff.length > 0 && <pre className="diff">{step.diff}</pre>}
-          </>
-        )}
-      </details>
-    </>
+      </section>
+      {step.asked.length > 0 && (
+        <section>
+          <h3>
+            Perguntas <Badge status="danger">{step.asked.length}</Badge>
+          </h3>
+          {step.asked.map((asked, i) => (
+            <pre key={i}>{asked}</pre>
+          ))}
+        </section>
+      )}
+      {step.tools.length > 0 && (
+        <ToolList heading="Ferramentas" tools={step.tools} />
+      )}
+      {step.references !== null && step.references.invalid.length > 0 && (
+        <section>
+          <h3>Referências que não existem</h3>
+          <pre>{step.references.invalid.join('\n')}</pre>
+        </section>
+      )}
+      {step.changed.length > 0 && (
+        <section>
+          <h3>O que o git mostrou</h3>
+          <pre>{step.changed.join('\n')}</pre>
+          {step.diff.length > 0 && <pre className="diff">{step.diff}</pre>}
+        </section>
+      )}
+    </div>
   );
 }
 
 /**
- * A click anywhere on a step's card opens or closes its details, as the
- * summary does. Inside the details (the summary included, which toggles by
- * itself) clicks are left alone, and so is a click that ends a text
- * selection.
+ * One step in its lane, in short: who, its facts, how many tools failed and
+ * the start of what it said. The whole card opens the step in a modal.
  */
-function toggleDetails(event: MouseEvent<HTMLLIElement>): void {
-  const { target, currentTarget } = event;
-  if (!(target instanceof Element) || target.closest('details, a') !== null) {
-    return;
-  }
-  if ((window.getSelection()?.toString() ?? '') !== '') return;
-  const details = currentTarget.querySelector('details');
-  if (details !== null) details.open = !details.open;
+function StepCard({
+  round,
+  step,
+  index,
+  style,
+}: {
+  readonly round: RoundRecord;
+  readonly step: RoundStep;
+  readonly index: number;
+  readonly style: CSSProperties;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const lastSaid = step.said.at(-1)?.trim() ?? '';
+  const failed = step.tools.filter((tool) => tool.outcome === 'error').length;
+  return (
+    <li id={`passo-${String(index + 1)}`} className="scene" style={style}>
+      <button
+        type="button"
+        className="scene-open"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+      >
+        <span className="scene-head">
+          <span className="scene-num">passo {index + 1}</span>
+          <span className="scene-who">{title(step.actor)}</span>
+          <code className="scene-key">{step.key}</code>
+        </span>
+        <span className="facts">{factsOf(round, step)}</span>
+        {(failed > 0 || step.asked.length > 0) && (
+          <span className="scene-badges">
+            {failed > 0 && (
+              <Badge status="danger">
+                {count(failed, 'ferramenta com erro', 'ferramentas com erro')}
+              </Badge>
+            )}
+            {step.asked.length > 0 && (
+              <Badge status="danger">
+                {count(step.asked.length, 'pergunta', 'perguntas')}
+              </Badge>
+            )}
+          </span>
+        )}
+        {lastSaid.length > 0 && <span className="quote">{lastSaid}</span>}
+      </button>
+      <Modal
+        title={`Passo ${String(index + 1)}: ${title(step.actor)}`}
+        open={open}
+        onClose={() => setOpen(false)}
+        wide
+      >
+        <StepDetails round={round} step={step} index={index} />
+      </Modal>
+    </li>
+  );
 }
 
 export function Flow({ round }: { readonly round: RoundRecord }): ReactNode {
@@ -133,7 +172,14 @@ export function Flow({ round }: { readonly round: RoundRecord }): ReactNode {
   const column = (actor: string): number => actors.indexOf(actor) + 1;
 
   return (
-    <section aria-label="Fluxograma da rodada" style={columns}>
+    <section className="block" aria-labelledby="fluxo" style={columns}>
+      <h2 id="fluxo">Fluxo da rodada</h2>
+      <p className="note">
+        Os passos do <code>flow</code> da definição, na ordem em que rodaram:
+        uma coluna por agente, um card por passo, e uma seta quando o trabalho
+        passa de um agente a outro. Clique num card para ver o pedido, as falas,
+        as ferramentas e o que o git mostrou.
+      </p>
       <div className="lanes" aria-hidden="true">
         {actors.map((actor) => {
           const snapshot = round.actors[actor];
@@ -184,23 +230,16 @@ export function Flow({ round }: { readonly round: RoundRecord }): ReactNode {
               );
             }
             items.push(
-              <li
+              <StepCard
                 key={step.key}
-                id={`passo-${String(index + 1)}`}
-                className="scene"
+                round={round}
+                step={step}
+                index={index}
                 style={{
                   ...color(step.actor),
                   gridColumn: String(column(step.actor)),
                 }}
-                onClick={toggleDetails}
-              >
-                <div className="scene-head">
-                  <span className="scene-num">passo {index + 1}</span>
-                  <span className="scene-who">{title(step.actor)}</span>
-                  <code className="scene-key">{step.key}</code>
-                </div>
-                <Facts round={round} step={step} index={index} />
-              </li>,
+              />,
             );
             return items;
           })}

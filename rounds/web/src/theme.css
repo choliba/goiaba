@@ -72,6 +72,13 @@
 }
 html {
   scroll-behavior: smooth;
+  /* The scrollbar's room stays when a modal locks the page: no jump. */
+  scrollbar-gutter: stable;
+}
+/* While a modal is open, the page under it does not scroll: the wheel and
+   the keys scroll the modal. */
+html:has(dialog.modal[open]) {
+  overflow: hidden;
 }
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -111,6 +118,65 @@ header {
 }
 header p {
   margin: 0;
+}
+/* A round's heading: its test (a link) over "Rodada 7 de 7" */
+.round-test {
+  font-size: 14px;
+}
+/* When it ran and for how long, on one line */
+.round-when {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+}
+/* Where it started and its configuration, each between rules */
+.round-facts {
+  margin: 4px 0 0;
+  border-top: 1px solid var(--line);
+}
+.round-facts div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.round-facts dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+.round-facts dd {
+  margin: 0;
+}
+.round-facts code {
+  font: 14px var(--mono);
+}
+.round-facts dd p {
+  margin: 4px 0 0;
+}
+.round-facts dd p.muted {
+  font-size: 13.5px;
+}
+/* The starting point's facts: question on the left, answer on the right */
+.fact-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 2px 0 0;
+}
+.fact-list dt {
+  color: var(--muted);
+}
+.fact-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 520px) {
+  .fact-list {
+    grid-template-columns: 1fr;
+  }
+  .fact-list dd {
+    margin-bottom: 6px;
+  }
 }
 .eyebrow {
   font: 500 12px/1.3 var(--mono);
@@ -534,15 +600,70 @@ tr.total td {
   scroll-margin-top: 90px;
   margin-block: 6px;
 }
-/* The whole card opens its details (Flow.tsx); reading inside them stays a read. */
-.scene {
-  cursor: pointer;
-}
+/* The whole card is a button that opens the step in a modal (Flow.tsx) */
 .scene:hover {
   border-color: var(--c, var(--line));
 }
-.scene details[open] > :not(summary) {
-  cursor: auto;
+.scene-open {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  min-width: 0;
+}
+.scene-open .quote {
+  /* The start of what it said: three lines, the rest in the modal. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.scene-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* A step in full, in its modal */
+.step-details {
+  display: grid;
+  gap: 16px;
+}
+.step-details section {
+  display: grid;
+  gap: 8px;
+}
+.step-details h3 {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font: 600 16px/1.3 var(--display);
+}
+.step-details pre {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--code-bg);
+  border-radius: 6px;
+  font: 12.5px/1.5 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* A list of tool calls: its heading, with "expand / collapse all" beside it */
+.tool-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+}
+.step-details .tools {
+  max-height: none;
+  margin: 0;
+  padding-left: 24px;
 }
 .scene.script {
   border-style: dashed;
@@ -624,25 +745,6 @@ tr.total td {
 }
 .context-advice code {
   font: 12.5px var(--mono);
-}
-.scene details {
-  font-size: 13.5px;
-}
-.scene summary {
-  cursor: pointer;
-  color: var(--muted);
-  font: 12.5px var(--mono);
-}
-.scene details[open] {
-  display: grid;
-  gap: 6px;
-}
-.scene h4 {
-  margin: 6px 0 0;
-  font: 600 12px/1.2 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
 }
 .tools {
   font: 12.5px/1.5 var(--mono);
@@ -812,6 +914,14 @@ tr.total td {
 .modal.wide {
   width: min(1000px, calc(100vw - 32px));
   max-height: 94vh;
+}
+/* Scrolling inside a modal (or its code) stops at its ends: it never
+   passes to the page. */
+.modal,
+.modal .code-block,
+.modal .tools,
+.modal pre {
+  overscroll-behavior: contain;
 }
 .modal::backdrop {
   background: rgb(22 17 19 / 55%);
@@ -1107,6 +1217,7 @@ a.crumbs-test:hover {
   font: 400 13px/1.3 var(--body);
 }
 .actor-details .tools {
+  padding-left: 24px;
   max-height: none;
   margin: 0;
 }
@@ -1258,6 +1369,26 @@ tr.row-link:hover th a {
 }
 .xy-chart .axis {
   stroke: var(--muted);
+}
+/* The XY chart's crosshair: dashed while it follows the mouse, solid when
+   pinned; its values sit over the axes */
+.xy-chart .crosshair {
+  pointer-events: none;
+}
+.xy-chart .crosshair line {
+  stroke: var(--muted);
+  stroke-dasharray: 3 3;
+}
+.xy-chart .aim-pinned .crosshair line {
+  stroke: var(--ink);
+  stroke-dasharray: none;
+}
+.xy-chart .crosshair rect {
+  fill: var(--ink);
+}
+.xy-chart .crosshair text {
+  font: 600 11px var(--mono);
+  fill: var(--surface);
 }
 .xy-chart text {
   font: 11px var(--mono);

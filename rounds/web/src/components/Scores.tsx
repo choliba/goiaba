@@ -16,6 +16,7 @@ import { NOT_MEASURED, title } from '../format';
 import { Modal } from './Modal';
 import { Badge, statusOf, type Status } from './Status';
 import { ToolCall } from './ToolCall';
+import { ToolList } from './ToolList';
 
 /** `3,5`, or `—` when not evaluated. */
 export const grade = (score: number | null): string =>
@@ -157,18 +158,15 @@ function ActorDetails({
         <CriteriaRows criteria={score.efficiency.criteria} />
       </section>
       {failed.length > 0 && (
-        <section>
-          <h3>
-            Ferramentas com erro <Badge status="danger">{failed.length}</Badge>
-          </h3>
-          <ol className="tools">
-            {failed.map((tool, i) => (
-              <li key={i} className={tool.outcome}>
-                <ToolCall tool={tool} />
-              </li>
-            ))}
-          </ol>
-        </section>
+        <ToolList
+          heading={
+            <>
+              Ferramentas com erro{' '}
+              <Badge status="danger">{failed.length}</Badge>
+            </>
+          }
+          tools={failed}
+        />
       )}
     </div>
   );

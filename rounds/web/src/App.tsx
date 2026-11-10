@@ -37,6 +37,11 @@ export function App(): ReactNode {
   return round === undefined ? (
     <NotFound what={`a rodada ${route.id}`} />
   ) : (
-    <RoundPage round={round} />
+    // A new agent in the address opens it, even on the same round.
+    <RoundPage
+      key={`${route.id}?${route.agent ?? ''}`}
+      round={round}
+      agent={route.agent}
+    />
   );
 }

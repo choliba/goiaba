@@ -14,6 +14,7 @@ import {
 import { CopyDeclaration } from '../components/CopyDeclaration';
 import { Flow } from '../components/Flow';
 import { Resources } from '../components/Resources';
+import { RoundFacts } from '../components/RoundFacts';
 import { Rules } from '../components/Rules';
 import { Scores } from '../components/Scores';
 import { TestRounds } from '../components/TestRounds';
@@ -29,7 +30,7 @@ import {
   when,
   goalOf,
 } from '../format';
-import { roundHref } from '../route';
+import { roundHref, testHref } from '../route';
 
 function Measures({ round }: { readonly round: Round }): ReactNode {
   const { record } = round;
@@ -108,7 +109,14 @@ function Measures({ round }: { readonly round: Round }): ReactNode {
   );
 }
 
-export function RoundPage({ round }: { readonly round: Round }): ReactNode {
+export function RoundPage({
+  round,
+  agent,
+}: {
+  readonly round: Round;
+  /** An agent to open as it ran here (`?agente=`), from a chart's card. */
+  readonly agent?: string | undefined;
+}): ReactNode {
   const { record, label, previous, test } = round;
   const changes = previous === undefined ? [] : configChanges(record, previous);
   const prompts = previous === undefined ? [] : promptChanges(record, previous);
@@ -120,11 +128,10 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
       <TestRounds test={test} current={record.id} />
 
       <header>
-        <span className="eyebrow">
-          {record.definition.id} · {label} · config. {round.configuration} ·{' '}
-          {when(record.timing.startedAt)}
-        </span>
-        <h1>Rodada {round.index}</h1>
+        <a className="round-test" href={testHref(test.key)}>
+          {record.definition.id}
+        </a>
+        <h1>{label.charAt(0).toUpperCase() + label.slice(1)}</h1>
         <p>
           <strong>Objetivo:</strong> {goalOf(record.definition.goal)}
         </p>
@@ -134,15 +141,22 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
             {record.label}”
           </p>
         )}
-        <p className="muted">
-          {record.start === null
-            ? 'Sem ponto de partida no git.'
-            : record.start.fixture === undefined ||
-                record.start.fixture === null
-              ? `Partiu da tag ${record.start.tag} (${record.start.commit}).`
-              : `Partiu da fixture ${record.start.fixture} (tag ${record.start.tag}, ${record.start.commit}).`}{' '}
-          Durou {duration(record.timing.durationMs)}.
+        <p className="round-when">
+          <span>
+            <strong>Início:</strong> {when(record.timing.startedAt)}
+          </span>
+          <span>
+            <strong>Duração:</strong> {duration(record.timing.durationMs)}
+          </span>
         </p>
+        <RoundFacts
+          record={record}
+          code={round.configuration}
+          previous={previous}
+          previousHref={
+            previous === undefined ? undefined : roundHref(previous.id)
+          }
+        />
         {record.declaration !== undefined && (
           <CopyDeclaration declaration={record.declaration} />
         )}
@@ -158,7 +172,7 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
 
       <section className="block" aria-labelledby="configuracao">
         <h2 id="configuracao">Configuração de cada agente</h2>
-        <ActorConfigs round={record} />
+        <ActorConfigs round={record} open={agent} />
         {previous !== undefined && (
           <div className="changes">
             <h3>

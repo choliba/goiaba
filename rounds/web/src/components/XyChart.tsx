@@ -2,8 +2,11 @@
  * An XY chart of the agents a page shows (the index's filter, a test's
  * rounds): each point is one agent in one round, X on the horizontal axis
  * and Y on the vertical, both chosen from the same measures the tables
- * show. A color per provider; a point opens a card with links to its test
- * and round. What was not measured on either axis is left out and counted,
+ * show. A color per provider; a point opens a card with links to its test,
+ * its round and the agent as it ran there. A crosshair compares the points
+ * with a reference: it follows the mouse, with its values on both axes; a
+ * click pins it (right on a point, when on one), Esc or a click outside lets
+ * it go. What was not measured on either axis is left out and counted,
  * never drawn as 0.
  */
 
@@ -344,6 +347,72 @@ function AxisSelect({
   );
 }
 
+/** A crosshair's place, in the axes' own values. */
+interface Aim {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** A value to two decimals: the crosshair reads 3,47, not 3,4712. */
+const round2 = (value: number): number => Math.round(value * 100) / 100;
+
+/** About the width of one character of the labels (11-unit monospace). */
+const LABEL_CHAR = 6.7;
+
+/**
+ * The crosshair: a vertical and a horizontal line across the plot, with
+ * their values over the axes (the X value under the plot, the Y one in the
+ * left margin). Not pointer-targetable: the points stay clickable under it.
+ */
+function Crosshair({
+  x,
+  y,
+  xText,
+  yText,
+  plot,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly xText: string;
+  readonly yText: string;
+  readonly plot: {
+    readonly left: number;
+    readonly top: number;
+    readonly width: number;
+    readonly height: number;
+  };
+}): ReactNode {
+  const xWidth = xText.length * LABEL_CHAR + 10;
+  const xLeft = Math.min(CHART_WIDTH - xWidth, Math.max(0, x - xWidth / 2));
+  const yWidth = Math.max(plot.left - 6, yText.length * LABEL_CHAR + 10);
+  const bottom = plot.top + plot.height;
+  return (
+    <g className="crosshair" aria-hidden="true">
+      <line x1={x} x2={x} y1={plot.top} y2={bottom} />
+      <line x1={plot.left} x2={plot.left + plot.width} y1={y} y2={y} />
+      <rect
+        x={plot.left - 4 - yWidth}
+        y={y - 8}
+        width={yWidth}
+        height={16}
+        rx={3}
+      />
+      <text x={plot.left - 8} y={y} textAnchor="end" dominantBaseline="middle">
+        {yText}
+      </text>
+      <rect x={xLeft} y={bottom + 6} width={xWidth} height={16} rx={3} />
+      <text
+        x={xLeft + xWidth / 2}
+        y={bottom + 14}
+        textAnchor="middle"
+        dominantBaseline="middle"
+      >
+        {xText}
+      </text>
+    </g>
+  );
+}
+
 /**
  * The card of a point, over the chart (on hover, or kept open by a click):
  * what it is, its two values, and links to its test and its round. `x` and
@@ -394,6 +463,9 @@ function PointCard({
       <strong>
         <a href={testHref(round.test.key)}>{round.test.title}</a> ·{' '}
         <a href={roundHref(round.record.id)}>Rodada {round.index}</a>
+        {' · '}
+        {/* The agent as it ran here, ready to extract. */}
+        <a href={roundHref(round.record.id, point.name)}>Agente</a>
       </strong>
       <span className="muted">
         {title(point.name)} · {point.provider}
@@ -460,6 +532,36 @@ export function XyChart({
     leaving.current = setTimeout(() => setHovered(null), HOVER_CLOSE_MS);
   };
   useEffect(() => stay, []);
+  const svgRef = useRef<SVGSVGElement>(null);
+  /** The crosshair under the mouse, in the axes' values; `null` off the plot. */
+  const [aim, setAim] = useState<Aim | null>(null);
+  /** The crosshair kept by a click on the empty plot, until Esc or a click outside. */
+  const [pinnedAim, setPinnedAim] = useState<Aim | null>(null);
+
+  // Esc, or a click anywhere outside the chart, lets the pinned lines go.
+  useEffect(() => {
+    if (pinnedAim === null) return undefined;
+    const release = (event: PointerEvent): void => {
+      const svg = svgRef.current;
+      if (
+        svg !== null &&
+        event.target instanceof Node &&
+        svg.contains(event.target)
+      ) {
+        return;
+      }
+      setPinnedAim(null);
+    };
+    const escape = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape') setPinnedAim(null);
+    };
+    document.addEventListener('pointerdown', release);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', release);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [pinnedAim]);
   const xMetric = metricOf(xKey);
   const yMetric = metricOf(yKey);
 
@@ -516,6 +618,19 @@ export function XyChart({
     GRID_LABEL_GAP.x;
   const yGrid = grid(ySpan, level, plotH, yGap);
   const xGrid = grid(xSpan, level, plotW, xGap);
+  /** The axes' values under the pointer; `null` outside the plot. */
+  const aimAt = (clientX: number, clientY: number): Aim | null => {
+    const svg = svgRef.current;
+    if (svg === null) return null;
+    const rect = svg.getBoundingClientRect();
+    const ux = ((clientX - rect.left) / rect.width) * CHART_WIDTH;
+    const uy = ((clientY - rect.top) / rect.height) * CHART_HEIGHT;
+    const fx = (ux - MARGIN.left) / plotW;
+    const fy = 1 - (uy - MARGIN.top) / plotH;
+    if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return null;
+    return { x: x0 + fx * (x1 - x0), y: y0 + fy * (y1 - y0) };
+  };
+  const cross = pinnedAim ?? aim;
   const keyOf = (p: Point): string => `${p.round.record.id}-${p.name}`;
   const shown = selected ?? hovered;
   const open = points.find((p) => keyOf(p) === shown);
@@ -570,7 +685,17 @@ export function XyChart({
             }}
           >
             <svg
-              onClick={() => setSelected(null)}
+              ref={svgRef}
+              className={pinnedAim === null ? undefined : 'aim-pinned'}
+              onPointerMove={(event) =>
+                setAim(aimAt(event.clientX, event.clientY))
+              }
+              onPointerLeave={() => setAim(null)}
+              onClick={(event) => {
+                // On the empty plot: closes a card and pins the crosshair.
+                setSelected(null);
+                setPinnedAim(aimAt(event.clientX, event.clientY));
+              }}
               viewBox={`0 0 ${String(CHART_WIDTH)} ${String(CHART_HEIGHT)}`}
               role="img"
               aria-label={`${yMetric.label} por ${xMetric.label}`}
@@ -644,6 +769,20 @@ export function XyChart({
               >
                 {yMetric.label}
               </text>
+              {cross !== null && (
+                <Crosshair
+                  x={sx(cross.x)}
+                  y={sy(cross.y)}
+                  xText={xMetric.show(cross.x)}
+                  yText={(yMetric.tick ?? yMetric.show)(round2(cross.y))}
+                  plot={{
+                    left: MARGIN.left,
+                    top: MARGIN.top,
+                    width: plotW,
+                    height: plotH,
+                  }}
+                />
+              )}
               {points.map((p) => (
                 <g
                   key={keyOf(p)}
@@ -659,12 +798,17 @@ export function XyChart({
                   onClick={(event) => {
                     // The chart's own click closes the card.
                     event.stopPropagation();
-                    setSelected(keyOf(p) === selected ? null : keyOf(p));
+                    const closing = keyOf(p) === selected;
+                    setSelected(closing ? null : keyOf(p));
+                    // The crosshair pins right on the point (and goes with its card).
+                    setPinnedAim(closing ? null : { x: p.x, y: p.y });
                   }}
                   onKeyDown={(event) => {
                     if (event.key !== 'Enter' && event.key !== ' ') return;
                     event.preventDefault();
-                    setSelected(keyOf(p) === selected ? null : keyOf(p));
+                    const closing = keyOf(p) === selected;
+                    setSelected(closing ? null : keyOf(p));
+                    setPinnedAim(closing ? null : { x: p.x, y: p.y });
                   }}
                 >
                   <circle

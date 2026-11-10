@@ -16,8 +16,10 @@ import {
   source,
 } from './source';
 import type {
+  ActorSnapshot,
   DeclaredActor,
   RoundDeclaration,
+  RoundRecord,
 } from '../../../src/rounds/types';
 
 const SAID = /\{\{said:([^}]+)\}\}/g;
@@ -241,4 +243,52 @@ export function agentSource(
     '});',
     '',
   ].join('\n');
+}
+
+/**
+ * An actor as declared, from what the record kept of it when it ran: the
+ * provider (its tools, when they were among its options), the workspace,
+ * the policy. For records from before the declaration was kept.
+ */
+function declaredFromSnapshot(actor: ActorSnapshot): DeclaredActor {
+  const { provider, workspace } = actor;
+  const tools = provider.options['tools'];
+  return {
+    provider: {
+      name: provider.name,
+      cli: provider.cli,
+      model: provider.model,
+      ...(provider.contextWindow === undefined
+        ? {}
+        : { contextWindow: provider.contextWindow }),
+      ...(provider.think === undefined ? {} : { think: provider.think }),
+      ...(Array.isArray(tools) &&
+      tools.every((tool) => typeof tool === 'string')
+        ? { tools }
+        : {}),
+    },
+    workspace: {
+      type: workspace.type,
+      image: workspace.image,
+      root: workspace.root,
+      hostState: workspace.hostState,
+    },
+    policy: actor.policy,
+    readOnly: actor.readOnly,
+  };
+}
+
+/**
+ * The actor `name` of a round as declared: the declaration the record kept,
+ * or, in older records, what it kept of the actor when it ran. `undefined`
+ * when the round had no such actor.
+ */
+export function declaredActor(
+  record: RoundRecord,
+  name: string,
+): DeclaredActor | undefined {
+  const declared = record.declaration?.actors[name];
+  if (declared !== undefined) return declared;
+  const actor = record.actors[name];
+  return actor === undefined ? undefined : declaredFromSnapshot(actor);
 }

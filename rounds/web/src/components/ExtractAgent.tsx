@@ -3,7 +3,8 @@
  * `new Agent({…}).run()` with the provider, workspace, policy and tools it ran
  * with, ready to paste in `agents/<nome>.ts`; another opens the code in a
  * modal, to read before copying.
- * Only for records that kept their declaration.
+ * Older records, without a declaration, rebuild the actor from what they
+ * kept of it (`declaredActor`).
  */
 
 import { useState, type ReactNode } from 'react';
@@ -20,9 +21,12 @@ type Copy = 'idle' | 'copied' | 'failed';
 export function ExtractAgent({
   name,
   actor,
+  initiallyOpen = false,
 }: {
   readonly name: string;
   readonly actor: RoundDeclaration['actors'][string];
+  /** Opens the code at once: the page was asked for this agent. */
+  readonly initiallyOpen?: boolean;
 }): ReactNode {
   const [state, setState] = useState<Copy>('idle');
   /** What to do with the copied agent: shown after a copy, until closed. */
@@ -38,7 +42,7 @@ export function ExtractAgent({
       () => setState('failed'),
     );
   };
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const copyButton = (
     <button
       type="button"
