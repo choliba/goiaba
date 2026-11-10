@@ -8,6 +8,7 @@ import type {
   AgentSubscriber,
 } from './types';
 import { ApprovalBroker } from '../approval/broker';
+import { registeredTool, TOOL_SERVER, ToolBroker } from '../tools/index';
 import type { CommandApprover } from '../approval/gate';
 import { humanApprover } from '../approval/human';
 import { ApprovalReview } from '../approval/review';
@@ -87,6 +88,8 @@ export class Agent {
   private interrupted: AbortSignal | undefined;
   private readonly store: Store | undefined;
   private readonly broker: ApprovalBroker | undefined;
+  /** The agent's own tools (src/tools), served to its CLI over MCP. */
+  private readonly toolBroker: ToolBroker | undefined;
   /** Where the network gate keeps its decisions, in this run's session. */
   private readonly networkLedger: StoreNetworkLedger | undefined;
   /** One running agent per workspace, across programs. */
@@ -196,6 +199,7 @@ export class Agent {
     this.broker = enforced?.broker;
     this.networkLedger = enforced?.networkLedger;
     shareHost(workspace, provider, policy);
+    this.toolBroker = ownToolBroker(provider, workspace, policy);
   }
 
   /**
@@ -450,6 +454,7 @@ export class Agent {
 
   private async closeResources(): Promise<void> {
     await this.broker?.close();
+    await this.toolBroker?.close();
     await this.workspace.close();
     this.lock.release();
   }
@@ -543,6 +548,7 @@ export class Agent {
       // Before the sandbox and the gate: another run here would only wait.
       this.lock.acquire();
       await this.broker?.start();
+      await this.toolBroker?.start();
       sessionId = this.resumedSession(input);
 
       if (sessionId !== undefined) {
@@ -1456,8 +1462,16 @@ function shareHost(
  */
 function rejectUnenforced(policy: AgentPolicy): void {
   const category = UNENFORCED.find((name) =>
-    (['allow', 'requireApproval', 'deny'] as const).some(
-      (source) => (policy[source]?.[name]?.length ?? 0) > 0,
+    (['allow', 'requireApproval', 'deny'] as const).some((source) =>
+      name === 'tools'
+        ? // The agent's own tools (goiaba/…) are checked by the Goiaba's
+          // server; other MCP servers' are not enforced yet.
+          (policy[source]?.tools ?? []).some((rule) =>
+            [...rule.tools, ...(rule.ignores?.tools ?? [])].some(
+              (pattern) => !pattern.startsWith(`${TOOL_SERVER}/`),
+            ),
+          )
+        : (policy[source]?.[name]?.length ?? 0) > 0,
     ),
   );
 
@@ -1466,6 +1480,29 @@ function rejectUnenforced(policy: AgentPolicy): void {
       `O Goiaba ainda não aplica a categoria ${category}: tire essas regras do agente.`,
     );
   }
+}
+
+/**
+ * The server of the registered tools the provider's `tools` names
+ * (`goiaba/<nome>`), handed to its CLI and kept read-only in the sandbox;
+ * `undefined` without any. A provider that cannot take them refuses.
+ */
+function ownToolBroker(
+  provider: AgentProvider,
+  workspace: Workspace,
+  policy: AgentPolicy | undefined,
+): ToolBroker | undefined {
+  const names = provider.ownTools?.() ?? [];
+  if (names.length === 0) return undefined;
+  if (provider.applyTools === undefined) {
+    throw new UsageError(
+      `O provider ${provider.id} ainda não aceita ferramentas registradas: tire ${names.join(', ')} do tools dele.`,
+    );
+  }
+  const broker = new ToolBroker({ tools: names.map(registeredTool), policy });
+  provider.applyTools(broker.serverCommand());
+  workspace.protect([broker.dir]);
+  return broker;
 }
 
 function needsGate(policy: AgentPolicy, provider: AgentProvider): boolean {

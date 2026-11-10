@@ -1,6 +1,7 @@
 import type { ProgramCommand, ProgramOutput } from '../execute/types';
+import type { ToolServer } from '../tools/broker';
 import type { AgentPolicy } from '../policy/policy.interface';
-import type { GoiabaTool } from './tools';
+import type { AgentToolName } from './tools';
 
 export type AgentEvent<TOutput> =
   | {
@@ -141,7 +142,7 @@ export interface ProviderDescription {
   /** `false` when the provider turns the model's thinking off; left out, the model's default. */
   readonly think?: boolean;
   /** The capabilities the model sees, when the provider restricts them. */
-  readonly tools?: readonly GoiabaTool[];
+  readonly tools?: readonly AgentToolName[];
 }
 
 export interface Provider<TInput, TOutput> {
@@ -196,6 +197,16 @@ export interface Provider<TInput, TOutput> {
     policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[];
+  /**
+   * The project's registered tools its `tools` names (`goiaba/<nome>`): the
+   * agent serves them over MCP and hands the server to `applyTools`.
+   */
+  ownTools?(): readonly string[];
+  /**
+   * Wires the MCP server of the agent's own tools into its CLI. Providers
+   * without it refuse registered tools in `tools`.
+   */
+  applyTools?(server: ToolServer): void;
   createCommand(
     input: TInput,
     sessionId?: string,

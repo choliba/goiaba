@@ -1,4 +1,6 @@
 import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
+import { TOOL_SERVER } from '../../tools/constants';
+import type { ToolServer } from '../../tools/broker';
 import { UsageError } from '../../errors';
 import { commandMatches } from '../../policy/command';
 import { delegatedCategories } from '../../policy/index';
@@ -447,6 +449,7 @@ function mcpRule(tool: string): string | { reason: string } {
 export function claudeSettings(
   policy: AgentPolicy,
   gate: ExecutionGate | undefined,
+  ownTools = false,
 ): ClaudeSettings | undefined {
   const categories = delegatedCategories(policy);
   const unsupported = categories.find(
@@ -472,6 +475,9 @@ export function claudeSettings(
         ...FILE_TOOLS,
         ...(gate === undefined ? ['Bash'] : []),
         ...web.allow,
+        // The agent's own tools: the Goiaba's server lists only what the
+        // policy allows and checks each call, so all of them may run here.
+        ...(ownTools ? [`mcp__${TOOL_SERVER}`] : []),
       ],
       deny: web.deny,
     },
@@ -535,4 +541,20 @@ function isWebRule(rule: string): boolean {
 /** POSIX shell quoting for the hook command line. */
 function shellJoin(argv: readonly string[]): string {
   return argv.map((arg) => `'${arg.replaceAll("'", "'\\''")}'`).join(' ');
+}
+
+/**
+ * The MCP config Claude Code reads (`--mcp-config`), in its own words: the
+ * agent's own tools' server, started by the CLI inside the sandbox.
+ */
+export function claudeMcpConfig(server: ToolServer): {
+  readonly mcpServers: Readonly<
+    Record<
+      string,
+      { readonly command: string; readonly args: readonly string[] }
+    >
+  >;
+} {
+  const [command = '', ...args] = server.command;
+  return { mcpServers: { [server.name]: { command, args } } };
 }

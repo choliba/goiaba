@@ -22,7 +22,8 @@ import type {
   TrafficEvent,
 } from '../types';
 import { readOllamaTraffic } from './ollama-traffic';
-import type { GoiabaTool } from '../tools';
+import type { ToolServer } from '../../tools/broker';
+import type { AgentToolName } from '../tools';
 
 /** The CLIs that can drive a model on Ollama: they run the tools and apply the policy. */
 const OLLAMA_CLIS = ['claude', 'codex'] as const;
@@ -46,7 +47,7 @@ export interface OllamaProviderOptions extends ProviderOptions {
    * vocabulary (`file_read`, `shell`…; `ClaudeProvider`'s `tools`). Claude
    * Code's full set is ~15k tokens on every request.
    */
-  readonly tools?: readonly GoiabaTool[];
+  readonly tools?: readonly AgentToolName[];
   /**
    * Only with `cli: 'claude'`: `false` turns the model's thinking off (it
    * answers without reasoning first: fewer tokens and less time on each
@@ -85,7 +86,7 @@ export class OllamaProvider implements Provider<string, string> {
   private readonly compactAt: number;
   private readonly endpoint: string;
   private readonly think: boolean | undefined;
-  private readonly tools: readonly GoiabaTool[] | undefined;
+  private readonly tools: readonly AgentToolName[] | undefined;
 
   /**
    * Only with `think: false`: what turns the thinking off in each request
@@ -242,6 +243,21 @@ export class OllamaProvider implements Provider<string, string> {
     return this.inner instanceof CodexProvider
       ? this.inner.applyPolicy(withoutWeb(policy), gate)
       : this.inner.applyPolicy(policy, gate);
+  }
+
+  /** The registered tools its `tools` names: only with `cli: 'claude'`. */
+  public ownTools(): readonly string[] {
+    return this.inner instanceof ClaudeProvider ? this.inner.ownTools() : [];
+  }
+
+  /** The agent's own tools' MCP server, given to the CLI that drives the model. */
+  public applyTools(server: ToolServer): void {
+    if (!(this.inner instanceof ClaudeProvider)) {
+      throw new UsageError(
+        'As ferramentas registradas (goiaba/…) só valem no OllamaProvider com cli: claude.',
+      );
+    }
+    this.inner.applyTools(server);
   }
 
   public createCommand(input: string, sessionId?: string): ProgramCommand {

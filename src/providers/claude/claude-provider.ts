@@ -7,6 +7,7 @@ import { truncateError } from '../../logger/index';
 import { wrapCommand } from '../../workspace/sandbox/wrap-command';
 import type { AgentPolicy } from '../../policy/index';
 import {
+  claudeMcpConfig,
   claudeSettings,
   translateClaudePolicy,
   type ClaudePermissions,
@@ -27,7 +28,13 @@ import type {
   TokenUsage,
   HostAccess,
 } from '../types';
-import type { GoiabaTool } from '../tools';
+import type { ToolServer } from '../../tools/broker';
+import {
+  cliTools,
+  ownTools,
+  type AgentToolName,
+  type GoiabaTool,
+} from '../tools';
 
 /**
  * How each Goiaba capability becomes Claude Code tools (`--tools`). One
@@ -66,9 +73,10 @@ export interface ClaudeProviderOptions extends ProviderOptions {
    * The capabilities the model sees, in Goiaba's vocabulary (`file_read`,
    * `shell`…); translated to the CLI's `--tools`. `[]` leaves none. Without
    * it, all of them: their definitions are most of every request, which a
-   * small local model reads slowly and poorly.
+   * small local model reads slowly and poorly. A registered tool of the
+   * project (`goiaba/<nome>`, src/tools) comes over MCP, not `--tools`.
    */
-  readonly tools?: readonly GoiabaTool[];
+  readonly tools?: readonly AgentToolName[];
   /**
    * The interaction rules go with the first message of a session only (the
    * history keeps them), not with every one. Default false: every message.
@@ -86,9 +94,11 @@ export class ClaudeProvider
 
   private readonly executable: string;
   private readonly model: string;
-  private readonly tools: readonly GoiabaTool[] | undefined;
+  private readonly tools: readonly AgentToolName[] | undefined;
   private readonly rulesOnce: boolean;
   private settings: ClaudeSettings | undefined;
+  /** The MCP server of the agent's own tools, once the agent hands it over. */
+  private toolServer: ToolServer | undefined;
   /** The live turn going on, whose messages each `result` answers. */
   private live: LiveChannel | undefined;
 
@@ -153,8 +163,18 @@ export class ClaudeProvider
     policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[] {
-    this.settings = claudeSettings(policy, gate);
+    this.settings = claudeSettings(policy, gate, this.ownTools().length > 0);
     return [];
+  }
+
+  /** The registered tools its `tools` names (`goiaba/<nome>`). */
+  public ownTools(): readonly string[] {
+    return ownTools(this.tools ?? []);
+  }
+
+  /** The MCP server of the agent's own tools, given to the CLI (`--mcp-config`). */
+  public applyTools(server: ToolServer): void {
+    this.toolServer = server;
   }
 
   public createCommand(input: string, sessionId?: string): ProgramCommand {
@@ -222,7 +242,17 @@ export class ClaudeProvider
           ? []
           : [
               '--tools',
-              ...(this.tools.length === 0 ? [''] : claudeTools(this.tools)),
+              ...(cliTools(this.tools).length === 0
+                ? ['']
+                : claudeTools(cliTools(this.tools))),
+            ]),
+        // The agent's own tools: only this MCP server, none of the user's.
+        ...(this.toolServer === undefined
+          ? []
+          : [
+              '--mcp-config',
+              JSON.stringify(claudeMcpConfig(this.toolServer)),
+              '--strict-mcp-config',
             ]),
         // User/project settings could allow more than the policy (or hook it).
         ...(this.settings === undefined

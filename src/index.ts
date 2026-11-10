@@ -143,7 +143,19 @@ export {
   ClaudeProvider,
   type ClaudeProviderOptions,
 } from './providers/claude/claude-provider';
-export { GOIABA_TOOLS, type GoiabaTool } from './providers/tools';
+export {
+  GOIABA_TOOLS,
+  type AgentToolName,
+  type GoiabaTool,
+} from './providers/tools';
+export {
+  registerTool,
+  tool,
+  type AgentTool,
+  type JsonSchema,
+  type ToolInputSchema,
+  type ToolOutput,
+} from './tools/index';
 
 // Importing Goiaba is enough to run an agent: goiaba.config.ts (log,
 // database, envs) is loaded here, so `process.env` already has its values at

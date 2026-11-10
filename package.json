@@ -50,6 +50,9 @@
     "oxlint": "1.89.0",
     "oxlint-tsgolint": "7.0.2005",
     "prettier": "3.9.10",
+    "puppeteer": "^25.17.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "typescript": "^7.0.2"
   },
   "dependencies": {
