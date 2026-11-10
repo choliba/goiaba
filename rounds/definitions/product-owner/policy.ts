@@ -1,30 +1,37 @@
+/**
+ * A peça "policy": o que o agente pode fazer.
+ *
+ * Nega tudo por padrão e libera só o necessário: ler e escrever no workspace e
+ * rodar alguns comandos que só olham. Numa rodada ninguém responde, então o
+ * que não está liberado é negado na hora. Ter uma política também é o que liga
+ * a fronteira de rede — sem ela, o tráfego do Ollama não é lido e os tokens
+ * não são medidos.
+ */
+
 import type { AgentPolicy } from '../../../src';
 
-/**
- * What the agent may do: read and write the workspace, and run a few
- * commands that only look; anything else is denied without asking (nobody
- * answers in a round). Any policy also gives the agent its network
- * boundary, which is what reads Ollama's traffic: without one, the tokens
- * are not measured.
- */
 export const policy: AgentPolicy = {
+  // Ponto de partida: nega qualquer ação que nenhuma regra abaixo libere.
   default: 'deny',
   allow: {
+    // Sistema de arquivos: ler e escrever na árvore do workspace.
     filesystem: [
       {
+        // Todas as operações (ler e escrever).
         operations: ['*'],
-        // Inside the sandbox the workspace is `/workspace` (singular), the
-        // only root the policy accepts. Writing is granted to the whole
-        // tree or to a folder that already exists, never to a lone file
-        // (`index.html` is refused).
-        paths: [`/workspace/**`],
+        // Dentro do sandbox o workspace é /workspace. A escrita vale para a
+        // árvore toda ou para uma pasta que já existe, nunca para um arquivo
+        // solto.
+        paths: ['/workspace/**'],
       },
     ],
+    // Comandos: só os que inspecionam, nada que altere o sistema.
     execution: [
       {
         // A única operação de execução; omitida, é assumida. Explícita aqui
         // para a categoria ter a mesma forma das outras.
         operations: ['run'],
+        // Os comandos liberados (curinga * para os argumentos).
         commands: [
           'ls *',
           'cat *',
