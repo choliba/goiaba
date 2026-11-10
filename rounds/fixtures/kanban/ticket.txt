@@ -1,0 +1,52 @@
+==================================================
+TICKET: T-001
+TITULO:
+FASE_ATUAL: criacao
+PROXIMO_ATOR: solicitante
+RODADA: 1
+==================================================
+
+## criacao | dono: solicitante
+tipo:
+descricao:
+criterios_aceite:
+[ ]
+[ ] concluido
+
+## refinamento | dono: po
+prioridade:
+tamanho:
+status:
+[ ] criterios revisados
+[ ] concluido
+
+## desenvolvimento | dono: dev
+status:
+motivo_bloqueio:
+retornos: 0
+[ ] testes escritos
+[ ] concluido
+
+## review | dono: revisor
+status:
+observacoes:
+[ ] concluido
+
+## deploy | dono: devops
+status:
+[ ] concluido
+
+## teste | dono: qa
+status:
+bugs:
+[ ]
+[ ] concluido
+
+## aceite | dono: po
+status:
+[ ] concluido
+
+==================================================
+HISTORICO
+==================================================
+[rodada 1] solicitante | criacao | ticket criado

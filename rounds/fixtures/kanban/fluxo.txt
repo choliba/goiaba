@@ -1,0 +1,100 @@
+==================================================
+FLUXO KANBAN: CRIACAO DO TICKET ATE TESTE E ACEITE
+==================================================
+
+REGRAS GERAIS
+- So age o agente cujo nome esta em PROXIMO_ATOR no ticket.
+- Cada agente edita apenas a secao em que e "dono", mais o cabecalho
+  (FASE_ATUAL, PROXIMO_ATOR, RODADA) e o HISTORICO.
+- Valores devem ser exatamente uma das opcoes listadas abaixo.
+- Itens feitos sao marcados como [x].
+- O HISTORICO so recebe linhas novas; nunca se edita ou apaga uma linha.
+  Formato: [rodada N] ator | fase | o que foi feito
+- Ao terminar sua vez: aplicar a transicao, somar 1 em RODADA e
+  registrar no HISTORICO.
+
+ATORES
+(solicitante | po | dev | revisor | devops | qa)
+
+FASES
+(criacao | refinamento | desenvolvimento | review | deploy | teste | aceite | concluido)
+
+--------------------------------------------------
+## criacao
+dono: solicitante
+campos:
+  tipo: (bug | feature | melhoria | debito_tecnico)
+  descricao: texto livre
+  criterios_aceite: lista de [ ]
+saida: tipo, descricao e ao menos 1 criterio preenchidos; [x] concluido
+transicao:
+  -> refinamento | po
+
+--------------------------------------------------
+## refinamento
+dono: po
+campos:
+  prioridade: (baixa | media | alta | urgente)
+  tamanho: (P | M | G)
+  status: (aprovado | precisa_info | descartado)
+saida: [x] criterios revisados; [x] concluido
+transicao:
+  status = aprovado     -> desenvolvimento | dev
+  status = precisa_info -> criacao | solicitante
+  status = descartado   -> concluido | (nenhum)
+
+--------------------------------------------------
+## desenvolvimento
+dono: dev
+campos:
+  status: (em_andamento | bloqueado | aguardando_info)
+  motivo_bloqueio: texto livre, obrigatorio se status = bloqueado
+  retornos: numero; o orquestrador soma 1 a cada volta de review ou teste
+saida: [x] testes escritos; [x] concluido
+transicao:
+  concluido             -> review | revisor
+  status = bloqueado    -> desenvolvimento | dev (aguarda desbloqueio)
+  status = aguardando_info -> refinamento | po
+
+--------------------------------------------------
+## review
+dono: revisor
+campos:
+  status: (aprovado | aprovado_com_ressalvas | ajustes)
+  observacoes: texto livre, obrigatorio se status = ajustes
+saida: [x] concluido
+transicao:
+  status = aprovado               -> deploy | devops
+  status = aprovado_com_ressalvas -> deploy | devops
+  status = ajustes                -> desenvolvimento | dev (retornos + 1)
+
+--------------------------------------------------
+## deploy
+dono: devops
+campos:
+  status: (sucesso | falhou)
+saida: [x] concluido
+transicao:
+  status = sucesso -> teste | qa
+  status = falhou  -> desenvolvimento | dev (retornos + 1)
+
+--------------------------------------------------
+## teste
+dono: qa
+campos:
+  status: (aprovado | reprovado)
+  bugs: lista de [ ], obrigatoria se status = reprovado
+saida: [x] concluido
+transicao:
+  status = aprovado  -> aceite | po
+  status = reprovado -> desenvolvimento | dev (retornos + 1)
+
+--------------------------------------------------
+## aceite
+dono: po
+campos:
+  status: (aceito | rejeitado)
+saida: [x] concluido
+transicao:
+  status = aceito    -> concluido | (nenhum)
+  status = rejeitado -> refinamento | po
