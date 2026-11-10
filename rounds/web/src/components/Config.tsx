@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 
 import type { ActorSnapshot, RoundRecord } from '../../../../src/rounds/types';
 import { providerOf, title } from '../format';
+import { ExtractAgent } from './ExtractAgent';
 
 /** The network as one line: the host's, or the rules' default and lists. */
 function network(actor: ActorSnapshot): string {
@@ -36,41 +37,48 @@ export function ActorConfigs({
 }): ReactNode {
   return (
     <div className="actors">
-      {Object.entries(round.actors).map(([name, actor]) => (
-        <article key={name} className="actor">
-          <h3>{title(name)}</h3>
-          <dl>
-            <dt>Modelo</dt>
-            <dd>{providerOf(actor)}</dd>
-            <dt>Workspace</dt>
-            <dd>
-              {actor.workspace.type}
-              {actor.workspace.image === null
-                ? ''
-                : ` · ${actor.workspace.image}`}
-              {` · estado do host: ${actor.workspace.hostState}`}
-            </dd>
-            <dt>Rede</dt>
-            <dd>
-              {network(actor)}
-              {actor.network.decisions.length > 0 &&
-                ` · ${String(actor.network.decisions.filter((d) => d.decision === 'deny').length)} de ${String(actor.network.decisions.length)} destinos negados`}
-            </dd>
-            <dt>Permissões</dt>
-            <dd>
-              {actor.policy === null
-                ? 'sem política: o limite é a sandbox'
-                : `política com default ${actor.policy.default}`}
-            </dd>
-            <dt>Arquivos</dt>
-            <dd>
-              {actor.readOnly
-                ? 'pediram que não alterasse nenhum'
-                : 'pode alterar'}
-            </dd>
-          </dl>
-        </article>
-      ))}
+      {Object.entries(round.actors).map(([name, actor]) => {
+        // Kept by records since the declaration was: extract it as an agent.
+        const declared = round.declaration?.actors[name];
+        return (
+          <article key={name} className="actor">
+            <h3>{title(name)}</h3>
+            <dl>
+              <dt>Modelo</dt>
+              <dd>{providerOf(actor)}</dd>
+              <dt>Workspace</dt>
+              <dd>
+                {actor.workspace.type}
+                {actor.workspace.image === null
+                  ? ''
+                  : ` · ${actor.workspace.image}`}
+                {` · estado do host: ${actor.workspace.hostState}`}
+              </dd>
+              <dt>Rede</dt>
+              <dd>
+                {network(actor)}
+                {actor.network.decisions.length > 0 &&
+                  ` · ${String(actor.network.decisions.filter((d) => d.decision === 'deny').length)} de ${String(actor.network.decisions.length)} destinos negados`}
+              </dd>
+              <dt>Permissões</dt>
+              <dd>
+                {actor.policy === null
+                  ? 'sem política: o limite é a sandbox'
+                  : `política com default ${actor.policy.default}`}
+              </dd>
+              <dt>Arquivos</dt>
+              <dd>
+                {actor.readOnly
+                  ? 'pediram que não alterasse nenhum'
+                  : 'pode alterar'}
+              </dd>
+            </dl>
+            {declared !== undefined && (
+              <ExtractAgent name={name} actor={declared} />
+            )}
+          </article>
+        );
+      })}
     </div>
   );
 }

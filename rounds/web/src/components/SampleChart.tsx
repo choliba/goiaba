@@ -3,11 +3,21 @@
  * VRAM), all on a single 0–100% axis so they read against each other, X in
  * elapsed time. Memory is shown as a share of what the machine has, so it
  * sits on the same axis as the percentages. Drawn as plain SVG, like the XY
- * chart; no chart library. The mouse over the plot shows, at that instant,
- * each series' value and which agent was running.
+ * chart; no chart library. A crosshair finds specific points: the vertical
+ * line follows the mouse and shows, at that instant, each series' value and
+ * which agent was running; the horizontal one reads the value under the
+ * mouse. A click pins both where they are, and the mouse no longer moves
+ * them; the arrows move the instant sample by sample, Esc (or a click
+ * outside the chart) lets both go.
  */
 
-import { useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 
 import type {
   ResourceSample,
@@ -76,6 +86,31 @@ export function SampleChart({
   const { samples, machine } = resources;
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
+  /** The value (0–100) under the pointer, for the horizontal line. */
+  const [level, setLevel] = useState<number | null>(null);
+  /** The instant kept by a click (or the arrows), until Esc or another click. */
+  const [pinned, setPinned] = useState<number | null>(null);
+  /** The value kept with it: the horizontal line where the click was. */
+  const [pinnedLevel, setPinnedLevel] = useState<number | null>(null);
+
+  // A click anywhere outside the chart lets the pinned lines go, like Esc.
+  useEffect(() => {
+    if (pinned === null) return undefined;
+    const release = (event: PointerEvent): void => {
+      const svg = svgRef.current;
+      if (
+        svg !== null &&
+        event.target instanceof Node &&
+        svg.contains(event.target)
+      ) {
+        return;
+      }
+      setPinned(null);
+      setPinnedLevel(null);
+    };
+    document.addEventListener('pointerdown', release);
+    return () => document.removeEventListener('pointerdown', release);
+  }, [pinned]);
 
   if (samples.length < 2) {
     return (
@@ -164,7 +199,58 @@ export function SampleChart({
     return best;
   };
 
-  const current = hover === null ? undefined : samples[hover];
+  /** The value under the pointer, 0–100; `null` outside the plot. */
+  const levelAt = (clientY: number): number | null => {
+    const svg = svgRef.current;
+    if (svg === null) return null;
+    const rect = svg.getBoundingClientRect();
+    const units = ((clientY - rect.top) / rect.height) * SAMPLE_CHART_HEIGHT;
+    const v = (1 - (units - MARGIN.top) / PLOT_H) * 100;
+    return v < 0 || v > 100 ? null : v;
+  };
+
+  const last = samples.length - 1;
+  const onKey = (event: KeyboardEvent<SVGSVGElement>): void => {
+    const from = pinned ?? hover ?? 0;
+    const to =
+      event.key === 'ArrowRight'
+        ? Math.min(last, from + 1)
+        : event.key === 'ArrowLeft'
+          ? Math.max(0, from - 1)
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? last
+              : undefined;
+    if (to !== undefined) {
+      event.preventDefault();
+      setPinned(to);
+    } else if (event.key === 'Escape') {
+      setPinned(null);
+      setPinnedLevel(null);
+    }
+  };
+
+  /** What the cursor shows: the pinned instant, or the one under the mouse. */
+  const shown = pinned ?? hover;
+  /** The horizontal line: where it was pinned, or under the mouse. */
+  const shownLevel = pinned === null ? level : pinnedLevel;
+  const current = shown === null ? undefined : samples[shown];
+  /**
+   * The label of the instant on the time axis: its text, and where its box
+   * starts, kept inside the chart at both ends.
+   */
+  const timeLabel = (() => {
+    const text =
+      current === undefined
+        ? ''
+        : duration(Math.round(elapsedOf(current)) * 1000);
+    // About the width of the 11-unit monospace digits, plus padding.
+    const width = text.length * 6.7 + 10;
+    const center = current === undefined ? 0 : x(elapsedOf(current));
+    const left = Math.min(CHART_WIDTH - width, Math.max(0, center - width / 2));
+    return { text, width, left };
+  })();
   // What was happening at the hovered instant: the agent, its turn, its tool.
   const activeStep =
     current === undefined
@@ -203,8 +289,21 @@ export function SampleChart({
           viewBox={`0 0 ${String(CHART_WIDTH)} ${String(SAMPLE_CHART_HEIGHT)}`}
           role="img"
           aria-label="Uso de recursos ao longo da rodada, em porcentagem"
-          onPointerMove={(event) => setHover(nearest(event.clientX))}
-          onPointerLeave={() => setHover(null)}
+          tabIndex={0}
+          onPointerMove={(event) => {
+            setHover(nearest(event.clientX));
+            setLevel(levelAt(event.clientY));
+          }}
+          onPointerLeave={() => {
+            setHover(null);
+            setLevel(null);
+          }}
+          onClick={(event) => {
+            // Pins both lines where the click was; Esc lets them go.
+            setPinned(nearest(event.clientX));
+            setPinnedLevel(levelAt(event.clientY));
+          }}
+          onKeyDown={onKey}
         >
           {Y_TICKS.map((v) => (
             <g key={`y${String(v)}`} className="tick">
@@ -276,16 +375,62 @@ export function SampleChart({
                 .join(' ')}
             />
           ))}
+          {shownLevel !== null && (
+            <g className="cursor level" aria-hidden="true">
+              <line
+                x1={MARGIN.left}
+                x2={CHART_WIDTH - MARGIN.right}
+                y1={y(shownLevel)}
+                y2={y(shownLevel)}
+              />
+              <rect
+                x={0}
+                y={y(shownLevel) - 8}
+                width={MARGIN.left - 2}
+                height={16}
+                rx={3}
+              />
+              <text
+                x={MARGIN.left - 6}
+                y={y(shownLevel)}
+                textAnchor="end"
+                dominantBaseline="middle"
+              >
+                {`${String(Math.round(shownLevel))}%`}
+              </text>
+            </g>
+          )}
           {current !== undefined && (
-            <g className="cursor" aria-hidden="true">
+            <g
+              className={pinned === null ? 'cursor' : 'cursor pinned'}
+              aria-hidden="true"
+            >
               <line
                 x1={x(elapsedOf(current))}
                 x2={x(elapsedOf(current))}
                 y1={MARGIN.top}
                 y2={MARGIN.top + PLOT_H}
               />
+              {/* The instant, on the time axis: over its tick labels. */}
+              <g className="time">
+                <rect
+                  x={timeLabel.left}
+                  y={SAMPLE_CHART_HEIGHT - 17}
+                  width={timeLabel.width}
+                  height={16}
+                  rx={3}
+                />
+                <text
+                  x={timeLabel.left + timeLabel.width / 2}
+                  y={SAMPLE_CHART_HEIGHT - 9}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                >
+                  {timeLabel.text}
+                </text>
+              </g>
               {series.map((s) => {
-                const point = s.points[hover ?? 0];
+                const point = s.points[shown ?? 0];
                 return point === undefined || point.v === null ? null : (
                   <circle
                     key={s.label}
@@ -306,7 +451,10 @@ export function SampleChart({
               left: `${String((x(elapsedOf(current)) / CHART_WIDTH) * 100)}%`,
             }}
           >
-            <b>{duration(Math.round(elapsedOf(current)) * 1000)}</b>
+            <b>
+              {duration(Math.round(elapsedOf(current)) * 1000)}
+              {pinned !== null && <span className="muted"> · fixado</span>}
+            </b>
             {activeStep !== undefined && (
               <span className="muted">
                 {title(activeStep.actor)}
@@ -330,6 +478,10 @@ export function SampleChart({
           </div>
         )}
       </div>
+      <p className="note chart-hint">
+        Clique para fixar as linhas; as setas andam amostra por amostra, Esc ou
+        um clique fora do gráfico solta.
+      </p>
     </div>
   );
 }

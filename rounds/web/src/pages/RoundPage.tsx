@@ -12,9 +12,9 @@ import {
   promptChanges,
 } from '../components/Config';
 import { CopyDeclaration } from '../components/CopyDeclaration';
-import { ExtractAgent } from '../components/ExtractAgent';
 import { Flow } from '../components/Flow';
 import { Resources } from '../components/Resources';
+import { Rules } from '../components/Rules';
 import { Scores } from '../components/Scores';
 import { TestRounds } from '../components/TestRounds';
 import { TestsNav } from '../components/TestsNav';
@@ -112,7 +112,6 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
   const { record, label, previous, test } = round;
   const changes = previous === undefined ? [] : configChanges(record, previous);
   const prompts = previous === undefined ? [] : promptChanges(record, previous);
-  const failed = record.violations.filter((v) => !v.passed);
 
   return (
     <main className="page">
@@ -155,54 +154,11 @@ export function RoundPage({ round }: { readonly round: Round }): ReactNode {
 
       <Resources round={round} />
 
-      <section className="block" aria-labelledby="regras">
-        <h2 id="regras">Regras</h2>
-        {record.violations.length === 0 ? (
-          <p className="note">
-            {record.start === null
-              ? 'Nenhuma regra conferida: sem o git, não há como saber o que cada agente alterou.'
-              : 'A rodada não declarou regras.'}
-          </p>
-        ) : (
-          <ul className="rules">
-            {record.violations.map((v, index) => (
-              <li key={index} className={v.passed ? 'passed' : 'failed'}>
-                <b>{v.passed ? 'cumpriu' : 'violou'}</b>
-                <span>
-                  <code>{v.rule}</code>
-                  {v.actor === null ? '' : ` · ${v.actor}`}: {v.detail}
-                </span>
-                {!v.passed && v.rule === 'no-questions' && v.actor !== null && (
-                  <ul className="asked">
-                    {record.steps
-                      .filter((step) => step.actor === v.actor)
-                      .flatMap((step) => step.asked)
-                      .map((question, qi) => (
-                        <li key={qi}>
-                          <pre>{question}</pre>
-                        </li>
-                      ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {failed.length > 0 && (
-          <p className="note warn">{failed.length} regra(s) violada(s).</p>
-        )}
-      </section>
+      <Rules record={record} />
 
       <section className="block" aria-labelledby="configuracao">
         <h2 id="configuracao">Configuração de cada agente</h2>
         <ActorConfigs round={record} />
-        {record.declaration !== undefined && (
-          <div className="extract-agents">
-            {Object.entries(record.declaration.actors).map(([name, actor]) => (
-              <ExtractAgent key={name} name={name} actor={actor} />
-            ))}
-          </div>
-        )}
         {previous !== undefined && (
           <div className="changes">
             <h3>

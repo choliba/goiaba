@@ -14,12 +14,13 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { clearConfigCache } from '../src/config/index';
 import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
+import { format } from 'prettier';
+
+import { agentSource, declarationSource } from '../rounds/web/src/declaration';
 import type { Interaction } from '../src/interaction/index';
 import type { Provider, ProviderEvent } from '../src/providers/types';
 import {
   captureDeclaration,
-  agentSource,
-  declarationSource,
   defineRound,
   findDefinition,
   listDefinitions,
@@ -1123,10 +1124,12 @@ test('a declaração vira dados e volta a ser um arquivo que declara a mesma rod
     ),
   };
   const source = declarationSource(known);
-  expect(source).toContain(
-    'new OllamaProvider({"cli":"claude","model":"qwen3.5:4b","contextWindow":32768})',
-  );
-  expect(source).toContain('said["analista"] ?? \'\'');
+  expect(source).toContain("cli: 'claude',");
+  // Already in the project's style: prettier changes nothing.
+  expect(
+    await format(source, { parser: 'typescript', singleQuote: true }),
+  ).toBe(source);
+  expect(source).toContain("said['analista'] ?? ''");
   expect(source).toContain('rules: [readOnlyRespected(), noQuestions()]');
 
   // Written where declarations live, loaded, and captured again: the same.
@@ -1152,15 +1155,15 @@ test('a declaração vira dados e volta a ser um arquivo que declara a mesma rod
   }
 });
 
-test('agentSource gera um agente de agents/ com provider, workspace, política e tools', () => {
+test('agentSource gera um agente de agents/ com provider, workspace, política e tools', async () => {
   const source = agentSource('product-owner', {
     provider: {
       name: 'ollama',
       cli: 'claude',
       model: 'qwen3.5:4b',
-      contextWindow: 20_000,
+      contextWindow: 100_000,
       think: false,
-      tools: ['file_write'],
+      tools: ['file_read', 'file_edit', 'file_write'],
     },
     workspace: {
       type: 'bubblewrap',
@@ -1168,19 +1171,34 @@ test('agentSource gera um agente de agents/ com provider, workspace, política e
       root: '<projeto>/x',
       hostState: 'none',
     },
-    policy: { default: 'deny' },
+    policy: {
+      default: 'deny',
+      allow: {
+        filesystem: [{ operations: ['*'], paths: ['/workspace/**'] }],
+        execution: [
+          {
+            operations: ['run'],
+            commands: ['ls *', 'cat *', 'pwd', 'git status', 'git diff *'],
+          },
+        ],
+        web: [
+          { operations: ['search'], domains: ['*'] },
+          { operations: ['read_text'], domains: ["docs.o'reilly.com"] },
+        ],
+      },
+    },
     readOnly: false,
   });
 
   expect(source).toContain('await new Agent({');
-  expect(source).toContain('name: "product-owner"');
-  expect(source).toContain(
-    'new OllamaProvider({"cli":"claude","model":"qwen3.5:4b","contextWindow":20000,"think":false,"tools":["file_write"]})',
-  );
+  expect(source).toContain("name: 'product-owner'");
   // O workspace aponta para a pasta configurada, não a da rodada.
   expect(source).toContain('root: getConfig().workspaces.dir');
-  expect(source).toContain('policy: {');
   expect(source).toContain('}).run();');
+  // Already in the project's style: prettier changes nothing.
+  expect(
+    await format(source, { parser: 'typescript', singleQuote: true }),
+  ).toBe(source);
 });
 
 test('o registro guarda a declaração com que rodou', async () => {

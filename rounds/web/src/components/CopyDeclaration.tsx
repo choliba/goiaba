@@ -6,7 +6,7 @@
 
 import { useState, type ReactNode } from 'react';
 
-import { declarationSource } from '../../../../src/rounds/declaration';
+import { declarationSource } from '../declaration';
 import type { RoundDeclaration } from '../../../../src/rounds/types';
 import { COPIED_MS } from '../constants';
 
@@ -36,7 +36,7 @@ export function CopyDeclaration({
       <span className="muted" aria-live="polite">
         {state === 'failed'
           ? 'O navegador não deixou copiar: selecione o código abaixo.'
-          : `Cole em rounds/definitions/${declaration.id}.ts e rode o prettier.`}
+          : `Cole em rounds/definitions/${declaration.id}.ts.`}
       </span>
       <details>
         <summary>Ver a definição</summary>
