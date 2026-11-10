@@ -1,6 +1,5 @@
 import {
   Agent,
-  ClaudeProvider,
   CursorProvider,
   // CodexProvider,
   // CursorProvider,
@@ -10,31 +9,31 @@ import {
   // OllamaProvider,
   runScript,
   Workspace,
-
 } from '../src/index';
 
 import type { AgentPolicy } from '../src/index';
 
-
-const polily: AgentPolicy = {
+const policy: AgentPolicy = {
   default: 'deny',
   allow: {
     // web: [{
     //   domains: ["*"],
     //   operations: ['search']
     // }],
-    network: [{
-      operations: ['*'],
-      hosts: ['*']
-    }],
+    network: [
+      {
+        operations: ['*'],
+        hosts: ['*'],
+      },
+    ],
     filesystem: [
       {
-        operations: ["read"],
-        paths: [`${getConfig().workspaces.dir}/**`]
-      }
-    ]
-  }
-}
+        operations: ['read'],
+        paths: [`${getConfig().workspaces.dir}/**`],
+      },
+    ],
+  },
+};
 
 await runScript(async () => {
   await new Agent({
@@ -51,7 +50,6 @@ await runScript(async () => {
       root: getConfig().workspaces.dir,
       hostState: 'none',
     }),
-    policy: polily
-
+    policy: policy,
   }).run();
 });
