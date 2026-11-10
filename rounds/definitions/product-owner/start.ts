@@ -7,7 +7,6 @@
 
 import type { RoundStartDefinition } from '../../../src/rounds';
 
-// @FIX: a fixture poderia trazer mais informações além do nome da pasta.
 export const start: RoundStartDefinition = {
   // A pasta em rounds/fixtures que vira o ponto de partida.
   fixture: 'site-vazio',
