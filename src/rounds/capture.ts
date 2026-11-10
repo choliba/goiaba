@@ -98,7 +98,7 @@ export function captureDeclaration(
 }
 
 /** The criteria as data: each `matches` RegExp becomes its source string. */
-function serializeCriteria(criteria: RoundCriteria): RoundCriteria {
+export function serializeCriteria(criteria: RoundCriteria): RoundCriteria {
   const one = (criterion: RoundCriterion): RoundCriterion => {
     if ('file' in criterion) {
       const { matches } = criterion.file;

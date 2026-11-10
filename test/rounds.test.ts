@@ -664,7 +664,7 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
           analista: [
             {
               if: { name: 'zzz.txt', exists: true },
-              check: [{ file: { name: 'zzz.txt', exists: true } }],
+              check: [{ file: { name: 'zzz.txt', matches: [/z+/] } }],
             },
           ],
         },
@@ -680,6 +680,11 @@ test('runRound parte da tag, passa o que cada um disse adiante, confere pelo git
 
     expect(round.start?.tag).toBe('rodada-base');
     expect(round.label).toBe('analista só lê');
+    // A RegExp of the declaration is kept as its source, not as `{}`.
+    expect(round.criteria?.['analista']?.[0]).toEqual({
+      if: { name: 'zzz.txt', exists: true },
+      check: [{ file: { name: 'zzz.txt', matches: ['z+'] } }],
+    });
     // Checked against the workspace at the end of the step: only the verdict.
     expect(round.steps[1]?.criteria).toEqual([
       {

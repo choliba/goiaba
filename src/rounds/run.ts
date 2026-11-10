@@ -22,7 +22,7 @@ import { Workspace } from '../workspace/index';
 import { FIXTURE_TAG, NO_ONE_ANSWERS, RESOURCE_SAMPLE_MS } from './constants';
 import { writableOf } from './permissions';
 import type { RoundDefinition, RoundFlowStep } from './define';
-import { captureDeclaration } from './capture';
+import { captureDeclaration, serializeCriteria } from './capture';
 import {
   assertApart,
   assertOwnRepository,
@@ -538,7 +538,7 @@ async function runOnce(
       violations: rules,
       ...(definition.criteria === undefined
         ? {}
-        : { criteria: definition.criteria }),
+        : { criteria: serializeCriteria(definition.criteria) }),
       declaration: captureDeclaration(definition, label),
       ...(resources === undefined ? {} : { resources }),
     };
