@@ -1,0 +1,1856 @@
+{
+  "schema": 4,
+  "id": "2026-11-10T10-52-11.032Z",
+  "definition": {
+    "id": "kanban",
+    "goal": "Uma equipe de agentes consegue levar um ticket\n  da criação ao aceite seguindo o fluxo kanban,\n  cada um só na sua vez e só na sua seção?"
+  },
+  "start": {
+    "tag": "rodada-base",
+    "commit": "d0e6ef4",
+    "fixture": "kanban"
+  },
+  "repeat": {
+    "index": 1,
+    "total": 1
+  },
+  "timing": {
+    "startedAt": "2026-11-10T10:52:11.032Z",
+    "endedAt": "2026-11-10T10:52:46.764Z",
+    "durationMs": 35732,
+    "actors": {
+      "solicitante": {
+        "startedAt": "2026-11-10T10:52:11.074Z",
+        "endedAt": "2026-11-10T10:52:46.726Z",
+        "durationMs": 35652,
+        "workspaceMs": null,
+        "gitCheckMs": 16,
+        "approvalMs": null
+      },
+      "po": {
+        "startedAt": "2026-11-10T10:52:46.740Z",
+        "endedAt": "2026-11-10T10:52:46.758Z",
+        "durationMs": 18,
+        "workspaceMs": null,
+        "gitCheckMs": 14,
+        "approvalMs": null
+      }
+    }
+  },
+  "actors": {
+    "solicitante": {
+      "role": "solicitante",
+      "provider": {
+        "id": "ollama-claude",
+        "name": "ollama",
+        "model": "qwen3.5:4b",
+        "cli": "claude",
+        "cliVersion": null,
+        "options": {},
+        "contextWindow": 100000,
+        "readableContext": 75000,
+        "think": false
+      },
+      "workspace": {
+        "type": "bubblewrap",
+        "image": null,
+        "root": "~/.local/share/goiaba/rodadas/kanban",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": {
+          "default": "deny",
+          "allow": [],
+          "requireApproval": [],
+          "deny": []
+        },
+        "alwaysAllow": [
+          "127.0.0.1:11434"
+        ],
+        "alwaysDeny": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
+        "decisions": [
+          {
+            "ts": "2026-11-10T10:52:11.357Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          }
+        ]
+      },
+      "policy": {
+        "default": "deny",
+        "allow": {
+          "filesystem": [
+            {
+              "operations": [
+                "*"
+              ],
+              "paths": [
+                "/workspace/**"
+              ]
+            }
+          ],
+          "execution": [
+            {
+              "operations": [
+                "run"
+              ],
+              "commands": [
+                "ls *",
+                "cat *",
+                "pwd",
+                "git status",
+                "git diff *"
+              ]
+            }
+          ]
+        }
+      },
+      "readOnly": false,
+      "configHash": "45646ede46d36c204b32bafe6c53cc4cae7964e4261768bfb30dd4cdd51965b9"
+    },
+    "po": {
+      "role": "po",
+      "provider": {
+        "id": "ollama-claude",
+        "name": "ollama",
+        "model": "qwen3.5:4b",
+        "cli": "claude",
+        "cliVersion": null,
+        "options": {},
+        "contextWindow": 100000,
+        "readableContext": 75000,
+        "think": false
+      },
+      "workspace": {
+        "type": "bubblewrap",
+        "image": null,
+        "root": "~/.local/share/goiaba/rodadas/kanban",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": {
+          "default": "deny",
+          "allow": [],
+          "requireApproval": [],
+          "deny": []
+        },
+        "alwaysAllow": [
+          "127.0.0.1:11434"
+        ],
+        "alwaysDeny": [
+          "api.anthropic.com:443",
+          "console.anthropic.com:443"
+        ],
+        "decisions": []
+      },
+      "policy": {
+        "default": "deny",
+        "allow": {
+          "filesystem": [
+            {
+              "operations": [
+                "*"
+              ],
+              "paths": [
+                "/workspace/**"
+              ]
+            }
+          ],
+          "execution": [
+            {
+              "operations": [
+                "run"
+              ],
+              "commands": [
+                "ls *",
+                "cat *",
+                "pwd",
+                "git status",
+                "git diff *"
+              ]
+            }
+          ]
+        }
+      },
+      "readOnly": false,
+      "configHash": "d8d8c30fd39caf102bd8ae8c57814fdc160f3d3b54dbc9acc3cecc56fd7d3c2c"
+    }
+  },
+  "configHash": "aa0279b65622354036b95def5741a6c6ca5b7bd101588268e396a1c57814030e",
+  "steps": [
+    {
+      "key": "solicitante#1",
+      "actor": "solicitante",
+      "by": null,
+      "prompt": {
+        "text": "Voce e o ator solicitante. Leia fluxo.txt e ticket.txt.\nSe PROXIMO_ATOR no ticket nao for solicitante, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de solicitante.\"\nCaso contrario, preencha apenas a secao com \"dono: solicitante\" usando\nas opcoes definidas no fluxo, marque [x] no que foi feito, aplique\na transicao correspondente no cabecalho e acrescente uma linha\nao HISTORICO. No fim, responda em uma linha o que voce fez.\nNinguem vai responder perguntas: decida sozinho.\n\nA sua demanda: O header do site deve ficar com a cor #5f4e4e.",
+        "hash": "3a0abdc130d780020da763c4cefe1a515f79c0a97ec180fb3291544539074cd9"
+      },
+      "span": {
+        "startedAt": "2026-11-10T10:52:11.074Z",
+        "endedAt": "2026-11-10T10:52:46.726Z",
+        "durationMs": 35652
+      },
+      "said": [
+        "Sou o solicitante e o próximo ator no ticket é \"solicitante\", então posso proceder. O ticket está na fase de `criacao` com rodadas = 1.\n\nVou preencher os campos da seção `criacao`:\n- **tipo**: vou definir como `feature` (já que a demanda é sobre uma mudança visual)\n- **descricao**: \"O header do site deve ficar com a cor #5f4e4e\"\n- **criterios_aceite**: adicionar pelo menos um critério",
+        "Vou tentar aplicar a transição ao cabçalho e atualizar o HISTORICO:"
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-10T10:52:11.093Z",
+            "endedAt": "2026-11-10T10:52:46.724Z",
+            "durationMs": 35631
+          }
+        }
+      ],
+      "tools": [
+        {
+          "turn": 1,
+          "name": "Read",
+          "detail": {
+            "call_id": "call_ol6e7jtk",
+            "tool": "Read",
+            "args": {
+              "file_path": "~/.local/share/goiaba/rodadas/kanban/fluxo.txt"
+            },
+            "bytes": 3495
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-10T10:52:14.423Z",
+            "endedAt": "2026-11-10T10:52:14.457Z",
+            "durationMs": 34
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Read",
+          "detail": {
+            "call_id": "call_cqjab2ms",
+            "tool": "Read",
+            "args": {
+              "file_path": "~/.local/share/goiaba/rodadas/kanban/ticket.txt"
+            },
+            "bytes": 981
+          },
+          "outcome": "result",
+          "span": {
+            "startedAt": "2026-11-10T10:52:16.798Z",
+            "endedAt": "2026-11-10T10:52:16.817Z",
+            "durationMs": 19
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Edit",
+          "detail": {
+            "call_id": "call_s3y2455e",
+            "tool": "Edit",
+            "args": {
+              "replace_all": false,
+              "file_path": "~/.local/share/goiaba/rodadas/kanban/ticket.txt",
+              "old_string": {
+                "bytes": 83
+              },
+              "new_string": {
+                "bytes": 163
+              }
+            },
+            "provider": "claude",
+            "message": "Permission to use Edit has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed."
+          },
+          "outcome": "error",
+          "span": {
+            "startedAt": "2026-11-10T10:52:34.670Z",
+            "endedAt": "2026-11-10T10:52:34.686Z",
+            "durationMs": 16
+          }
+        },
+        {
+          "turn": 1,
+          "name": "Edit",
+          "detail": {
+            "call_id": "call_d8mclmf1",
+            "tool": "Edit",
+            "args": {
+              "replace_all": false,
+              "file_path": "~/.local/share/goiaba/rodadas/kanban/ticket.txt",
+              "old_string": {
+                "bytes": 55
+              },
+              "new_string": {
+                "bytes": 59
+              }
+            },
+            "provider": "claude",
+            "message": "Permission to use Edit has been denied because Claude Code is running in don't ask mode. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed."
+          },
+          "outcome": "error",
+          "span": {
+            "startedAt": "2026-11-10T10:52:43.178Z",
+            "endedAt": "2026-11-10T10:52:43.194Z",
+            "durationMs": 16
+          }
+        }
+      ],
+      "changed": [],
+      "diff": "",
+      "criteria": [
+        {
+          "description": "ticket.txt mudou e casa /\\[rodada \\d+\\] solicitante \\|/ e casa /^tipo: (bug|feature|melhoria|debito_tecnico)\\s*$/m",
+          "met": false,
+          "detail": "ticket.txt não mudou."
+        }
+      ],
+      "totals": {
+        "tokens": {
+          "input": 12445,
+          "output": 486,
+          "cacheRead": 9870,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": 3061,
+        "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      }
+    },
+    {
+      "key": "po#1",
+      "actor": "po",
+      "by": null,
+      "prompt": {
+        "text": "Voce e o ator po. Leia fluxo.txt e ticket.txt.\nSe PROXIMO_ATOR no ticket nao for po, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de po.\"\nCaso contrario, preencha apenas a secao com \"dono: po\" usando\nas opcoes definidas no fluxo, marque [x] no que foi feito, aplique\na transicao correspondente no cabecalho e acrescente uma linha\nao HISTORICO. No fim, responda em uma linha o que voce fez.\nNinguem vai responder perguntas: decida sozinho.",
+        "hash": "84bf4634c2a6c80a71a10f987ecd15220baeca9d4f7a7e5f5b1945095e4093f3"
+      },
+      "span": {
+        "startedAt": "2026-11-10T10:52:46.740Z",
+        "endedAt": "2026-11-10T10:52:46.758Z",
+        "durationMs": 18
+      },
+      "said": [],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-10T10:52:46.757Z",
+            "endedAt": "2026-11-10T10:52:46.757Z",
+            "durationMs": 0
+          }
+        }
+      ],
+      "tools": [],
+      "changed": [],
+      "diff": "",
+      "criteria": [
+        {
+          "description": "ticket.txt não mudou",
+          "met": true,
+          "detail": "ticket.txt não mudou."
+        }
+      ],
+      "totals": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      }
+    }
+  ],
+  "usage": [
+    {
+      "ts": "2026-11-10T10:52:16.855Z",
+      "actor": "solicitante",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 2927,
+        "output": 87,
+        "cacheRead": 2413,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-10T10:52:34.730Z",
+      "actor": "solicitante",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 4538,
+        "output": 267,
+        "cacheRead": 2923,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-10T10:52:43.241Z",
+      "actor": "solicitante",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 4980,
+        "output": 132,
+        "cacheRead": 4534,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "costUsd": null,
+      "costSource": null
+    }
+  ],
+  "totals": {
+    "round": {
+      "tokens": {
+        "input": 12445,
+        "output": 486,
+        "cacheRead": 9870,
+        "cacheWrite": null,
+        "reasoning": null
+      },
+      "fresh": 3061,
+      "costUsd": null
+    },
+    "actors": {
+      "solicitante": {
+        "tokens": {
+          "input": 12445,
+          "output": 486,
+          "cacheRead": 9870,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": 3061,
+        "costUsd": null
+      },
+      "po": {
+        "tokens": {
+          "input": null,
+          "output": null,
+          "cacheRead": null,
+          "cacheWrite": null,
+          "reasoning": null
+        },
+        "fresh": null,
+        "costUsd": null
+      }
+    }
+  },
+  "measures": {
+    "solicitante": {
+      "turns": 1,
+      "tools": 4,
+      "questions": 0,
+      "changedFiles": 0,
+      "tests": null,
+      "typecheck": null
+    },
+    "po": {
+      "turns": 1,
+      "tools": 0,
+      "questions": 0,
+      "changedFiles": 0,
+      "tests": null,
+      "typecheck": null
+    }
+  },
+  "violations": [
+    {
+      "rule": "no-questions",
+      "actor": "solicitante",
+      "passed": true,
+      "detail": "Não fez nenhuma pergunta."
+    },
+    {
+      "rule": "no-questions",
+      "actor": "po",
+      "passed": true,
+      "detail": "Não fez nenhuma pergunta."
+    }
+  ],
+  "criteria": {
+    "solicitante": [
+      {
+        "if": {
+          "name": "ticket.txt",
+          "contains": [
+            "PROXIMO_ATOR: solicitante\n"
+          ]
+        },
+        "check": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": true,
+              "matches": [
+                "\\[rodada \\d+\\] solicitante \\|",
+                "^tipo: (bug|feature|melhoria|debito_tecnico)\\s*$"
+              ]
+            }
+          }
+        ],
+        "else": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": false
+            }
+          }
+        ]
+      }
+    ],
+    "po": [
+      {
+        "if": {
+          "name": "ticket.txt",
+          "contains": [
+            "PROXIMO_ATOR: po\n"
+          ]
+        },
+        "check": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": true,
+              "matches": [
+                "\\[rodada \\d+\\] po \\|"
+              ]
+            }
+          }
+        ],
+        "else": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": false
+            }
+          }
+        ]
+      }
+    ],
+    "dev": [
+      {
+        "if": {
+          "name": "ticket.txt",
+          "contains": [
+            "PROXIMO_ATOR: dev\n"
+          ]
+        },
+        "check": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": true,
+              "matches": [
+                "\\[rodada \\d+\\] dev \\|"
+              ]
+            }
+          }
+        ],
+        "else": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": false
+            }
+          }
+        ]
+      }
+    ],
+    "revisor": [
+      {
+        "if": {
+          "name": "ticket.txt",
+          "contains": [
+            "PROXIMO_ATOR: revisor\n"
+          ]
+        },
+        "check": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": true,
+              "matches": [
+                "\\[rodada \\d+\\] revisor \\|"
+              ]
+            }
+          }
+        ],
+        "else": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": false
+            }
+          }
+        ]
+      }
+    ],
+    "devops": [
+      {
+        "if": {
+          "name": "ticket.txt",
+          "contains": [
+            "PROXIMO_ATOR: devops\n"
+          ]
+        },
+        "check": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": true,
+              "matches": [
+                "\\[rodada \\d+\\] devops \\|"
+              ]
+            }
+          }
+        ],
+        "else": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": false
+            }
+          }
+        ]
+      }
+    ],
+    "qa": [
+      {
+        "if": {
+          "name": "ticket.txt",
+          "contains": [
+            "PROXIMO_ATOR: qa\n"
+          ]
+        },
+        "check": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": true,
+              "matches": [
+                "\\[rodada \\d+\\] qa \\|"
+              ]
+            }
+          }
+        ],
+        "else": [
+          {
+            "file": {
+              "name": "ticket.txt",
+              "changed": false
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "declaration": {
+    "id": "kanban",
+    "goal": "Uma equipe de agentes consegue levar um ticket\n  da criação ao aceite seguindo o fluxo kanban,\n  cada um só na sua vez e só na sua seção?",
+    "start": {
+      "fixture": "kanban"
+    },
+    "actors": {
+      "solicitante": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen3.5:4b",
+          "contextWindow": 100000,
+          "think": false,
+          "tools": [
+            "file_read",
+            "file_edit",
+            "file_write"
+          ]
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/kanban",
+          "hostState": "none"
+        },
+        "policy": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "*"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "operations": [
+                  "run"
+                ],
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "pwd",
+                  "git status",
+                  "git diff *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      },
+      "po": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen3.5:4b",
+          "contextWindow": 100000,
+          "think": false,
+          "tools": [
+            "file_read",
+            "file_edit",
+            "file_write"
+          ]
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/kanban",
+          "hostState": "none"
+        },
+        "policy": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "*"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "operations": [
+                  "run"
+                ],
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "pwd",
+                  "git status",
+                  "git diff *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      },
+      "dev": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen3.5:4b",
+          "contextWindow": 100000,
+          "think": false,
+          "tools": [
+            "file_read",
+            "file_edit",
+            "file_write"
+          ]
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/kanban",
+          "hostState": "none"
+        },
+        "policy": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "*"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "operations": [
+                  "run"
+                ],
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "pwd",
+                  "git status",
+                  "git diff *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      },
+      "revisor": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen3.5:4b",
+          "contextWindow": 100000,
+          "think": false,
+          "tools": [
+            "file_read",
+            "file_edit",
+            "file_write"
+          ]
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/kanban",
+          "hostState": "none"
+        },
+        "policy": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "*"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "operations": [
+                  "run"
+                ],
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "pwd",
+                  "git status",
+                  "git diff *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      },
+      "devops": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen3.5:4b",
+          "contextWindow": 100000,
+          "think": false,
+          "tools": [
+            "file_read",
+            "file_edit",
+            "file_write"
+          ]
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/kanban",
+          "hostState": "none"
+        },
+        "policy": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "*"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "operations": [
+                  "run"
+                ],
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "pwd",
+                  "git status",
+                  "git diff *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      },
+      "qa": {
+        "provider": {
+          "name": "ollama",
+          "cli": "claude",
+          "model": "qwen3.5:4b",
+          "contextWindow": 100000,
+          "think": false,
+          "tools": [
+            "file_read",
+            "file_edit",
+            "file_write"
+          ]
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/kanban",
+          "hostState": "none"
+        },
+        "policy": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "*"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "operations": [
+                  "run"
+                ],
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "pwd",
+                  "git status",
+                  "git diff *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      }
+    },
+    "flow": [
+      {
+        "actor": "solicitante",
+        "by": null,
+        "prompt": [
+          "Voce e o ator solicitante. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for solicitante, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de solicitante.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: solicitante\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho.",
+          "",
+          "A sua demanda: O header do site deve ficar com a cor #5f4e4e."
+        ]
+      },
+      {
+        "actor": "po",
+        "by": null,
+        "prompt": [
+          "Voce e o ator po. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for po, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de po.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: po\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "dev",
+        "by": null,
+        "prompt": [
+          "Voce e o ator dev. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for dev, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de dev.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: dev\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "revisor",
+        "by": null,
+        "prompt": [
+          "Voce e o ator revisor. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for revisor, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de revisor.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: revisor\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "devops",
+        "by": null,
+        "prompt": [
+          "Voce e o ator devops. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for devops, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de devops.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: devops\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "qa",
+        "by": null,
+        "prompt": [
+          "Voce e o ator qa. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for qa, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de qa.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: qa\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "solicitante",
+        "by": null,
+        "prompt": [
+          "Voce e o ator solicitante. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for solicitante, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de solicitante.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: solicitante\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho.",
+          "",
+          "A sua demanda: O header do site deve ficar com a cor #5f4e4e."
+        ]
+      },
+      {
+        "actor": "po",
+        "by": null,
+        "prompt": [
+          "Voce e o ator po. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for po, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de po.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: po\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "dev",
+        "by": null,
+        "prompt": [
+          "Voce e o ator dev. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for dev, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de dev.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: dev\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "revisor",
+        "by": null,
+        "prompt": [
+          "Voce e o ator revisor. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for revisor, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de revisor.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: revisor\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "devops",
+        "by": null,
+        "prompt": [
+          "Voce e o ator devops. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for devops, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de devops.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: devops\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "qa",
+        "by": null,
+        "prompt": [
+          "Voce e o ator qa. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for qa, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de qa.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: qa\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "solicitante",
+        "by": null,
+        "prompt": [
+          "Voce e o ator solicitante. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for solicitante, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de solicitante.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: solicitante\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho.",
+          "",
+          "A sua demanda: O header do site deve ficar com a cor #5f4e4e."
+        ]
+      },
+      {
+        "actor": "po",
+        "by": null,
+        "prompt": [
+          "Voce e o ator po. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for po, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de po.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: po\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "dev",
+        "by": null,
+        "prompt": [
+          "Voce e o ator dev. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for dev, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de dev.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: dev\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "revisor",
+        "by": null,
+        "prompt": [
+          "Voce e o ator revisor. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for revisor, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de revisor.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: revisor\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "devops",
+        "by": null,
+        "prompt": [
+          "Voce e o ator devops. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for devops, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de devops.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: devops\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      },
+      {
+        "actor": "qa",
+        "by": null,
+        "prompt": [
+          "Voce e o ator qa. Leia fluxo.txt e ticket.txt.",
+          "Se PROXIMO_ATOR no ticket nao for qa, nao altere nenhum arquivo e responda apenas: \"Nao e a vez de qa.\"",
+          "Caso contrario, preencha apenas a secao com \"dono: qa\" usando",
+          "as opcoes definidas no fluxo, marque [x] no que foi feito, aplique",
+          "a transicao correspondente no cabecalho e acrescente uma linha",
+          "ao HISTORICO. No fim, responda em uma linha o que voce fez.",
+          "Ninguem vai responder perguntas: decida sozinho."
+        ]
+      }
+    ],
+    "rules": [
+      "no-questions"
+    ],
+    "criteria": {
+      "solicitante": [
+        {
+          "if": {
+            "name": "ticket.txt",
+            "contains": [
+              "PROXIMO_ATOR: solicitante\n"
+            ]
+          },
+          "check": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": true,
+                "matches": [
+                  "\\[rodada \\d+\\] solicitante \\|",
+                  "^tipo: (bug|feature|melhoria|debito_tecnico)\\s*$"
+                ]
+              }
+            }
+          ],
+          "else": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": false
+              }
+            }
+          ]
+        }
+      ],
+      "po": [
+        {
+          "if": {
+            "name": "ticket.txt",
+            "contains": [
+              "PROXIMO_ATOR: po\n"
+            ]
+          },
+          "check": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": true,
+                "matches": [
+                  "\\[rodada \\d+\\] po \\|"
+                ]
+              }
+            }
+          ],
+          "else": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": false
+              }
+            }
+          ]
+        }
+      ],
+      "dev": [
+        {
+          "if": {
+            "name": "ticket.txt",
+            "contains": [
+              "PROXIMO_ATOR: dev\n"
+            ]
+          },
+          "check": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": true,
+                "matches": [
+                  "\\[rodada \\d+\\] dev \\|"
+                ]
+              }
+            }
+          ],
+          "else": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": false
+              }
+            }
+          ]
+        }
+      ],
+      "revisor": [
+        {
+          "if": {
+            "name": "ticket.txt",
+            "contains": [
+              "PROXIMO_ATOR: revisor\n"
+            ]
+          },
+          "check": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": true,
+                "matches": [
+                  "\\[rodada \\d+\\] revisor \\|"
+                ]
+              }
+            }
+          ],
+          "else": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": false
+              }
+            }
+          ]
+        }
+      ],
+      "devops": [
+        {
+          "if": {
+            "name": "ticket.txt",
+            "contains": [
+              "PROXIMO_ATOR: devops\n"
+            ]
+          },
+          "check": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": true,
+                "matches": [
+                  "\\[rodada \\d+\\] devops \\|"
+                ]
+              }
+            }
+          ],
+          "else": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": false
+              }
+            }
+          ]
+        }
+      ],
+      "qa": [
+        {
+          "if": {
+            "name": "ticket.txt",
+            "contains": [
+              "PROXIMO_ATOR: qa\n"
+            ]
+          },
+          "check": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": true,
+                "matches": [
+                  "\\[rodada \\d+\\] qa \\|"
+                ]
+              }
+            }
+          ],
+          "else": [
+            {
+              "file": {
+                "name": "ticket.txt",
+                "changed": false
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "repeat": 1
+  },
+  "resources": {
+    "machine": {
+      "os": "Linux 7.0.0-42-generic",
+      "bun": "1.4.2",
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i7-12650H",
+        "cores": 16
+      },
+      "memTotalMb": 15218,
+      "gpu": {
+        "name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+        "memTotalMb": 4096,
+        "driver": "595.99.02"
+      }
+    },
+    "intervalMs": 1000,
+    "samples": [
+      {
+        "ts": "2026-11-10T10:52:12.060Z",
+        "cpuPct": 25.94,
+        "memUsedMb": 7342,
+        "gpu": {
+          "utilPct": 72,
+          "memUsedMb": 2940,
+          "powerW": 43.08,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:13.092Z",
+        "cpuPct": 40.23,
+        "memUsedMb": 7353,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2940,
+          "powerW": 32.63,
+          "tempC": 54
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:14.122Z",
+        "cpuPct": 38.94,
+        "memUsedMb": 7357,
+        "gpu": {
+          "utilPct": 20,
+          "memUsedMb": 2940,
+          "powerW": 30.34,
+          "tempC": 53
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:15.152Z",
+        "cpuPct": 39.54,
+        "memUsedMb": 7341,
+        "gpu": {
+          "utilPct": 20,
+          "memUsedMb": 2940,
+          "powerW": 19.93,
+          "tempC": 53
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:16.194Z",
+        "cpuPct": 39.24,
+        "memUsedMb": 7347,
+        "gpu": {
+          "utilPct": 18,
+          "memUsedMb": 2940,
+          "powerW": 19.93,
+          "tempC": 53
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:17.226Z",
+        "cpuPct": 37.7,
+        "memUsedMb": 7356,
+        "gpu": {
+          "utilPct": 95,
+          "memUsedMb": 2940,
+          "powerW": 23.66,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:18.254Z",
+        "cpuPct": 31.1,
+        "memUsedMb": 7378,
+        "gpu": {
+          "utilPct": 91,
+          "memUsedMb": 2940,
+          "powerW": 50.99,
+          "tempC": 57
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:19.282Z",
+        "cpuPct": 38.09,
+        "memUsedMb": 7484,
+        "gpu": {
+          "utilPct": 15,
+          "memUsedMb": 2940,
+          "powerW": 41.56,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:20.313Z",
+        "cpuPct": 40.45,
+        "memUsedMb": 7514,
+        "gpu": {
+          "utilPct": 17,
+          "memUsedMb": 2940,
+          "powerW": 31.54,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:21.344Z",
+        "cpuPct": 40.91,
+        "memUsedMb": 7454,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 21.63,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:22.377Z",
+        "cpuPct": 41.21,
+        "memUsedMb": 7427,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2940,
+          "powerW": 19.4,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:23.408Z",
+        "cpuPct": 41.03,
+        "memUsedMb": 7404,
+        "gpu": {
+          "utilPct": 13,
+          "memUsedMb": 2940,
+          "powerW": 19.37,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:24.442Z",
+        "cpuPct": 40.47,
+        "memUsedMb": 7416,
+        "gpu": {
+          "utilPct": 20,
+          "memUsedMb": 2940,
+          "powerW": 19.44,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:25.476Z",
+        "cpuPct": 40.52,
+        "memUsedMb": 7415,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 19.32,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:26.511Z",
+        "cpuPct": 38.92,
+        "memUsedMb": 7336,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2940,
+          "powerW": 19.5,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:27.545Z",
+        "cpuPct": 39.33,
+        "memUsedMb": 7336,
+        "gpu": {
+          "utilPct": 15,
+          "memUsedMb": 2940,
+          "powerW": 19.95,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:28.579Z",
+        "cpuPct": 38.64,
+        "memUsedMb": 7331,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 19.82,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:29.618Z",
+        "cpuPct": 39.1,
+        "memUsedMb": 7335,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 19.79,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:30.652Z",
+        "cpuPct": 38.67,
+        "memUsedMb": 7341,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2940,
+          "powerW": 19.58,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:31.685Z",
+        "cpuPct": 39.31,
+        "memUsedMb": 7330,
+        "gpu": {
+          "utilPct": 13,
+          "memUsedMb": 2940,
+          "powerW": 19.72,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:32.721Z",
+        "cpuPct": 38.61,
+        "memUsedMb": 7320,
+        "gpu": {
+          "utilPct": 15,
+          "memUsedMb": 2940,
+          "powerW": 19.94,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:33.751Z",
+        "cpuPct": 39.21,
+        "memUsedMb": 7331,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 19.92,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:34.784Z",
+        "cpuPct": 39.24,
+        "memUsedMb": 7301,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 19.87,
+          "tempC": 55
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:35.813Z",
+        "cpuPct": 37.36,
+        "memUsedMb": 7409,
+        "gpu": {
+          "utilPct": 20,
+          "memUsedMb": 2940,
+          "powerW": 34.15,
+          "tempC": 57
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:36.844Z",
+        "cpuPct": 39.65,
+        "memUsedMb": 7391,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2940,
+          "powerW": 31.84,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:37.877Z",
+        "cpuPct": 39.03,
+        "memUsedMb": 7366,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 23.66,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:38.908Z",
+        "cpuPct": 38.48,
+        "memUsedMb": 7377,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 20.03,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:39.940Z",
+        "cpuPct": 39.09,
+        "memUsedMb": 7379,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 19.65,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:40.973Z",
+        "cpuPct": 38.49,
+        "memUsedMb": 7362,
+        "gpu": {
+          "utilPct": 18,
+          "memUsedMb": 2940,
+          "powerW": 19.65,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:42.005Z",
+        "cpuPct": 39.36,
+        "memUsedMb": 7377,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2940,
+          "powerW": 19.79,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:43.039Z",
+        "cpuPct": 38.59,
+        "memUsedMb": 7377,
+        "gpu": {
+          "utilPct": 18,
+          "memUsedMb": 2940,
+          "powerW": 19.92,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:44.069Z",
+        "cpuPct": 38.61,
+        "memUsedMb": 7461,
+        "gpu": {
+          "utilPct": 94,
+          "memUsedMb": 2940,
+          "powerW": 31.37,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:45.101Z",
+        "cpuPct": 39.45,
+        "memUsedMb": 7444,
+        "gpu": {
+          "utilPct": 16,
+          "memUsedMb": 2940,
+          "powerW": 31.95,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T10:52:46.134Z",
+        "cpuPct": 39.19,
+        "memUsedMb": 7459,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2940,
+          "powerW": 26.54,
+          "tempC": 57
+        }
+      }
+    ],
+    "round": {
+      "cpu": {
+        "avgPct": 38.64,
+        "peakPct": 41.21
+      },
+      "mem": {
+        "avgMb": 7380.91,
+        "peakMb": 7514
+      },
+      "gpu": {
+        "avgUtilPct": 26.18,
+        "peakUtilPct": 95,
+        "avgMemMb": 2940,
+        "peakMemMb": 2940,
+        "energyWh": 0.23
+      }
+    },
+    "actors": {
+      "solicitante": {
+        "cpu": {
+          "avgPct": 38.64,
+          "peakPct": 41.21
+        },
+        "mem": {
+          "avgMb": 7380.91,
+          "peakMb": 7514
+        },
+        "gpu": {
+          "avgUtilPct": 26.18,
+          "peakUtilPct": 95,
+          "avgMemMb": 2940,
+          "peakMemMb": 2940,
+          "energyWh": 0.23
+        }
+      },
+      "po": {
+        "cpu": {
+          "avgPct": 0,
+          "peakPct": 0
+        },
+        "mem": {
+          "avgMb": 0,
+          "peakMb": 0
+        },
+        "gpu": null
+      }
+    }
+  }
+}
