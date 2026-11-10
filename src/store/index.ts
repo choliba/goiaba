@@ -82,7 +82,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   prompt TEXT,
   finished_at DATETIME,
   outcome TEXT,
-  agent TEXT
+  agent TEXT,
+  model TEXT
 );
 CREATE TABLE IF NOT EXISTS decisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,6 +124,8 @@ export interface NewSession {
   readonly prompt: string;
   /** Name of the agent that ran it. */
   readonly agent?: string;
+  /** The model it ran on; another model is a new task, not a resume. */
+  readonly model?: string;
   readonly command?: SessionCommand;
 }
 
@@ -184,7 +187,14 @@ export class Store {
     if (!names.has('arguments')) {
       this.db.run('ALTER TABLE sessions ADD COLUMN arguments TEXT');
     }
-    for (const column of ['cwd', 'prompt', 'finished_at', 'outcome', 'agent']) {
+    for (const column of [
+      'cwd',
+      'prompt',
+      'finished_at',
+      'outcome',
+      'agent',
+      'model',
+    ]) {
       if (!names.has(column)) {
         this.db.run(`ALTER TABLE sessions ADD COLUMN ${column} TEXT`);
       }
@@ -266,8 +276,8 @@ export class Store {
     this.db
       .query(
         `INSERT OR IGNORE INTO sessions
-         (id, provider, root, started_at, executable, arguments, cwd, prompt, agent)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, provider, root, started_at, executable, arguments, cwd, prompt, agent, model)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         session.id,
@@ -279,6 +289,7 @@ export class Store {
         command?.cwd ?? null,
         session.prompt,
         session.agent ?? null,
+        session.model ?? null,
       );
     // A resumed session recorded before it had an agent name gets it now.
     if (session.agent !== undefined) {
@@ -293,6 +304,18 @@ export class Store {
     this.db
       .query(
         "UPDATE sessions SET finished_at = ?, outcome = 'finished' WHERE id = ?",
+      )
+      .run(now(), id);
+  }
+
+  /**
+   * The CLI failed before the session's first turn ended (a model it refused,
+   * say): its history may not even hold the task, so it is never resumed.
+   */
+  public failSession(id: string): void {
+    this.db
+      .query(
+        "UPDATE sessions SET finished_at = ?, outcome = 'failed' WHERE id = ?",
       )
       .run(now(), id);
   }
@@ -317,24 +340,34 @@ export class Store {
 
   /**
    * The session an agent should continue instead of starting over: the latest
-   * one of this provider, workspace and prompt, if it was interrupted or has
-   * approvals the agent has not been told about yet.
+   * one of this provider, workspace, prompt and model, if it was interrupted
+   * or has approvals the agent has not been told about yet. A session recorded
+   * before the model was kept (`null`) matches any model.
    */
   public resumableSession(
     provider: string,
     root: string,
     prompt: string,
+    model?: string,
   ): string | undefined {
     const last = this.db
       .query<
-        { id: string; prompt: string | null; finished_at: string | null },
+        {
+          id: string;
+          prompt: string | null;
+          finished_at: string | null;
+          model: string | null;
+        },
         [string, string]
       >(
-        'SELECT id, prompt, finished_at FROM sessions WHERE provider = ? AND root = ? ORDER BY started_at DESC, rowid DESC LIMIT 1',
+        'SELECT id, prompt, finished_at, model FROM sessions WHERE provider = ? AND root = ? ORDER BY started_at DESC, rowid DESC LIMIT 1',
       )
       .get(provider, root);
 
     if (last === null || last.prompt !== prompt) return undefined;
+    if (model !== undefined && last.model !== null && last.model !== model) {
+      return undefined;
+    }
     if (last.finished_at === null) return last.id;
 
     return this.pendingNotices(root, last.id).length > 0 ? last.id : undefined;

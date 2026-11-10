@@ -529,8 +529,15 @@ export class Agent {
     let sessionId: string | undefined;
     /** CLI turns of this run, 1-based; each one is told to the subscribers. */
     let turns = 0;
+    /** The model this run is on: a session is resumed only on the same one. */
+    const model = this.provider.describe?.().model;
     /** The stored session this run tries to continue, until the CLI confirms it. */
     let resuming: string | undefined;
+    /**
+     * A session this run opened whose first turn has not ended yet: if the CLI
+     * fails now, its history may not hold the task, and it must not be resumed.
+     */
+    let unanswered: string | undefined;
 
     try {
       // Before the sandbox and the gate: another run here would only wait.
@@ -618,6 +625,7 @@ export class Agent {
                   this.workspace.root,
                   event.id,
                 );
+                unanswered = event.id;
               }
               sessionId = event.id;
               this.broker?.setSession(event.id);
@@ -628,6 +636,7 @@ export class Agent {
                 root: this.workspace.root,
                 prompt: input,
                 agent: this.name,
+                ...(model === undefined ? {} : { model }),
                 command: currentProcessCommand(),
               });
               publish({ type: 'session', id: event.id });
@@ -746,6 +755,9 @@ export class Agent {
           agentEvents.emit({ type: 'turn', phase: 'end', turn: turns });
         }
 
+        // The turn ended: the session holds the task now.
+        unanswered = undefined;
+
         const waiting =
           sessionId === undefined || !this.awaitApprovals
             ? 0
@@ -788,6 +800,7 @@ export class Agent {
       }
     } catch (error) {
       if (!isAbortError(error)) {
+        if (unanswered !== undefined) this.store?.failSession(unanswered);
         log.failure(error);
         agentEvents.emit({
           type: 'error',
@@ -817,6 +830,7 @@ export class Agent {
       this.provider.id,
       this.workspace.root,
       prompt,
+      this.provider.describe?.().model,
     );
   }
 

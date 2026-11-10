@@ -848,6 +848,36 @@ test('se a CLI não tem mais a sessão guardada, começa uma nova em vez de para
   expect(store.openSession('forgetful', process.cwd())).toBeUndefined();
 });
 
+test('uma sessão cujo primeiro turno falhou não é retomada: a próxima execução recomeça com o prompt', async () => {
+  const store = Store.memory();
+  const root = process.cwd();
+  const provider = new RefusedModelProvider();
+  const agent = (): Agent =>
+    new Agent({
+      conversation: false,
+      name: 'teste',
+      prompt: 'pesquise',
+      provider,
+      workspace: new Workspace({ type: 'bubblewrap', root }),
+      interaction: { ask: unusedAsk, write: () => undefined },
+      store,
+    });
+
+  // The CLI opens the session and then refuses the model: run() shows the
+  // error and ends.
+  await agent().run();
+  expect(provider.calls).toHaveLength(1);
+  expect(store.resumableSession('refused', root, 'pesquise')).toBeUndefined();
+
+  // The next run starts over with the task, not "continue where you left".
+  provider.refuse = false;
+  await agent().run();
+  expect(provider.calls.at(1)).toEqual({
+    session: undefined,
+    input: 'pesquise',
+  });
+});
+
 test('o que a CLI escreve no stderr aparece na tela, mas não é resposta do modelo', async () => {
   const written: string[] = [];
   const outputs: unknown[] = [];
@@ -921,6 +951,38 @@ class ForgetfulProvider implements Provider<string, string> {
     for await (const { channel, chunk } of output) {
       if (channel !== 'stdout') continue;
       if (first) yield { type: 'session', id: 'nova-sessao' };
+      first = false;
+      yield { type: 'output', value: chunk };
+    }
+  }
+}
+
+/** Opens a session and, while `refuse`, fails before the turn ends. */
+class RefusedModelProvider implements Provider<string, string> {
+  public readonly id = 'refused';
+  public refuse = true;
+  public readonly calls: { session: string | undefined; input: string }[] = [];
+
+  public createCommand(input: string, sessionId?: string): ProgramCommand {
+    this.calls.push({ session: sessionId, input });
+    return {
+      executable: process.execPath,
+      arguments: [
+        '-e',
+        this.refuse
+          ? 'process.stdout.write("sessao"); process.exit(1)'
+          : 'process.stdout.write("ok")',
+      ],
+    };
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    let first = true;
+    for await (const { channel, chunk } of output) {
+      if (channel !== 'stdout') continue;
+      if (first) yield { type: 'session', id: `s${String(this.calls.length)}` };
       first = false;
       yield { type: 'output', value: chunk };
     }

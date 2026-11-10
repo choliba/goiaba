@@ -284,6 +284,47 @@ describe('Store', () => {
     expect(store.resumableSession('claude', '/w', 'tarefa')).toBe('s1');
   });
 
+  test('retoma só no mesmo modelo; sem modelo guardado, vale qualquer um', () => {
+    const store = Store.memory();
+    store.recordSession({
+      id: 's1',
+      provider: 'cursor',
+      root: '/w',
+      prompt: 'tarefa',
+      model: 'grok-4.7-medium',
+    });
+
+    expect(
+      store.resumableSession('cursor', '/w', 'tarefa', 'grok-4.7-medium'),
+    ).toBe('s1');
+    expect(store.resumableSession('cursor', '/w', 'tarefa', 'auto')).toBe(
+      undefined,
+    );
+
+    // Recorded before the model was kept.
+    store.recordSession({
+      id: 's2',
+      provider: 'claude',
+      root: '/w',
+      prompt: 'p',
+    });
+    expect(store.resumableSession('claude', '/w', 'p', 'qualquer')).toBe('s2');
+  });
+
+  test('uma sessão que falhou no primeiro turno não é retomada', () => {
+    const store = Store.memory();
+    store.recordSession({
+      id: 's1',
+      provider: 'cursor',
+      root: '/w',
+      prompt: 't',
+    });
+
+    store.failSession('s1');
+
+    expect(store.resumableSession('cursor', '/w', 't')).toBeUndefined();
+  });
+
   test('sessão nova abandona as abertas e some com as negações delas', () => {
     const store = Store.memory();
     const open = (id: string, provider = 'claude'): void => {
