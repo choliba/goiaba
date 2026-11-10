@@ -63,13 +63,9 @@ export const RUBRIC = {
 } as const;
 
 /**
- * Where a round's pieces live in the project, relative to its root. Part of
- * the repository's layout, versioned and read by the pages, so not options:
- * the declarations, the starting points (fixtures) and the records.
+ * Where a round's pieces live (declarations, fixtures, records) is the
+ * config's `rounds.definitions`, `rounds.fixtures` and `rounds.data`.
  */
-export const ROUNDS_DEFINITIONS_DIR = 'rounds/definitions';
-export const ROUNDS_FIXTURES_DIR = 'rounds/fixtures';
-export const ROUNDS_DATA_DIR = 'rounds/data';
 
 /**
  * The tag a fixture's repository is created with: the point every run of a
@@ -84,9 +80,9 @@ export const FIXTURE_TAG = 'rodada-base';
 export const FIXTURE_AUTHOR = { name: 'goiaba', email: 'goiaba@localhost' };
 
 /**
- * Where the rounds' pages answer while `bun run rounds:web` runs: Vite's
- * dev server, on its default port. A round's page is this plus
- * `#/rodada/<id>`.
+ * Where the rounds' pages answer while `goiaba rounds:web` (or `bun run
+ * rounds:web`) runs: on Vite's default port, whoever serves them. A round's
+ * page is this plus `#/rodada/<id>`.
  */
 export const ROUNDS_WEB_URL = 'http://localhost:5173/';
 
@@ -97,11 +93,23 @@ export const ROUNDS_WEB_URL = 'http://localhost:5173/';
  */
 export const ROUNDS_WEB_PROBE_MS = 1000;
 
-/** The rounds' pages: the Vite project `bun run rounds:web` serves. */
+/** The rounds' pages, from the package's root: the Vite project in development. */
 export const ROUNDS_WEB_DIR = 'rounds/web';
+
+/** The built pages, inside `ROUNDS_WEB_DIR`: what the package ships and serves. */
+export const ROUNDS_WEB_DIST = 'dist';
 
 /** Vite's own script, in the pages' project: run directly, one process to stop. */
 export const ROUNDS_WEB_VITE = 'node_modules/vite/bin/vite.js';
+
+/** What the pages fetch when they open: every record of `rounds.data`. */
+export const ROUNDS_JSON = 'rounds.json';
+
+/**
+ * The variable that tells the pages' Vite where the records are
+ * (`rounds.data`): its config reads it, it cannot take options of its own.
+ */
+export const ROUNDS_DATA_ENV = 'GOIABA_ROUNDS_DATA';
 
 /**
  * Milliseconds to wait for the pages' server to answer once started: Vite

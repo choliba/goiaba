@@ -201,11 +201,19 @@ export async function openInBrowser(url: string): Promise<void> {
 export function startHelper(
   executable: string,
   args: readonly string[],
-  { cwd }: { readonly cwd: string },
+  {
+    cwd,
+    env,
+  }: {
+    readonly cwd: string;
+    /** Variables added to this process's environment for the helper. */
+    readonly env?: Readonly<Record<string, string>>;
+  },
 ): Helper {
   const child = spawn(executable, [...args], {
     cwd,
     stdio: ['pipe', 'ignore', 'ignore'],
+    ...(env === undefined ? {} : { env: { ...process.env, ...env } }),
   });
 
   return {
@@ -237,8 +245,17 @@ export function startHelper(
 export function runAttached(
   executable: string,
   args: readonly string[],
+  {
+    env,
+  }: {
+    /** Variables added to this process's environment for the program. */
+    readonly env?: Readonly<Record<string, string>>;
+  } = {},
 ): Promise<number> {
-  const child = spawn(executable, [...args], { stdio: 'inherit' });
+  const child = spawn(executable, [...args], {
+    stdio: 'inherit',
+    ...(env === undefined ? {} : { env: { ...process.env, ...env } }),
+  });
   const forward = (signal: NodeJS.Signals): void => {
     child.kill(signal);
   };

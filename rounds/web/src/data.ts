@@ -1,7 +1,8 @@
 /**
- * The rounds' records (rounds/data), read at build time and checked by the
- * same validator the engine uses. A test is a declaration (its `id`, the
- * file in rounds/definitions); every time it runs is a round, numbered in
+ * The rounds' records (`rounds.data`), fetched as `rounds.json` when the
+ * pages open and checked by the same validator the engine uses. A test is a
+ * declaration (its `id`, the file in `rounds.definitions`); every time it
+ * runs is a round, numbered in
  * the order it ran, whatever changed in between. Each round is compared with
  * the one before it in the same test. Rounds with the same configuration
  * (the same `configHash`) are averaged together, and only those. Nothing
@@ -44,58 +45,78 @@ export interface Round {
 /** How many characters of `configHash` name a configuration. */
 const CONFIG_KEY_LENGTH = 8;
 
-// rounds/data (ROUNDS_DATA_DIR in src/rounds/constants.ts): Vite needs the
-// glob as a literal, so the path is written here too.
-const files = import.meta.glob<unknown>('../../data/*.json', {
-  eager: true,
-  import: 'default',
-});
-
-const records = Object.entries(files)
-  .map(([path, value]) => validateRound(value, path.split('/').at(-1)))
-  .toSorted((a, b) => a.timing.startedAt.localeCompare(b.timing.startedAt));
-
-const groups = Map.groupBy(records, (record) => record.definition.id);
-
-/** Built in two passes: a round points to its test, a test lists its rounds. */
-const built: Test[] = [];
-const allRounds: Round[] = [];
-for (const [id, group] of groups) {
-  const last = group.at(-1);
-  if (last === undefined) continue;
-  const rounds: Round[] = [];
-  const test: Test = {
-    key: id,
-    title: id,
-    goal: last.definition.goal,
-    rounds,
-    configurations: new Set(group.map((record) => record.configHash)).size,
-  };
-  group.forEach((record, position) => {
-    rounds.push({
-      record,
-      test,
-      index: position + 1,
-      label:
-        group.length === 1
-          ? 'rodada única'
-          : `rodada ${String(position + 1)} de ${String(group.length)}`,
-      configuration: record.configHash.slice(0, CONFIG_KEY_LENGTH),
-      previous: group[position - 1],
-      score: scoreRound(record, group.slice(0, position)),
-    });
-  });
-  built.push(test);
-  allRounds.push(...rounds);
+/** A record as `rounds.json` brings it: its file name and its content. */
+export interface RecordFile {
+  readonly file: string;
+  readonly record: unknown;
 }
 
-/** Oldest first. */
-export const tests: readonly Test[] = built;
+/** Whether a value of `rounds.json` is a record file (its record is checked later). */
+export function isRecordFile(value: unknown): value is RecordFile {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'file' in value &&
+    typeof value.file === 'string' &&
+    'record' in value
+  );
+}
+
+/** Oldest first; empty until `loadRecords`. */
+export let tests: readonly Test[] = [];
 
 /** The tests by their last round, newest first: what the top shows. */
-export const recentTests: readonly Test[] = tests.toSorted((a, b) =>
-  lastRun(b).localeCompare(lastRun(a)),
-);
+export let recentTests: readonly Test[] = [];
+
+let allRounds: readonly Round[] = [];
+
+/**
+ * Builds the tests and rounds from the records (`rounds.json`, fetched when
+ * the pages open), each checked by the engine's validator. Called once,
+ * before the pages render.
+ */
+export function loadRecords(files: readonly RecordFile[]): void {
+  const records = files
+    .map(({ file, record }) => validateRound(record, file))
+    .toSorted((a, b) => a.timing.startedAt.localeCompare(b.timing.startedAt));
+  const groups = Map.groupBy(records, (record) => record.definition.id);
+
+  // Built in two passes: a round points to its test, a test lists its rounds.
+  const built: Test[] = [];
+  const rounds: Round[] = [];
+  for (const [id, group] of groups) {
+    const last = group.at(-1);
+    if (last === undefined) continue;
+    const testRounds: Round[] = [];
+    const test: Test = {
+      key: id,
+      title: id,
+      goal: last.definition.goal,
+      rounds: testRounds,
+      configurations: new Set(group.map((record) => record.configHash)).size,
+    };
+    group.forEach((record, position) => {
+      testRounds.push({
+        record,
+        test,
+        index: position + 1,
+        label:
+          group.length === 1
+            ? 'rodada única'
+            : `rodada ${String(position + 1)} de ${String(group.length)}`,
+        configuration: record.configHash.slice(0, CONFIG_KEY_LENGTH),
+        previous: group[position - 1],
+        score: scoreRound(record, group.slice(0, position)),
+      });
+    });
+    built.push(test);
+    rounds.push(...testRounds);
+  }
+
+  tests = built;
+  recentTests = built.toSorted((a, b) => lastRun(b).localeCompare(lastRun(a)));
+  allRounds = rounds;
+}
 
 export function lastRun(test: Test): string {
   return test.rounds.at(-1)?.record.timing.startedAt ?? '';

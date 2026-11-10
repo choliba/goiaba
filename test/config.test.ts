@@ -164,7 +164,13 @@ test('loadConfig usa defaults quando não há arquivo', async () => {
         dir: resolve(cwd, '.goiaba/workspaces'),
         homes: resolve(cwd, '.goiaba/homes'),
       },
-      rounds: { dir: undefined },
+      rounds: {
+        dir: undefined,
+        definitions: resolve(cwd, 'rounds/definitions'),
+        fixtures: resolve(cwd, 'rounds/fixtures'),
+        data: resolve(cwd, 'rounds/data'),
+      },
+      project: cwd,
       debug: false,
       configPath: undefined,
       env: undefined,
@@ -299,10 +305,25 @@ test('rounds.dir por um link simbólico que leva para dentro do projeto é recus
   });
 });
 
+test('rounds: definições, fixtures e registros, relativos ao arquivo', async () => {
+  await withProject(async ({ project }) => {
+    writeRounds(
+      project,
+      `{ definitions: 'rodadas/declaradas', data: '../registros' }`,
+    );
+    const config = await loadConfig({ cwd: project });
+    expect(config.rounds.definitions).toBe(join(project, 'rodadas/declaradas'));
+    expect(config.rounds.fixtures).toBe(join(project, 'rounds/fixtures'));
+    expect(config.rounds.data).toBe(resolve(project, '../registros'));
+    expect(config.project).toBe(project);
+  });
+});
+
 test('rounds: opção desconhecida e dir vazio são recusados', async () => {
   for (const [rounds, message] of [
-    [`{ data: 'x' }`, 'rounds.data'],
+    [`{ dados: 'x' }`, 'rounds.dados'],
     [`{ dir: ' ' }`, 'rounds.dir'],
+    [`{ data: '' }`, 'rounds.data'],
   ] as const) {
     await withProject(async ({ project }) => {
       writeRounds(project, rounds);

@@ -1,9 +1,28 @@
 {
   "name": "goiaba",
   "version": "0.1.0",
-  "private": true,
+  "description": "Agentes de IA rodando em sandbox, com uma política de permissões única, e rodadas que medem o que cada agente fez.",
   "license": "MIT",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./rounds": "./src/rounds/index.ts",
+    "./config": "./src/config/index.ts",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "goiaba": "./bin/goiaba.ts"
+  },
+  "files": [
+    "src",
+    "bin",
+    "rounds/web/dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.4"
+  },
   "scripts": {
     "ollama:codex": "bun agents/ollama.codex.ts",
     "ollama": "bun agents/ollama.ts",
@@ -12,7 +31,7 @@
     "rounds:web": "bun run --cwd rounds/web dev",
     "rounds:build": "bun run --cwd rounds/web build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p rounds/web",
-    "lint": "oxlint --type-aware src test agents scripts guides rounds goiaba.config.ts",
+    "lint": "oxlint --type-aware src bin test agents scripts guides rounds goiaba.config.ts",
     "lint:fix": "oxlint --type-aware --fix src test agents scripts guides rounds goiaba.config.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -21,7 +40,9 @@
     "issue": "bun scripts/issue.ts",
     "clear": "bun scripts/clear.ts",
     "generate-guides": "bun scripts/generate-guides.ts",
-    "test": "bun test test/"
+    "test": "bun test test/",
+    "goiaba": "bun bin/goiaba.ts",
+    "prepack": "bun run rounds:build"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",

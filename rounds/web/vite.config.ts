@@ -3,46 +3,55 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
-/** Where the rounds write their records: outside this project's root. */
-const DATA = fileURLToPath(new URL('../data/', import.meta.url));
-
-/** The module that reads them (`import.meta.glob`). */
-const READER = fileURLToPath(new URL('src/data.ts', import.meta.url));
+import { environment } from '../../src/execute/process';
+import { resolve } from '../../src/filesystem/index';
+import { ROUNDS_DATA_ENV, ROUNDS_JSON } from '../../src/rounds/constants';
+import { roundsPayload } from '../../src/rounds/payload';
 
 /**
- * In development, a round that just ran shows up without restarting: Vite
- * only watches its root (rounds/web), so a new record in rounds/data went
- * unseen until the glob was redone. A changed record was already seen (it
- * is in the module graph); a new or removed one now is too.
+ * Where the records are: `rounds.data`, given by `goiaba rounds` when it
+ * starts Vite; this repository's rounds/data when Vite runs by itself
+ * (`bun run rounds:web`).
  */
-function watchRecords(): Plugin {
+const DATA =
+  environment()[ROUNDS_DATA_ENV] ??
+  fileURLToPath(new URL('../data/', import.meta.url));
+
+/**
+ * The records as the pages fetch them when they open (`rounds.json`), the
+ * same as the built pages get from `goiaba rounds:web`. A record that comes
+ * or goes reloads the pages: a round that just ran shows up at once.
+ */
+function records(): Plugin {
   return {
-    name: 'rounds-watch-records',
+    name: 'rounds-records',
     configureServer(server) {
+      server.middlewares.use(`/${ROUNDS_JSON}`, (_request, response) => {
+        response.setHeader('content-type', 'application/json; charset=utf-8');
+        response.end(roundsPayload(DATA));
+      });
       server.watcher.add(DATA);
       const reload = (file: string): void => {
-        if (!file.startsWith(DATA) || !file.endsWith('.json')) return;
-        // The glob is expanded when data.ts is transformed: redo it.
-        for (const module of server.moduleGraph.getModulesByFile(READER) ??
-          []) {
-          server.moduleGraph.invalidateModule(module);
-        }
+        if (!resolve(file).startsWith(resolve(DATA))) return;
+        if (!file.endsWith('.json')) return;
         server.ws.send({ type: 'full-reload' });
       };
       server.watcher.on('add', reload);
+      server.watcher.on('change', reload);
       server.watcher.on('unlink', reload);
     },
   };
 }
 
-// The pages of the rounds: static, read from rounds/data at build time.
-// `base: './'` keeps every path relative, so dist/ opens from anywhere.
+// The pages of the rounds: static, the records fetched when they open.
+// `base: './'` keeps every path relative, so dist/ is served from anywhere.
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
   base: './',
-  plugins: [react(), watchRecords()],
+  plugins: [react(), records()],
+  build: { target: 'es2022' },
   server: {
-    // The records (../data) and the round types (../../src/rounds).
+    // The round types (../../src/rounds).
     fs: { allow: [fileURLToPath(new URL('../..', import.meta.url))] },
   },
 });

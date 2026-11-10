@@ -28,8 +28,13 @@ registro em JSON, e as páginas em [`web/`](web/) comparam uma execução com as
 | [`definitions/<id>.ts`](definitions/) | as rodadas declaradas                                                    |
 | [`fixtures/<nome>/`](fixtures/)       | os pontos de partida, copiados para a pasta da rodada a cada execução    |
 | [`data/<início>.json`](data/)         | um registro por execução, gravado pelo `runRound`                        |
-| [`web/`](web/)                        | as páginas (React), geradas a partir dos registros                       |
-| [`run.ts`](run.ts)                    | a linha de comando: `bun run rounds <id>`                                |
+| [`web/`](web/)                        | as páginas (React), que leem os registros ao abrir (`rounds.json`)       |
+| [`run.ts`](run.ts)                    | a linha de comando: `bun run rounds <id>` (o mesmo que `goiaba rounds`)  |
+
+Esses são os lugares padrão. Num projeto que instalou o Goiaba como pacote, as declarações, os pontos de partida e
+os registros ficam em `rounds/definitions`, `rounds/fixtures` e `rounds/data` **daquele projeto**, ou onde a config
+mandar (`rounds.definitions`, `rounds.fixtures`, `rounds.data`). Lá, `goiaba rounds <id>` roda a rodada e
+`goiaba rounds:web` serve as páginas que o pacote já traz prontas.
 
 A rodada não entra no `runScript` nem no `Agent.run()`. Ela só declara quem participa e em que ordem, e o
 `runRound` monta os agentes. Os agentes não sabem que estão numa rodada: o `runRound` os acompanha pelos eventos.

@@ -17,12 +17,7 @@ import {
   realPathOfNearest,
   removePath,
 } from '../filesystem/index';
-import {
-  FIXTURE_AUTHOR,
-  FIXTURE_TAG,
-  GIT_TIMEOUT_MS,
-  ROUNDS_FIXTURES_DIR,
-} from './constants';
+import { FIXTURE_AUTHOR, FIXTURE_TAG, GIT_TIMEOUT_MS } from './constants';
 
 /** The workspace's state in git, to know whether an agent changed something. */
 export interface Tree {
@@ -81,21 +76,23 @@ export async function assertOwnRepository(root: string): Promise<void> {
  */
 export async function prepareFixture({
   project,
+  fixtures,
   fixture,
   root,
   roundsDir,
 }: {
   readonly project: string;
+  /** The folder of the starting points (`rounds.fixtures`). */
+  readonly fixtures: string;
   readonly fixture: string;
   readonly root: string;
   readonly roundsDir: string;
 }): Promise<string> {
-  const fixtures = join(project, ROUNDS_FIXTURES_DIR);
   const source = join(fixtures, fixture);
   if (!pathExists(source) || !isDirectory(source)) {
     const available = pathExists(fixtures) ? listDirectory(fixtures) : [];
     throw new UsageError(
-      `Não há a fixture ${fixture} em ${ROUNDS_FIXTURES_DIR}. ${available.length === 0 ? 'Não há nenhuma: crie a pasta com os arquivos de partida.' : `As que existem: ${available.join(', ')}.`}`,
+      `Não há a fixture ${fixture} em ${fixtures}. ${available.length === 0 ? 'Não há nenhuma: crie a pasta com os arquivos de partida.' : `As que existem: ${available.join(', ')}.`}`,
     );
   }
   assertApart(root, project);

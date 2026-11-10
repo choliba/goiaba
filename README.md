@@ -49,6 +49,30 @@ da CLI que o agente vai usar (`claude`, `codex`, `agent` ou o [Ollama](https://o
 bun install
 ```
 
+### Em outro projeto
+
+O Goiaba é um pacote: dá para instalá-lo em qualquer projeto que use o Bun. Do repositório, sem publicar:
+
+```bash
+bun add github:choliba/goiaba
+```
+
+Ou gere o pacote aqui (`bun pm pack`, que também gera as páginas das rodadas) e instale o arquivo lá
+(`bun add ./goiaba-0.1.0.tgz`).
+
+No outro projeto, a biblioteca vem de `goiaba` (e `goiaba/rounds`, `goiaba/config`), e o comando `goiaba` roda as
+rodadas e serve as páginas:
+
+```bash
+bunx goiaba rounds <id>      # roda uma rodada de rounds/definitions
+bunx goiaba rounds:web       # as páginas das rodadas, com os registros de rounds/data
+bunx goiaba approvals        # revisa os comandos negados pelo gate
+```
+
+Cada comando lê o `goiaba.config.ts` do projeto. As rodadas precisam de `rounds.dir` (uma pasta fora do projeto) e
+procuram as declarações, os pontos de partida e os registros em `rounds/definitions`, `rounds/fixtures` e
+`rounds/data`, a menos que a config diga outros (`rounds.definitions`, `rounds.fixtures`, `rounds.data`).
+
 ## Uso
 
 ```ts

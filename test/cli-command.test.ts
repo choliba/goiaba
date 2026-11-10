@@ -93,6 +93,20 @@ describe('parseCommandLine', () => {
   });
 });
 
+test('o programa do comando aparece no uso: goiaba, em vez de bun', () => {
+  const rounds = defineCommand({
+    program: 'goiaba',
+    name: 'rounds',
+    description: 'Roda uma rodada.',
+    args: { rodada: { description: 'O id', required: true } },
+    run: () => undefined,
+  });
+  expect(helpText(rounds).split('\n')[0]).toBe('Uso: goiaba rounds <rodada>');
+  expect(() => parseCommandLine(rounds, [])).toThrow(
+    'Veja: goiaba rounds --help',
+  );
+});
+
 test('helpText descreve argumentos e opções', () => {
   expect(helpText(issue)).toBe(
     [

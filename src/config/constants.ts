@@ -22,3 +22,15 @@ export const DEFAULT_HOMES_DIR = '.goiaba/homes';
  * A `Workspace` may still be given any other root.
  */
 export const DEFAULT_WORKSPACES_DIR = '.goiaba/workspaces';
+
+/**
+ * Where the rounds are declared, one `<id>.ts` or `<id>/<id>.ts` each
+ * (option `rounds.definitions`), relative to the project.
+ */
+export const DEFAULT_ROUNDS_DEFINITIONS_DIR = 'rounds/definitions';
+
+/** The starting points the rounds copy (option `rounds.fixtures`). */
+export const DEFAULT_ROUNDS_FIXTURES_DIR = 'rounds/fixtures';
+
+/** Where each run of a round writes its record (option `rounds.data`). */
+export const DEFAULT_ROUNDS_DATA_DIR = 'rounds/data';

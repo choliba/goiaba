@@ -31,6 +31,7 @@ import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 export {
   basename,
   dirname,
+  extname,
   isAbsolute,
   join,
   normalize,

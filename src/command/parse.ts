@@ -86,7 +86,7 @@ function usageError(
   message: string,
 ): UsageError {
   return new UsageError(
-    `${message}\nUso: ${usageLine(definition)}\nVeja: bun ${definition.name} --help`,
+    `${message}\nUso: ${usageLine(definition)}\nVeja: ${definition.program ?? 'bun'} ${definition.name} --help`,
   );
 }
 
@@ -96,7 +96,12 @@ export function usageLine(definition: CommandDefinition): string {
   );
   const options =
     Object.keys(definition.options ?? {}).length > 0 ? ['[opções]'] : [];
-  return ['bun', definition.name, ...args, ...options].join(' ');
+  return [
+    definition.program ?? 'bun',
+    definition.name,
+    ...args,
+    ...options,
+  ].join(' ');
 }
 
 /** The reader's errors, in Portuguese. */

@@ -19,6 +19,7 @@ import {
   realPathOfNearest,
 } from '../filesystem/index';
 import { Workspace } from '../workspace/index';
+import { DEFAULT_ROUNDS_FIXTURES_DIR } from '../config/constants';
 import { FIXTURE_TAG, NO_ONE_ANSWERS, RESOURCE_SAMPLE_MS } from './constants';
 import { writableOf } from './permissions';
 import type { RoundDefinition, RoundFlowStep } from './define';
@@ -66,10 +67,12 @@ export interface RunRoundOptions {
   /** Where the records go, one `<id>.json` per run. */
   readonly dir: string;
   /**
-   * The project's path: written as `<projeto>` in the records, holds the
-   * fixtures (`rounds/fixtures`), and no round may run inside it.
+   * The project's path: written as `<projeto>` in the records, and no round
+   * may run inside it.
    */
   readonly project: string;
+  /** The starting points (`rounds.fixtures`); `<project>/rounds/fixtures` by default. */
+  readonly fixtures?: string;
   /** Where rounds started from a fixture run; `rounds.dir` by default. */
   readonly roundsDir?: string;
   /** Where the agents show what they do; the agents' conversation on stdio by default. */
@@ -216,6 +219,7 @@ async function runOnce(
   {
     dir,
     project,
+    fixtures = join(project, DEFAULT_ROUNDS_FIXTURES_DIR),
     roundsDir = getConfig().rounds.dir,
     screen = agentConversation(),
     signal,
@@ -268,6 +272,7 @@ async function runOnce(
           ? await resetFrom(git.root, git.tag, project)
           : await prepareFixture({
               project,
+              fixtures,
               fixture: git.fixture,
               root: git.root,
               roundsDir: git.roundsDir,

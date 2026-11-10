@@ -21,6 +21,9 @@ import {
   DEFAULT_DATABASE_NAME,
   DEFAULT_HOMES_DIR,
   DEFAULT_LOG_DIR,
+  DEFAULT_ROUNDS_DATA_DIR,
+  DEFAULT_ROUNDS_DEFINITIONS_DIR,
+  DEFAULT_ROUNDS_FIXTURES_DIR,
   DEFAULT_WORKSPACES_DIR,
 } from './constants';
 
@@ -80,6 +83,15 @@ export interface GoiabaRoundsConfig {
    * hold it: a round's folder is deleted before each run.
    */
   readonly dir?: string;
+  /**
+   * Where the rounds are declared (`<id>.ts` or `<id>/<id>.ts`). Relative to
+   * the config file; `rounds/definitions` by default.
+   */
+  readonly definitions?: string;
+  /** The starting points the rounds copy; `rounds/fixtures` by default. */
+  readonly fixtures?: string;
+  /** Where each run writes its record; `rounds/data` by default. */
+  readonly data?: string;
 }
 
 export interface GoiabaConfig {
@@ -112,7 +124,18 @@ export interface ResolvedGoiabaConfig {
   readonly rounds: {
     /** Absolute folder the rounds run in; `undefined` when not configured. */
     readonly dir: string | undefined;
+    /** Absolute folder of the rounds' declarations. */
+    readonly definitions: string;
+    /** Absolute folder of the starting points (fixtures). */
+    readonly fixtures: string;
+    /** Absolute folder of the runs' records. */
+    readonly data: string;
   };
+  /**
+   * The project: the folder of the config file (or where the search
+   * started, without one). Records leave its path out (`<projeto>`).
+   */
+  readonly project: string;
   readonly debug: boolean;
   readonly configPath: string | undefined;
   readonly env: ResolvedGoiabaEnv | undefined;
@@ -413,6 +436,14 @@ function normalizeWorkspaces(
   };
 }
 
+/** The options of `rounds`, each a path. */
+const ROUNDS_OPTIONS: readonly string[] = [
+  'dir',
+  'definitions',
+  'fixtures',
+  'data',
+];
+
 function normalizeRounds(
   rounds: unknown,
   configPath: string,
@@ -423,21 +454,27 @@ function normalizeRounds(
     throw new UsageError(`rounds em ${configPath} deve ser um objeto.`);
   }
 
-  const unknown = Object.keys(rounds).find((key) => key !== 'dir');
+  const unknown = Object.keys(rounds).find(
+    (key) => !ROUNDS_OPTIONS.includes(key),
+  );
   if (unknown !== undefined) {
     throw new UsageError(
-      `Opção desconhecida "rounds.${unknown}" em ${configPath}. Opções: dir.`,
+      `Opção desconhecida "rounds.${unknown}" em ${configPath}. Opções: ${ROUNDS_OPTIONS.join(', ')}.`,
     );
   }
 
-  const dir = rounds['dir'];
-  if (dir === undefined) return {};
-  if (typeof dir !== 'string' || dir.trim() === '') {
-    throw new UsageError(
-      `rounds.dir em ${configPath} deve ser uma string não vazia.`,
-    );
+  const paths: Record<string, string> = {};
+  for (const name of ROUNDS_OPTIONS) {
+    const path = rounds[name];
+    if (path === undefined) continue;
+    if (typeof path !== 'string' || path.trim() === '') {
+      throw new UsageError(
+        `rounds.${name} em ${configPath} deve ser uma string não vazia.`,
+      );
+    }
+    paths[name] = path;
   }
-  return { dir };
+  return paths;
 }
 
 /**
@@ -552,7 +589,17 @@ function resolveConfig(
         file.rounds?.dir === undefined
           ? undefined
           : roundsDir(baseDir, absolute(baseDir, file.rounds.dir)),
+      definitions: absolute(
+        baseDir,
+        file.rounds?.definitions ?? DEFAULT_ROUNDS_DEFINITIONS_DIR,
+      ),
+      fixtures: absolute(
+        baseDir,
+        file.rounds?.fixtures ?? DEFAULT_ROUNDS_FIXTURES_DIR,
+      ),
+      data: absolute(baseDir, file.rounds?.data ?? DEFAULT_ROUNDS_DATA_DIR),
     },
+    project: baseDir,
     debug: envOverrides.debug ?? file.debug ?? false,
     configPath,
     envs,

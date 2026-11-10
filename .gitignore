@@ -8,3 +8,5 @@ node_modules/
 storage
 # Conversa gerada por agents/meus-testes/goiaba-json.ts
 agents/meus-testes/goiaba.json
+# O pacote gerado por bun pm pack
+goiaba-*.tgz

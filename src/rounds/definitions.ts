@@ -11,7 +11,6 @@ import {
   listDirectory,
   pathExists,
 } from '../filesystem/index';
-import { ROUNDS_DEFINITIONS_DIR } from './constants';
 
 /** The ids of every round declared in `dir`, sorted. */
 export function listDefinitions(dir: string): string[] {
@@ -38,13 +37,13 @@ export function findDefinition(dir: string, id: string): string {
   const asFolder = pathExists(inFolder);
   if (asFile && asFolder) {
     throw new UsageError(
-      `A rodada ${id} está declarada duas vezes: ${ROUNDS_DEFINITIONS_DIR}/${id}.ts e ${ROUNDS_DEFINITIONS_DIR}/${id}/${id}.ts. Apague uma das duas.`,
+      `A rodada ${id} está declarada duas vezes: ${dir}/${id}.ts e ${dir}/${id}/${id}.ts. Apague uma das duas.`,
     );
   }
   if (asFile) return file;
   if (asFolder) return inFolder;
   const available = listDefinitions(dir);
   throw new UsageError(
-    `Não há a rodada ${id} em ${ROUNDS_DEFINITIONS_DIR} (nem ${id}.ts, nem ${id}/${id}.ts). ${available.length === 0 ? 'Não há nenhuma.' : `As que existem: ${available.join(', ')}.`}`,
+    `Não há a rodada ${id} em ${dir} (nem ${id}.ts, nem ${id}/${id}.ts). ${available.length === 0 ? 'Não há nenhuma.' : `As que existem: ${available.join(', ')}.`}`,
   );
 }

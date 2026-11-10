@@ -11,6 +11,7 @@
   },
   "include": [
     "src/**/*.ts",
+    "bin/**/*.ts",
     "agents/**/*.ts",
     "test/**/*.ts",
     "scripts/**/*.ts",

@@ -285,9 +285,10 @@ comparando caminhos reais: um link simbólico não engana.
 **Por que fora:** a pasta de uma rodada é apagada antes de cada execução, e o git dela nunca pode ser o do Goiaba.
 Dentro do projeto, uma pasta sem `.git` próprio faz o git subir até o repositório do Goiaba, e o reset cairia nele.
 
-**O que fica no projeto** é o que é versionado e revisado: `rounds/definitions`, `rounds/fixtures` e `rounds/data`.
-Esses caminhos são fixos (`ROUNDS_DEFINITIONS_DIR`, `ROUNDS_FIXTURES_DIR`, `ROUNDS_DATA_DIR`), não opções: são a
-estrutura do repositório, e as páginas e a linha de comando precisam saber onde procurar.
+**O que fica no projeto** é o que é versionado e revisado: as declarações, os pontos de partida e os registros. Por
+padrão, `rounds/definitions`, `rounds/fixtures` e `rounds/data`, a partir do arquivo de configuração; para pôr em
+outro lugar, `rounds: { definitions, fixtures, data }`. Num projeto que instalou o Goiaba como pacote, é assim que
+`goiaba rounds <id>` acha as rodadas dele, e `goiaba rounds:web` mostra os registros dele.
 
 ### Fixture ou repositório, e as travas
 

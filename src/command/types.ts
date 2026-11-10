@@ -59,8 +59,10 @@ export interface CommandDefinition<
   TArgs extends ArgSpecs = ArgSpecs,
   TOptions extends OptionSpecs = OptionSpecs,
 > {
-  /** How it is called: `bun <name>`. */
+  /** How it is called: `<program> <name>`. */
   readonly name: string;
+  /** The program that runs it, in the usage line; `bun` by default. */
+  readonly program?: string;
   readonly description: string;
   readonly args?: TArgs;
   readonly options?: TOptions;
