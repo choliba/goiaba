@@ -133,12 +133,12 @@ export {
   type Sandbox,
 } from './workspace/sandbox/index';
 export { CodexProvider } from './providers/codex/codex-provider';
-export { CursorProvider } from './providers/cursor-provider';
+export { CursorProvider } from './providers/cursor/cursor-provider';
 export {
   OllamaProvider,
   type OllamaCli,
   type OllamaProviderOptions,
-} from './providers/ollama-provider';
+} from './providers/ollama/ollama-provider';
 export {
   ClaudeProvider,
   type ClaudeProviderOptions,

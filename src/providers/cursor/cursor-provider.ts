@@ -1,6 +1,6 @@
-import { userHome } from '../execute/process';
-import type { ProgramCommand, ProgramOutput } from '../execute/types';
-import { join } from '../filesystem/index';
+import { userHome } from '../../execute/process';
+import type { ProgramCommand, ProgramOutput } from '../../execute/types';
+import { join } from '../../filesystem/index';
 import type {
   Provider,
   ProviderDescription,
@@ -9,7 +9,7 @@ import type {
   ToolEvent,
   TokenUsage,
   HostAccess,
-} from './types';
+} from '../types';
 
 export class CursorProvider implements Provider<string, string> {
   public readonly id = 'cursor';

@@ -1,16 +1,20 @@
 import { userHome } from '../../execute/process';
-import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
 
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
 import { join } from '../../filesystem/index';
 import { UsageError } from '../../errors';
 import { truncateError } from '../../logger/index';
 import { wrapCommand } from '../../workspace/sandbox/wrap-command';
-import { delegatedCategories, type AgentPolicy } from '../../policy/index';
-import { buildClaudePermissions, type ClaudePermissions } from './permissions';
+import type { AgentPolicy } from '../../policy/index';
+import {
+  claudeSettings,
+  translateClaudePolicy,
+  type ClaudePermissions,
+  type ClaudeSettings,
+} from './policy';
 import type {
   Provider as ProviderContract,
-  ProviderPermissions,
+  PolicyTranslation,
 } from '../provider.interface';
 import type {
   ExecutionGate,
@@ -24,9 +28,6 @@ import type {
   HostAccess,
 } from '../types';
 import type { GoiabaTool } from '../tools';
-
-// Tools that touch files; the sandbox decides which paths they reach.
-const FILE_TOOLS = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'NotebookEdit'];
 
 /**
  * How each Goiaba capability becomes Claude Code tools (`--tools`). One
@@ -58,26 +59,6 @@ function claudeTools(tools: readonly GoiabaTool[]): readonly string[] {
     for (const name of mapped) if (!names.includes(name)) names.push(name);
   }
   return names;
-}
-
-/** Long enough for a person to answer an approval prompt. */
-
-interface ClaudeSettings {
-  readonly policy: {
-    readonly allow: readonly string[];
-    readonly deny: readonly string[];
-  };
-  readonly hooks?: {
-    readonly PreToolUse: readonly {
-      readonly matcher: string;
-      readonly hooks: readonly {
-        readonly type: 'command';
-        readonly command: string;
-        readonly timeout: number;
-        readonly onFailure: 'block';
-      }[];
-    }[];
-  };
 }
 
 export interface ClaudeProviderOptions extends ProviderOptions {
@@ -128,10 +109,10 @@ export class ClaudeProvider
   }
 
   /** The policy as Claude Code's `allow`, `ask` and `deny` rules. */
-  public buildPermissions(
+  public translatePolicy(
     policy: AgentPolicy,
-  ): ProviderPermissions<ClaudePermissions> {
-    return buildClaudePermissions(policy);
+  ): PolicyTranslation<ClaudePermissions> {
+    return translateClaudePolicy(policy);
   }
 
   public describe(): ProviderDescription {
@@ -167,59 +148,12 @@ export class ClaudeProvider
     return ['api.anthropic.com:443', 'console.anthropic.com:443'];
   }
 
-  public applyPermissions(
+  /** The policy as the settings Claude Code runs with (`--settings`). */
+  public applyPolicy(
     policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[] {
-    const categories = delegatedCategories(policy);
-    const unsupported = categories.find(
-      (category) => category !== 'execution' && category !== 'web',
-    );
-
-    if (unsupported !== undefined) {
-      throw new UsageError(
-        `O provider claude ainda não aplica a categoria ${unsupported}.`,
-      );
-    }
-
-    if (gate === undefined && !categories.includes('web')) return [];
-
-    const web = webSettings(this.buildPermissions(policy));
-
-    // dontAsk runs only what is pre-approved: file tools (the sandbox limits
-    // their paths), the web tools the rules allow and Bash calls the gate's
-    // hook allows. Without execution rules the sandbox is Bash's limit.
-    this.settings = {
-      policy: {
-        allow: [
-          ...FILE_TOOLS,
-          ...(gate === undefined ? ['Bash'] : []),
-          ...web.allow,
-        ],
-        deny: web.deny,
-      },
-      ...(gate === undefined
-        ? {}
-        : {
-            hooks: {
-              PreToolUse: [
-                {
-                  matcher: 'Bash',
-                  hooks: [
-                    {
-                      type: 'command',
-                      command: shellJoin(gate.hookCommand),
-                      timeout: HOOK_TIMEOUT_SECONDS,
-                      // A hook that times out must block, not let the call
-                      // through.
-                      onFailure: 'block',
-                    },
-                  ],
-                },
-              ],
-            },
-          }),
-    };
+    this.settings = claudeSettings(policy, gate);
     return [];
   }
 
@@ -581,44 +515,6 @@ function readEvents(
   } catch {
     return [{ value: createEvent(line) }];
   }
-}
-
-/** POSIX shell quoting for the hook command line. */
-function shellJoin(argv: readonly string[]): string {
-  return argv.map((arg) => `'${arg.replaceAll("'", "'\\''")}'`).join(' ');
-}
-
-/**
- * The web part of the translation, as the settings the CLI runs with. Refuses
- * what Claude would apply more loosely than the policy, and requireApproval:
- * with `--print` nobody answers an `ask`.
- */
-function webSettings(translated: ProviderPermissions<ClaudePermissions>): {
-  readonly allow: readonly string[];
-  readonly deny: readonly string[];
-} {
-  const looser = translated.unsupported.find(
-    (rule) => rule.category === 'web' && rule.effect === 'looser',
-  );
-  if (looser !== undefined) {
-    throw new UsageError(
-      `O provider claude não aplica esta regra web: ${looser.reason}`,
-    );
-  }
-  if (translated.native.ask.some(isWebRule)) {
-    throw new UsageError(
-      'O provider claude ainda não aplica requireApproval em web.',
-    );
-  }
-
-  return {
-    allow: translated.native.allow.filter(isWebRule),
-    deny: translated.native.deny.filter(isWebRule),
-  };
-}
-
-function isWebRule(rule: string): boolean {
-  return rule.startsWith('WebFetch') || rule.startsWith('WebSearch');
 }
 
 function contentBlocks(message: unknown): readonly Record<string, unknown>[] {

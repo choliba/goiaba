@@ -1,15 +1,15 @@
-import { UsageError } from '../errors';
+import { UsageError } from '../../errors';
 import {
   COMPACT_AT,
   DEFAULT_CONTEXT_WINDOW,
   DEFAULT_OLLAMA_URL,
-} from './constants';
-import type { ProgramCommand, ProgramOutput } from '../execute/types';
-import { log } from '../logger/index';
-import type { AgentPolicy } from '../policy/index';
-import { wrapCommand } from '../workspace/sandbox/wrap-command';
-import { ClaudeProvider } from './claude/claude-provider';
-import { CodexProvider } from './codex/codex-provider';
+} from '../constants';
+import type { ProgramCommand, ProgramOutput } from '../../execute/types';
+import { log } from '../../logger/index';
+import type { AgentPolicy } from '../../policy/index';
+import { wrapCommand } from '../../workspace/sandbox/wrap-command';
+import { ClaudeProvider } from '../claude/claude-provider';
+import { CodexProvider } from '../codex/codex-provider';
 import type {
   ExecutionGate,
   Provider,
@@ -20,11 +20,14 @@ import type {
   LiveTurn,
   ModelRequest,
   TrafficEvent,
-} from './types';
+} from '../types';
 import { readOllamaTraffic } from './ollama-traffic';
-import type { GoiabaTool } from './tools';
+import type { GoiabaTool } from '../tools';
 
-export type OllamaCli = 'claude' | 'codex';
+/** The CLIs that can drive a model on Ollama: they run the tools and apply the policy. */
+const OLLAMA_CLIS = ['claude', 'codex'] as const;
+
+export type OllamaCli = (typeof OLLAMA_CLIS)[number];
 
 export interface OllamaProviderOptions extends ProviderOptions {
   readonly cli: OllamaCli;
@@ -102,6 +105,11 @@ export class OllamaProvider implements Provider<string, string> {
   ) => LiveTurn;
 
   public constructor(options: OllamaProviderOptions) {
+    if (!(OLLAMA_CLIS as readonly string[]).includes(options.cli)) {
+      throw new UsageError(
+        `O OllamaProvider precisa de um CLI que conduza o modelo: cli: ${OLLAMA_CLIS.map((cli) => `'${cli}'`).join(' ou ')}, veio ${JSON.stringify(options.cli)}.`,
+      );
+    }
     const baseUrl = readBaseUrl(options.baseUrl ?? DEFAULT_OLLAMA_URL);
     this.id = `ollama-${options.cli}`;
     this.endpoint = endpointOf(baseUrl);
@@ -224,7 +232,7 @@ export class OllamaProvider implements Provider<string, string> {
   }
 
   /** Same policy enforcement as the CLI's own provider (execution gate). */
-  public applyPermissions(
+  public applyPolicy(
     policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[] {
@@ -232,8 +240,8 @@ export class OllamaProvider implements Provider<string, string> {
     // No web at all is stricter than any web rule, so it is turned off
     // instead of refusing the policy.
     return this.inner instanceof CodexProvider
-      ? this.inner.applyPermissions(withoutWeb(policy), gate)
-      : this.inner.applyPermissions(policy, gate);
+      ? this.inner.applyPolicy(withoutWeb(policy), gate)
+      : this.inner.applyPolicy(policy, gate);
   }
 
   public createCommand(input: string, sessionId?: string): ProgramCommand {

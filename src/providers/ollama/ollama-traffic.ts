@@ -1,4 +1,4 @@
-import type { TokenUsage, TrafficEvent } from './types';
+import type { TokenUsage, TrafficEvent } from '../types';
 
 const HEAD_END = '\r\n\r\n';
 const LINE_END = '\r\n';

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { readOllamaTraffic } from '../src/providers/ollama-traffic';
+import { readOllamaTraffic } from '../src/providers/ollama/ollama-traffic';
 import type { TokenUsage, TrafficEvent } from '../src/providers/types';
 
 describe('readOllamaTraffic', () => {

@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 
-import { buildClaudePermissions } from '../src/providers/claude/permissions';
+import {
+  claudeSettings,
+  translateClaudePolicy,
+} from '../src/providers/claude/policy';
 
-describe('buildClaudePermissions', () => {
+describe('translateClaudePolicy', () => {
   test('allow, requireApproval e deny viram allow, ask e deny', () => {
-    const { native } = buildClaudePermissions({
+    const { native } = translateClaudePolicy({
       default: 'deny',
       allow: {
         filesystem: [{ operations: ['*'], paths: ['/workspace/src/**'] }],
@@ -22,7 +25,7 @@ describe('buildClaudePermissions', () => {
   });
 
   test('ignores de allow negam só as operações que nenhuma outra regra alcança', () => {
-    const { native, unsupported } = buildClaudePermissions({
+    const { native, unsupported } = translateClaudePolicy({
       default: 'deny',
       allow: {
         filesystem: [
@@ -43,7 +46,7 @@ describe('buildClaudePermissions', () => {
   });
 
   test('web: busca só para todos os domínios; ferramentas de navegador não existem', () => {
-    const { native, unsupported } = buildClaudePermissions({
+    const { native, unsupported } = translateClaudePolicy({
       default: 'deny',
       allow: {
         web: [
@@ -65,7 +68,7 @@ describe('buildClaudePermissions', () => {
   });
 
   test('MCP e subagentes na sintaxe do Claude', () => {
-    const { native, unsupported } = buildClaudePermissions({
+    const { native, unsupported } = translateClaudePolicy({
       default: 'deny',
       allow: {
         tools: [
@@ -93,7 +96,7 @@ describe('buildClaudePermissions', () => {
   });
 
   test('o que o Claude não controla vai para unsupported, sem sumir', () => {
-    const { native, unsupported } = buildClaudePermissions({
+    const { native, unsupported } = translateClaudePolicy({
       default: 'deny',
       allow: {
         network: [{ operations: ['connect'], hosts: ['registry.npmjs.org'] }],
@@ -116,5 +119,46 @@ describe('buildClaudePermissions', () => {
       'allow.secrets',
       'deny.execution',
     ]);
+  });
+});
+
+describe('claudeSettings', () => {
+  // The settings are Claude Code's language: a key it does not know is
+  // ignored, and in dontAsk mode everything is then denied. A rename on
+  // Goiaba's side must never reach these keys.
+  test('usa as chaves do Claude Code: permissions.allow libera as ferramentas de arquivo', () => {
+    const settings = claudeSettings(
+      {
+        default: 'deny',
+        allow: {
+          filesystem: [{ operations: ['*'], paths: ['/workspace/**'] }],
+          execution: [{ operations: ['run'], commands: ['ls *'] }],
+        },
+      },
+      { hookCommand: ['/bin/bun', '/gate/hook', '/gate/s.sock'], root: '/w' },
+    );
+
+    expect(Object.keys(settings ?? {}).toSorted()).toEqual([
+      'hooks',
+      'permissions',
+    ]);
+    expect(settings?.permissions.allow).toEqual(
+      expect.arrayContaining(['Read', 'Edit', 'Write']),
+    );
+    expect(settings?.hooks?.PreToolUse[0]?.matcher).toBe('Bash');
+  });
+
+  test('sem regras de execução nem web, não há o que o Claude aplicar', () => {
+    expect(
+      claudeSettings(
+        {
+          default: 'deny',
+          allow: {
+            filesystem: [{ operations: ['*'], paths: ['/workspace/**'] }],
+          },
+        },
+        undefined,
+      ),
+    ).toBeUndefined();
   });
 });

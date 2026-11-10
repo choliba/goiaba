@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
 
 import {
   createSymlink,
@@ -11,17 +10,20 @@ import {
   join,
   goiabaCacheDir,
 } from '../../filesystem/index';
-import { UsageError } from '../../errors';
 import { environment, userHome } from '../../execute/process';
 import type { ProgramCommand, ProgramOutput } from '../../execute/types';
 import { truncateError } from '../../logger/index';
 import { log } from '../../logger/index';
-import { delegatedCategories, type AgentPolicy } from '../../policy/index';
-import { buildCodexPermissions, type CodexPermissions } from './permissions';
+import type { AgentPolicy } from '../../policy/index';
+import {
+  applicableCodexPolicy,
+  codexHooks,
+  translateCodexPolicy,
+  type CodexPermissions,
+} from './policy';
 import type {
   Provider as ProviderContract,
-  ProviderPermissions,
-  UnsupportedRule,
+  PolicyTranslation,
 } from '../provider.interface';
 import { wrapCommand } from '../../workspace/sandbox/wrap-command';
 import type {
@@ -116,29 +118,17 @@ export class CodexProvider
   }
 
   /** The policy as Codex settings (`-c`) and command rules (`.rules`). */
-  public buildPermissions(
+  public translatePolicy(
     policy: AgentPolicy,
-  ): ProviderPermissions<CodexPermissions> {
-    return buildCodexPermissions(policy);
+  ): PolicyTranslation<CodexPermissions> {
+    return translateCodexPolicy(policy);
   }
 
-  public applyPermissions(
+  public applyPolicy(
     policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[] {
-    const categories = delegatedCategories(policy);
-    const unsupported = categories.find(
-      (category) => category !== 'execution' && category !== 'web',
-    );
-
-    if (unsupported !== undefined) {
-      throw new UsageError(
-        `O provider ${this.id} ainda não aplica a categoria ${unsupported}.`,
-      );
-    }
-
-    const translated = this.buildPermissions(policy);
-    refuseUnsupportedWeb(translated.unsupported);
+    const translated = applicableCodexPolicy(policy);
     this.webSearchConfig = translated.native.config['tools.web_search'];
 
     if (gate === undefined) return [];
@@ -279,16 +269,6 @@ class CodexTurn {
 }
 
 /** Refuses web rules Codex would apply more loosely than the policy. */
-function refuseUnsupportedWeb(unsupported: readonly UnsupportedRule[]): void {
-  const web = unsupported.find(
-    (rule) => rule.category === 'web' && rule.effect === 'looser',
-  );
-  if (web === undefined) return;
-  throw new UsageError(
-    `O provider codex não aplica esta regra web: ${web.reason}`,
-  );
-}
-
 function createEvent(text: string): ProviderEvent<string> {
   if (text.trimEnd().endsWith('?')) {
     return { type: 'ask', question: text };
@@ -440,19 +420,7 @@ function codexHomeFor(root: string): string {
 /** Wires Codex's PreToolUse hook to the gate; returns the hooks.json path. */
 function writeHooks(home: string, hookCommand: readonly string[]): string {
   const hooks = join(home, 'hooks.json');
-  const hook = {
-    type: 'command',
-    command: shellJoin(hookCommand),
-    timeout: HOOK_TIMEOUT_SECONDS,
-  };
-
-  writeText(
-    hooks,
-    `${JSON.stringify({
-      hooks: { PreToolUse: [{ matcher: '^Bash$', hooks: [hook] }] },
-    })}\n`,
-    0o600,
-  );
+  writeText(hooks, `${JSON.stringify(codexHooks(hookCommand))}\n`, 0o600);
   return hooks;
 }
 
@@ -489,11 +457,6 @@ function linkCredentials(home: string): void {
   if (pathExists(auth) && !pathExists(link)) {
     createSymlink(auth, link);
   }
-}
-
-/** POSIX shell quoting for the hook command line. */
-function shellJoin(argv: readonly string[]): string {
-  return argv.map((arg) => `'${arg.replaceAll("'", "'\\''")}'`).join(' ');
 }
 
 /** `chunk` without the gate's denials; undefined when nothing else is left. */

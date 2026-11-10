@@ -1,7 +1,7 @@
 /** Exemplo 3 do curso de providers: converter JSON da CLI em eventos. */
 import type { ProgramOutput } from '../../../src/execute/types';
 import { writeOut } from '../../../src/output/stdio';
-import { CursorProvider } from '../../../src/providers/cursor-provider';
+import { CursorProvider } from '../../../src/providers/cursor/cursor-provider';
 
 async function* cliOutput(): AsyncIterable<ProgramOutput> {
   yield {

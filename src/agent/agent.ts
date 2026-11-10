@@ -183,7 +183,7 @@ export class Agent {
     const enforced =
       policy === undefined
         ? undefined
-        : enforcePermissions({
+        : enforcePolicy({
             policy,
             provider,
             workspace,
@@ -1269,7 +1269,7 @@ function defaultStore(): Store | undefined {
  * every CLI (the provider only wires its CLI's hook to it). Returns the gate,
  * if there are execution rules.
  */
-function enforcePermissions({
+function enforcePolicy({
   policy,
   provider,
   workspace,
@@ -1318,7 +1318,7 @@ function enforcePermissions({
             ? { sharedHome: userHome() }
             : {}),
         };
-  const cliFiles = applyProviderPermissions(provider, policy, gate);
+  const cliFiles = applyProviderPolicy(provider, policy, gate);
 
   // What enforces the policy stays read-only for the agent.
   workspace.protect([
@@ -1457,17 +1457,17 @@ function rejectUnenforced(policy: AgentPolicy): void {
 function needsGate(policy: AgentPolicy, provider: AgentProvider): boolean {
   return (
     delegatedCategories(policy).includes('execution') &&
-    provider.applyPermissions !== undefined
+    provider.applyPolicy !== undefined
   );
 }
 
-function applyProviderPermissions(
+function applyProviderPolicy(
   provider: AgentProvider,
   policy: AgentPolicy,
   gate: ExecutionGate | undefined,
 ): readonly string[] {
-  if (provider.applyPermissions !== undefined) {
-    return provider.applyPermissions(policy, gate);
+  if (provider.applyPolicy !== undefined) {
+    return provider.applyPolicy(policy, gate);
   }
 
   const category = delegatedCategories(policy).at(0);

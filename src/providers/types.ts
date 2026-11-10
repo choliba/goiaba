@@ -192,7 +192,7 @@ export interface Provider<TInput, TOutput> {
    * hook config). Must throw a UsageError for anything it cannot apply
    * exactly; providers without it refuse those categories.
    */
-  applyPermissions?(
+  applyPolicy?(
     policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[];

@@ -7,7 +7,7 @@ import { describe, expect, test } from 'bun:test';
 import type { ProgramOutput } from '../src/execute/types';
 import { ClaudeProvider } from '../src/providers/claude/claude-provider';
 import { CodexProvider } from '../src/providers/codex/codex-provider';
-import { OllamaProvider } from '../src/providers/ollama-provider';
+import { OllamaProvider } from '../src/providers/ollama/ollama-provider';
 
 describe('OllamaProvider', () => {
   test('think: false desliga o raciocínio em cada pedido ao /v1/messages', () => {
@@ -87,7 +87,7 @@ describe('OllamaProvider', () => {
 
   test('o claude usa o gate como o ClaudeProvider', () => {
     const provider = new OllamaProvider({ cli: 'claude', model: 'qwen3.5:4b' });
-    provider.applyPermissions(
+    provider.applyPolicy(
       { default: 'deny', allow: { execution: [{ commands: ['bun *'] }] } },
       {
         hookCommand: ['/bin/bun', '/gate/hook', '/gate/s.sock'],
@@ -178,7 +178,7 @@ describe('OllamaProvider', () => {
         cli: 'codex',
         model: 'qwen3.5:4b',
       });
-      const protectedFiles = provider.applyPermissions(
+      const protectedFiles = provider.applyPolicy(
         { default: 'deny', allow: { execution: [{ commands: ['bun *'] }] } },
         { hookCommand: ['/bin/bun', '/gate/hook', '/gate/s.sock'], root },
       );
@@ -214,7 +214,7 @@ describe('OllamaProvider', () => {
       });
       // The same workspace keeps the same CODEX_HOME, so sessions survive.
       const again = new OllamaProvider({ cli: 'codex', model: 'qwen3.5:4b' });
-      again.applyPermissions(
+      again.applyPolicy(
         { default: 'deny', allow: { execution: [{ commands: ['bun *'] }] } },
         { hookCommand: ['/bin/bun', '/gate/hook', '/gate/s.sock'], root },
       );
@@ -235,7 +235,7 @@ describe('OllamaProvider', () => {
       model: 'qwen3.5:4b',
     });
 
-    provider.applyPermissions(
+    provider.applyPolicy(
       {
         default: 'deny',
         allow: { web: [{ operations: ['*'], domains: ['*'] }] },
@@ -428,4 +428,12 @@ describe('OllamaProvider', () => {
       () => new OllamaProvider({ cli: 'codex', model: 'm', tools: ['shell'] }),
     ).toThrow('só vale com cli: claude');
   });
+});
+
+test('recusa um cli que não conduz o modelo', () => {
+  // As it would come from plain JavaScript or a JSON config: no type check.
+  const options: unknown = JSON.parse('{ "cli": "", "model": "qwen3.5:4b" }');
+  expect(() => Reflect.construct(OllamaProvider, [options]) as unknown).toThrow(
+    "cli: 'claude' ou 'codex', veio \"\"",
+  );
 });

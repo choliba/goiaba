@@ -22,7 +22,7 @@ afterEach(() => {
 
 function apply(policy: AgentPolicy): () => readonly string[] {
   return () =>
-    new ClaudeProvider({ model: 'modelo' }).applyPermissions(policy, undefined);
+    new ClaudeProvider({ model: 'modelo' }).applyPolicy(policy, undefined);
 }
 
 describe('ClaudeProvider', () => {
@@ -101,7 +101,7 @@ describe('ClaudeProvider', () => {
 
   test('com execution liga o hook do gate e roda em dontAsk', () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
-    const protectedFiles = provider.applyPermissions(
+    const protectedFiles = provider.applyPolicy(
       {
         default: 'deny',
         allow: { execution: [{ commands: ['bun *'] }] },
@@ -122,7 +122,7 @@ describe('ClaudeProvider', () => {
       '',
     ]);
     expect(JSON.parse(args[args.indexOf('--settings') + 1] ?? '')).toEqual({
-      policy: {
+      permissions: {
         allow: ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'NotebookEdit'],
         deny: [],
       },
@@ -146,7 +146,7 @@ describe('ClaudeProvider', () => {
 
   test('sem execution não altera o comando', () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
-    provider.applyPermissions(
+    provider.applyPolicy(
       {
         default: 'deny',
         allow: {
@@ -166,7 +166,7 @@ describe('ClaudeProvider', () => {
 
   test('recusa categoria que não aplica', () => {
     expect(() =>
-      new ClaudeProvider({ model: 'modelo' }).applyPermissions(
+      new ClaudeProvider({ model: 'modelo' }).applyPolicy(
         {
           default: 'deny',
           allow: {
@@ -180,7 +180,7 @@ describe('ClaudeProvider', () => {
 
   test('traduz web em regras de WebFetch e WebSearch', () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
-    provider.applyPermissions(
+    provider.applyPolicy(
       {
         default: 'deny',
         allow: {
@@ -198,7 +198,7 @@ describe('ClaudeProvider', () => {
 
     expect(args).toContain('dontAsk');
     expect(JSON.parse(args[args.indexOf('--settings') + 1] ?? '')).toEqual({
-      policy: {
+      permissions: {
         allow: [
           'Read',
           'Edit',
@@ -218,7 +218,7 @@ describe('ClaudeProvider', () => {
 
   test('ignores de web viram negações, sem WebSearch', () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
-    provider.applyPermissions(
+    provider.applyPolicy(
       {
         default: 'deny',
         allow: {
@@ -240,7 +240,7 @@ describe('ClaudeProvider', () => {
     );
 
     expect(settings).toMatchObject({
-      policy: {
+      permissions: {
         allow: expect.arrayContaining(['WebFetch']),
         deny: ['WebFetch(domain:google.com)'],
       },
@@ -251,7 +251,7 @@ describe('ClaudeProvider', () => {
 
   test('*.dominio vira a mesma regra de subdomínios no Claude', () => {
     const provider = new ClaudeProvider({ model: 'modelo' });
-    provider.applyPermissions(
+    provider.applyPolicy(
       {
         default: 'deny',
         allow: {
@@ -271,7 +271,7 @@ describe('ClaudeProvider', () => {
     expect(
       JSON.parse(args[args.indexOf('--settings') + 1] ?? ''),
     ).toMatchObject({
-      policy: {
+      permissions: {
         deny: ['WebFetch(domain:google.com)', 'WebFetch(domain:*.google.com)'],
       },
     });

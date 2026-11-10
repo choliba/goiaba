@@ -3,11 +3,11 @@ import type { AgentPolicy, PolicyCategory } from '../policy/policy.interface';
 
 /**
  * What every provider must implement: what `Provider` (types.ts) has today,
- * plus `buildPermissions`, the one place where an `AgentPolicy` becomes the
+ * plus `translatePolicy`, the one place where an `AgentPolicy` becomes the
  * provider's own language. Self-contained, so types.ts can go away; not
  * wired yet.
  */
-export interface Provider<TInput, TOutput, TPermissions> {
+export interface Provider<TInput, TOutput, TNative> {
   readonly id: string;
   describe?(): ProviderDescription;
   /**
@@ -49,7 +49,7 @@ export interface Provider<TInput, TOutput, TPermissions> {
    * provider cannot express exactly is listed in `unsupported`, never dropped
    * silently.
    */
-  buildPermissions(policy: AgentPolicy): ProviderPermissions<TPermissions>;
+  translatePolicy(policy: AgentPolicy): PolicyTranslation<TNative>;
 
   /**
    * Applies the categories the sandbox cannot enforce (web, execution,
@@ -58,7 +58,7 @@ export interface Provider<TInput, TOutput, TPermissions> {
    * hook config). Must throw a UsageError for anything it cannot apply
    * exactly; providers without it refuse those categories.
    */
-  applyPermissions?(
+  applyPolicy?(
     policy: AgentPolicy,
     gate: ExecutionGate | undefined,
   ): readonly string[];
@@ -203,9 +203,9 @@ export interface ProviderDescription {
 }
 
 /** An `AgentPolicy` as one provider expresses it. */
-export interface ProviderPermissions<TPermissions> {
+export interface PolicyTranslation<TNative> {
   /** In the provider's own language. */
-  readonly native: TPermissions;
+  readonly native: TNative;
   /** Rules it could not express exactly, and why. */
   readonly unsupported: readonly UnsupportedRule[];
 }

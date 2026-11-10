@@ -13,8 +13,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { PolicyEngine } from '../src/policy/index';
 import { ClaudeProvider } from '../src/providers/claude/claude-provider';
 import { CodexProvider } from '../src/providers/codex/codex-provider';
-import { OllamaProvider } from '../src/providers/ollama-provider';
-import { CursorProvider } from '../src/providers/cursor-provider';
+import { OllamaProvider } from '../src/providers/ollama/ollama-provider';
+import { CursorProvider } from '../src/providers/cursor/cursor-provider';
 import type { HostAccess } from '../src/providers/types';
 import {
   sandboxHost,

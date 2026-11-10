@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 
-import { buildCodexPermissions } from '../src/providers/codex/permissions';
+import { translateCodexPolicy } from '../src/providers/codex/policy';
 
-describe('buildCodexPermissions', () => {
+describe('translateCodexPolicy', () => {
   test('comandos viram prefix_rule; só o * no fim é exato para liberar', () => {
-    const { native, unsupported } = buildCodexPermissions({
+    const { native, unsupported } = translateCodexPolicy({
       default: 'deny',
       allow: {
         execution: [
@@ -33,7 +33,7 @@ describe('buildCodexPermissions', () => {
   });
 
   test('filesystem: escrita no projeto vira workspace-write; leitura não se limita', () => {
-    const { native, unsupported } = buildCodexPermissions({
+    const { native, unsupported } = translateCodexPolicy({
       default: 'deny',
       allow: {
         filesystem: [
@@ -53,7 +53,7 @@ describe('buildCodexPermissions', () => {
   });
 
   test('web, rede, MCP e variáveis de ambiente nas configurações do Codex', () => {
-    const { native } = buildCodexPermissions({
+    const { native } = translateCodexPolicy({
       default: 'deny',
       allow: {
         web: [
@@ -96,14 +96,14 @@ describe('buildCodexPermissions', () => {
 
   test('sem web liberada, a busca fica desligada', () => {
     expect(
-      buildCodexPermissions({ default: 'deny' }).native.config[
+      translateCodexPolicy({ default: 'deny' }).native.config[
         'tools.web_search'
       ],
     ).toBe('{mode="disabled"}');
   });
 
   test('o que o Codex não expressa vai para unsupported, sem sumir', () => {
-    const { unsupported } = buildCodexPermissions({
+    const { unsupported } = translateCodexPolicy({
       default: 'deny',
       allow: {
         agents: [{ operations: ['spawn'], agents: ['revisor'] }],

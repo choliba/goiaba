@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { clearConfigCache, loadConfig } from '../src/config/index';
 import { closeLogger, openLogger } from '../src/logger/index';
 import type { ProgramOutput } from '../src/execute/types';
-import { CursorProvider } from '../src/providers/cursor-provider';
+import { CursorProvider } from '../src/providers/cursor/cursor-provider';
 
 beforeEach(() => {
   clearConfigCache();

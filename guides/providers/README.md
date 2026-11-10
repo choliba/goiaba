@@ -32,16 +32,20 @@ política. Criar um comando com `createCommand` **não inicia** a CLI.
 
 ## Os arquivos
 
-| Arquivo                     | Papel                                                                                                                                                                                                      |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `types.ts`                  | O contrato `Provider<TInput, TOutput>` atualmente usado pelo agente, os eventos, opções, descrição e `HostAccess`.                                                                                         |
-| `provider.interface.ts`     | Uma interface mais ampla com `buildPermissions`; hoje Claude e Codex a implementam junto do contrato atual. O comentário no próprio arquivo registra que ela ainda não está conectada como contrato único. |
-| `claude/claude-provider.ts` | Monta comandos para Claude Code, interpreta `stream-json`, traduz permissões e configura o hook de execução.                                                                                               |
-| `claude/permissions.ts`     | Traduz `AgentPolicy` para as listas `allow`, `ask` e `deny` do Claude e relata o que não representa exatamente.                                                                                            |
-| `codex/codex-provider.ts`   | Monta comandos Codex, interpreta JSONL, traduz permissões e liga o hook de execução.                                                                                                                       |
-| `codex/permissions.ts`      | Traduz a política para configurações e regras nativas do Codex, registrando incompatibilidades.                                                                                                            |
-| `cursor-provider.ts`        | Monta comandos e converte eventos JSON da CLI Cursor. A sandbox é o limite para os comandos executados por ela.                                                                                            |
-| `ollama-provider.ts`        | Aponta Claude Code ou Codex para um servidor Ollama local, preservando o parser e os recursos da CLI interna.                                                                                              |
+Cada provider tem a sua pasta. Na raiz de `src/providers/` fica só o que é comum a todos (`types.ts`,
+`provider.interface.ts`, `tools.ts`, `constants.ts`). Quem tem `policy.ts` traduz a política para a sua CLI.
+
+| Arquivo                     | Papel                                                                                                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `types.ts`                  | O contrato `Provider<TInput, TOutput>` atualmente usado pelo agente, os eventos, opções, descrição e `HostAccess`.                                                                                        |
+| `provider.interface.ts`     | Uma interface mais ampla com `translatePolicy`; hoje Claude e Codex a implementam junto do contrato atual. O comentário no próprio arquivo registra que ela ainda não está conectada como contrato único. |
+| `claude/claude-provider.ts` | Monta comandos para Claude Code, interpreta `stream-json` e entrega à CLI as configurações que o `policy.ts` monta.                                                                                       |
+| `claude/policy.ts`          | Traduz `AgentPolicy` para as listas `allow`, `ask` e `deny` do Claude, relata o que não representa exatamente e monta as configurações (`--settings`) com as chaves do Claude Code.                       |
+| `codex/codex-provider.ts`   | Monta comandos Codex, interpreta JSONL e grava o `hooks.json` e as regras que o `policy.ts` monta.                                                                                                        |
+| `codex/policy.ts`           | Traduz a política para configurações e regras nativas do Codex, registra incompatibilidades e monta o `hooks.json`.                                                                                       |
+| `cursor/cursor-provider.ts` | Monta comandos e converte eventos JSON da CLI Cursor. Sem `policy.ts`: a sandbox é o limite para os comandos executados por ela.                                                                          |
+| `ollama/ollama-provider.ts` | Aponta Claude Code ou Codex para um servidor Ollama local, preservando o parser e os recursos da CLI interna. Sem `policy.ts`: quem aplica a política é a CLI que conduz o modelo.                        |
+| `ollama/ollama-traffic.ts`  | Lê o tráfego do Ollama na fronteira de rede: o texto da resposta e o uso de tokens de cada pedido.                                                                                                        |
 
 [↑ topo](#topo)
 
@@ -61,7 +65,7 @@ entra como texto e a resposta também.
 | `networkEndpoints()`                               | não         | Endereços `host:porta` necessários para o provider funcionar.                                                                |
 | `networkBlocked()`                                 | não         | Endereços que a CLI tenta acessar, mas que não são necessários e devem ser negados.                                          |
 | `hostAccess()`                                     | não         | Estado compartilhado, arquivos e variáveis de credencial e variáveis (`homeEnv`) que apontam para o home isolado.            |
-| `applyPermissions(policy, gate?)`                  | não         | Aplica na CLI categorias que a sandbox não consegue aplicar; pode retornar caminhos que precisam ficar protegidos.           |
+| `applyPolicy(policy, gate?)`                       | não         | Aplica na CLI categorias que a sandbox não consegue aplicar; pode retornar caminhos que precisam ficar protegidos.           |
 
 `ProviderOptions` recebe `model` e, opcionalmente, `executable`. Cada provider pode acrescentar suas opções. Claude,
 Codex e Cursor validam que o modelo não esteja vazio. Ollama também valida URL e janela de contexto.
@@ -83,9 +87,9 @@ podem virar `output`.
 
 ### O contrato de provider em construção
 
-`provider.interface.ts` declara outro `Provider<TInput, TOutput, TPermissions>` e tipos para a tradução tipada da
-política (`ProviderPermissions`, `UnsupportedRule`). Claude e Codex já implementam esse contrato e expõem
-`buildPermissions`. Ele permite listar regras não expressas e dizer se a tradução fica mais restritiva ou mais
+`provider.interface.ts` declara outro `Provider<TInput, TOutput, TNative>` e tipos para a tradução tipada da
+política (`PolicyTranslation`, `UnsupportedRule`). Claude e Codex já implementam esse contrato e expõem
+`translatePolicy`. Ele permite listar regras não expressas e dizer se a tradução fica mais restritiva ou mais
 permissiva.
 
 O agente ainda usa `Provider` de `types.ts`; Cursor e Ollama ainda não implementam o contrato mais amplo. Ao criar
@@ -121,11 +125,17 @@ A sandbox aplica os limites de filesystem e rede que o workspace suporta. Há ca
 como as ferramentas web ou decisões sobre comandos executados dentro da CLI. Claude e Codex traduzem essas regras
 para o formato próprio e conectam o hook do Goiaba para decisões de execução.
 
-As funções `buildClaudePermissions` e `buildCodexPermissions` são traduções puras: devolvem regras nativas e uma
-lista `unsupported`. `applyPermissions` configura o uso dessas regras pela CLI. Se o provider não consegue aplicar
+Cada provider traduz a política num arquivo só, `src/providers/<nome>/policy.ts`. Ele recebe a `AgentPolicy`, na
+linguagem do Goiaba, e devolve o formato da CLI, nas palavras dela: as chaves `permissions` e `hooks` das
+configurações do Claude Code, o `hooks.json` e as regras do Codex. Fora do `policy.ts`, ninguém conhece esse formato;
+dentro dele, as palavras são as da CLI, nunca as do Goiaba. Assim, renomear algo no Goiaba não muda o que a CLI recebe.
+
+As funções `translateClaudePolicy` e `translateCodexPolicy` são traduções puras: devolvem regras nativas e uma
+lista `unsupported`. `claudeSettings` e `applicableCodexPolicy`, no mesmo arquivo, montam o que a CLI recebe, e
+`applyPolicy` só entrega isso à CLI. Se o provider não consegue aplicar
 uma categoria da política, deve falhar com `UsageError`, em vez de fingir que a regra foi aplicada.
 
-Cursor não implementa `applyPermissions`; nesse caso, o limite de comandos é o da sandbox. Ollama delega ao provider
+Cursor não implementa `applyPolicy`; nesse caso, o limite de comandos é o da sandbox. Ollama delega ao provider
 interno correspondente. Para Codex local, desliga a busca web hospedada: essa restrição é mais fechada que qualquer
 permissão web e evita que a CLI local use a conta da nuvem.
 
@@ -180,7 +190,7 @@ CLI precisa saber qual pasta tratar como projeto.
 ```ts
 /** Exemplo 2 do curso de providers: ver o comando que uma CLI receberia. */
 import { writeOut } from '../../../src/output/stdio';
-import { CursorProvider } from '../../../src/providers/cursor-provider';
+import { CursorProvider } from '../../../src/providers/cursor/cursor-provider';
 
 const provider = new CursorProvider({ model: 'modelo-local' });
 const command = provider.createCommand('Resuma o projeto.', undefined, '/app');
@@ -205,7 +215,7 @@ de Cursor contém o ID de sessão e a resposta do assistente.
 /** Exemplo 3 do curso de providers: converter JSON da CLI em eventos. */
 import type { ProgramOutput } from '../../../src/execute/types';
 import { writeOut } from '../../../src/output/stdio';
-import { CursorProvider } from '../../../src/providers/cursor-provider';
+import { CursorProvider } from '../../../src/providers/cursor/cursor-provider';
 
 async function* cliOutput(): AsyncIterable<ProgramOutput> {
   yield {
@@ -240,7 +250,7 @@ Neste caso, leitura da pasta e comando simples têm correspondência direta nas 
 /** Exemplo 4 do curso de providers: traduzir política para as regras do Claude. */
 import type { AgentPolicy } from '../../../src/policy/policy.interface';
 import { writeOut } from '../../../src/output/stdio';
-import { buildClaudePermissions } from '../../../src/providers/claude/permissions';
+import { translateClaudePolicy } from '../../../src/providers/claude/policy';
 
 const policy: AgentPolicy = {
   default: 'deny',
@@ -250,10 +260,10 @@ const policy: AgentPolicy = {
   },
 };
 
-const permissions = buildClaudePermissions(policy);
+const translated = translateClaudePolicy(policy);
 
-writeOut(`permitidas: ${permissions.native.allow.join(', ')}\n`);
-writeOut(`não expressas: ${permissions.unsupported.length}\n`);
+writeOut(`permitidas: ${translated.native.allow.join(', ')}\n`);
+writeOut(`não expressas: ${translated.unsupported.length}\n`);
 ```
 
 ```text

@@ -64,7 +64,7 @@ describe('CodexProvider', () => {
     writeFileSync(join(hostHome, '.codex', 'hooks.json'), 'hook-do-usuario');
 
     try {
-      provider.applyPermissions(
+      provider.applyPolicy(
         { default: 'deny' },
         {
           hookCommand: ['/bun', '/gate/hook', '/gate.sock'],
@@ -335,7 +335,7 @@ describe('CodexProvider', () => {
     const provider = new CodexProvider({ model: 'modelo' });
 
     expect(
-      provider.applyPermissions(
+      provider.applyPolicy(
         {
           default: 'deny',
           allow: { web: [{ operations: ['*'], domains: ['*'] }] },
@@ -351,7 +351,7 @@ describe('CodexProvider', () => {
   test('traduz filtros de domínio da busca web', () => {
     const provider = new CodexProvider({ model: 'modelo' });
 
-    provider.applyPermissions(
+    provider.applyPolicy(
       {
         default: 'deny',
         allow: {
@@ -378,7 +378,7 @@ describe('CodexProvider', () => {
 
     // A Codex domain also opens its subdomains: looser than the policy.
     expect(() =>
-      provider.applyPermissions(
+      provider.applyPolicy(
         {
           default: 'deny',
           allow: {
@@ -394,7 +394,7 @@ describe('CodexProvider', () => {
     const provider = new CodexProvider({ model: 'modelo' });
 
     expect(() =>
-      provider.applyPermissions(
+      provider.applyPolicy(
         {
           default: 'deny',
           requireApproval: {

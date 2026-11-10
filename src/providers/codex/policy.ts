@@ -1,4 +1,7 @@
+import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
+import { UsageError } from '../../errors';
 import { commandMatches } from '../../policy/command';
+import { delegatedCategories } from '../../policy/index';
 import type {
   AgentPolicy,
   ExecutionRule,
@@ -8,10 +11,7 @@ import type {
   WebRule,
 } from '../../policy/policy.interface';
 import { wildmatch } from '../../policy/wildmatch';
-import type {
-  ProviderPermissions,
-  UnsupportedRule,
-} from '../provider.interface';
+import type { PolicyTranslation, UnsupportedRule } from '../provider.interface';
 
 /** An `AgentPolicy` in Codex's own language. */
 export interface CodexPermissions {
@@ -66,9 +66,9 @@ class Translation {
  * `config.toml` (`-c`) and command rules for a `.rules` file. Pure: nothing
  * is written. What Codex cannot express exactly goes to `unsupported`.
  */
-export function buildCodexPermissions(
+export function translateCodexPolicy(
   policy: AgentPolicy,
-): ProviderPermissions<CodexPermissions> {
+): PolicyTranslation<CodexPermissions> {
   const translation = new Translation(policy);
 
   filesystem(translation);
@@ -609,4 +609,69 @@ function add(map: Map<string, Set<string>>, key: string, value: string): void {
 
 function toml(values: readonly string[]): string {
   return `[${values.map((value) => JSON.stringify(value)).join(',')}]`;
+}
+
+/**
+ * The translation the provider applies: refuses a category Codex does not
+ * apply yet (only execution and web are delegated to it), and a web rule it
+ * would apply more loosely than the policy.
+ */
+export function applicableCodexPolicy(
+  policy: AgentPolicy,
+): PolicyTranslation<CodexPermissions> {
+  const unsupported = delegatedCategories(policy).find(
+    (category) => category !== 'execution' && category !== 'web',
+  );
+  if (unsupported !== undefined) {
+    throw new UsageError(
+      `O provider codex ainda não aplica a categoria ${unsupported}.`,
+    );
+  }
+
+  const translated = translateCodexPolicy(policy);
+  const looser = translated.unsupported.find(
+    (rule) => rule.category === 'web' && rule.effect === 'looser',
+  );
+  if (looser !== undefined) {
+    throw new UsageError(
+      `O provider codex não aplica esta regra web: ${looser.reason}`,
+    );
+  }
+  return translated;
+}
+
+/** Codex's `hooks.json`, in its own words: the gate decides each Bash call. */
+export function codexHooks(hookCommand: readonly string[]): {
+  readonly hooks: {
+    readonly PreToolUse: readonly {
+      readonly matcher: string;
+      readonly hooks: readonly {
+        readonly type: 'command';
+        readonly command: string;
+        readonly timeout: number;
+      }[];
+    }[];
+  };
+} {
+  return {
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: '^Bash$',
+          hooks: [
+            {
+              type: 'command',
+              command: shellJoin(hookCommand),
+              timeout: HOOK_TIMEOUT_SECONDS,
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+/** POSIX shell quoting for the hook command line. */
+function shellJoin(argv: readonly string[]): string {
+  return argv.map((arg) => `'${arg.replaceAll("'", "'\\''")}'`).join(' ');
 }
