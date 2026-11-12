@@ -34,13 +34,23 @@ export class CursorProvider
   private readonly model: string;
   private commandPolicy: CursorCommandPolicy | undefined;
 
-  public constructor({ executable = 'agent', model }: ProviderOptions) {
+  /** What the constructor was given, as written. */
+  private readonly declared: Readonly<Record<string, unknown>>;
+
+  public constructor(options: ProviderOptions) {
+    const { executable = 'agent', model } = options;
+    this.declared = { ...options };
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
     }
 
     this.executable = executable;
     this.model = model;
+  }
+
+  /** The options it was created with, as written (a round's declaration). */
+  public declaredOptions(): Readonly<Record<string, unknown>> {
+    return this.declared;
   }
 
   public describe(): ProviderDescription {

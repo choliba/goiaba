@@ -15,6 +15,8 @@ import {
   quote,
   source,
 } from './source';
+import type { ProjectTool } from './project-tools';
+import type { AgentPolicy } from '../../../src/policy/policy.interface';
 import type {
   ActorSnapshot,
   DeclaredActor,
@@ -53,8 +55,72 @@ function promptLine(line: string): string {
   return `\`${escaped.replace(SAID, (_match, actor: string) => `\${said[${quote(actor)}] ?? ''}`)}\``;
 }
 
+/**
+ * While writing: the project's tools known (agents/tools), and the ones the
+ * file imports, by import path.
+ */
+interface ToolImports {
+  readonly known: readonly ProjectTool[];
+  readonly used: Map<string, Set<string>>;
+}
+
+const toolImports = (known: readonly ProjectTool[]): ToolImports => ({
+  known,
+  used: new Map(),
+});
+
+/**
+ * Tool names as values: a project's tool (`goiaba/…` registered in
+ * agents/tools) as the export the file imports, anything else as its name.
+ */
+function toolValues(tools: readonly string[], imports: ToolImports): unknown[] {
+  return tools.map((name) => {
+    const tool = imports.known.find((known) => known.name === name);
+    if (tool === undefined) return name;
+    imports.used.set(
+      tool.from,
+      (imports.used.get(tool.from) ?? new Set()).add(tool.binding),
+    );
+    return new Code(tool.binding);
+  });
+}
+
+/** The policy as a value: its tool rules naming the project's tools by export. */
+function policyValue(policy: AgentPolicy, imports: ToolImports): unknown {
+  const group = (rules: AgentPolicy['allow']): unknown =>
+    rules?.tools === undefined
+      ? rules
+      : {
+          ...rules,
+          tools: rules.tools.map((rule) => ({
+            ...rule,
+            tools: toolValues(rule.tools, imports),
+          })),
+        };
+  return {
+    ...policy,
+    ...(policy.allow === undefined ? {} : { allow: group(policy.allow) }),
+    ...(policy.requireApproval === undefined
+      ? {}
+      : { requireApproval: group(policy.requireApproval) }),
+    ...(policy.deny === undefined ? {} : { deny: group(policy.deny) }),
+  };
+}
+
+/** One `import { … } from '…';` per path, in the order of the paths. */
+const toolImportLines = (imports: ToolImports, prefix = ''): string[] =>
+  [...imports.used]
+    .map(([from, names]): [string, string[]] => [
+      prefix === '' ? from : from.replace('../../agents/', prefix),
+      [...names].toSorted(),
+    ])
+    .map(([from, names]) => importLine(names, from));
+
 /** `new Provider({…})`, or a comment when this file does not know the class. */
-function providerValue(provider: DeclaredActor['provider']): unknown {
+function providerValue(
+  provider: DeclaredActor['provider'],
+  imports: ToolImports,
+): unknown {
   const name = PROVIDERS[provider.name];
   const options = {
     ...(provider.cli === null ? {} : { cli: provider.cli }),
@@ -63,7 +129,10 @@ function providerValue(provider: DeclaredActor['provider']): unknown {
       ? {}
       : { contextWindow: provider.contextWindow }),
     ...(provider.think === undefined ? {} : { think: provider.think }),
-    ...(provider.tools === undefined ? {} : { tools: provider.tools }),
+    ...(provider.tools === undefined
+      ? {}
+      : { tools: toolValues(provider.tools, imports) }),
+    ...provider.options,
   };
   return name === undefined
     ? new Code(`undefined /* provider "${provider.name}": escolha a classe */`)
@@ -72,11 +141,15 @@ function providerValue(provider: DeclaredActor['provider']): unknown {
 
 /**
  * The declaration as the source of `rounds/definitions/<id>.ts`, ready to
- * paste. A rule or provider this file does not know
+ * paste. A project's tool among `projectTools` comes out as its import. A
+ * rule or provider this file does not know
  * comes out as a comment saying so; a prompt that could not be read, as a
  * comment too.
  */
-export function declarationSource(declaration: RoundDeclaration): string {
+export function declarationSource(
+  declaration: RoundDeclaration,
+  projectTools: readonly ProjectTool[] = [],
+): string {
   const actors = Object.entries(declaration.actors);
   const providers = [
     ...new Set(
@@ -98,6 +171,7 @@ export function declarationSource(declaration: RoundDeclaration): string {
   const roots = new Set(actors.map(([, actor]) => actor.workspace.root));
   const sharedRoot = roots.size === 1 && (fixture || gitRoot !== undefined);
   const root = new Code('root');
+  const imports = toolImports(projectTools);
 
   const actorValues = Object.fromEntries(
     actors.map(([name, actor]) => {
@@ -105,7 +179,7 @@ export function declarationSource(declaration: RoundDeclaration): string {
       return [
         name,
         {
-          provider: providerValue(actor.provider),
+          provider: providerValue(actor.provider, imports),
           workspace: {
             type: workspace.type,
             ...(workspace.image === null ? {} : { image: workspace.image }),
@@ -113,8 +187,19 @@ export function declarationSource(declaration: RoundDeclaration): string {
             ...(workspace.hostState === null
               ? {}
               : { hostState: workspace.hostState }),
+            ...(workspace.writable === undefined
+              ? {}
+              : { writable: workspace.writable }),
+            ...(workspace.ports === undefined
+              ? {}
+              : { ports: workspace.ports }),
+            ...(workspace.homes === undefined
+              ? {}
+              : { homes: workspace.homes }),
           },
-          ...(actor.policy === null ? {} : { policy: actor.policy }),
+          ...(actor.policy === null
+            ? {}
+            : { policy: policyValue(actor.policy, imports) }),
           ...(actor.readOnly ? { readOnly: true } : {}),
         },
       ];
@@ -172,6 +257,8 @@ export function declarationSource(declaration: RoundDeclaration): string {
   const opening = 'export default defineRound(';
 
   return [
+    // The project's tools (../../agents/…) sort before the Goiaba's (../../src/…).
+    ...toolImportLines(imports),
     ...(providers.length === 0
       ? []
       : [importLine(providers, '../../src/index')]),
@@ -208,9 +295,14 @@ export function declarationSource(declaration: RoundDeclaration): string {
 export function agentSource(
   name: string,
   actor: RoundDeclaration['actors'][string],
+  projectTools: readonly ProjectTool[] = [],
 ): string {
   const { workspace, provider } = actor;
   const providerClass = PROVIDERS[provider.name];
+  const imports = toolImports(projectTools);
+  const providerCode = providerValue(provider, imports);
+  const policyCode =
+    actor.policy === null ? null : policyValue(actor.policy, imports);
   const workspaceOptions = {
     type: workspace.type,
     ...(workspace.image === null ? {} : { image: workspace.image }),
@@ -219,7 +311,7 @@ export function agentSource(
   };
   const workspaceHead = '    workspace: new Workspace(';
 
-  const imports = [
+  const names = [
     'Agent',
     ...(providerClass === undefined ? [] : [providerClass]),
     'Workspace',
@@ -228,17 +320,19 @@ export function agentSource(
   ].toSorted();
 
   return [
-    importLine(imports, '../src/index'),
+    importLine(names, '../src/index'),
+    // An agent lives in agents/, next to the tools (agents/tools).
+    ...toolImportLines(imports, './'),
     '',
     'await runScript(async () => {',
     '  await new Agent({',
     `${property('name', name, 4, 1)},`,
     "    prompt: 'TODO: o pedido ao agente.',",
-    `${property('provider', providerValue(provider), 4, 1)},`,
+    `${property('provider', providerCode, 4, 1)},`,
     `${workspaceHead}${source(workspaceOptions, 4, workspaceHead.length, 2)}),`,
-    ...(actor.policy === null
+    ...(policyCode === null
       ? []
-      : [`${property('policy', actor.policy, 4, 1)},`]),
+      : [`${property('policy', policyCode, 4, 1)},`]),
     '  }).run();',
     '});',
     '',

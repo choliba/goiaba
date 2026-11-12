@@ -88,3 +88,44 @@ export const CONTEXT_WARN_SHARE = 0.8;
  * there is little room left for the task.
  */
 export const CONTEXT_FIXED_SHARE = 0.4;
+
+/**
+ * The commands the "Criar rodada" form offers to tick, by what they do. A
+ * pattern each, as the policy reads it: a bare command (`ls`) is only
+ * itself, `ls *` needs something after it. Only commands that look, or run
+ * a project's tests; anything else is typed in by hand.
+ */
+export const COMMAND_GROUPS: readonly {
+  readonly title: string;
+  readonly commands: readonly string[];
+}[] = [
+  {
+    title: 'Só olhar',
+    commands: [
+      'ls',
+      'ls *',
+      'cat *',
+      'head *',
+      'tail *',
+      'find *',
+      'grep *',
+      'wc *',
+      'pwd',
+    ],
+  },
+  {
+    title: 'Git, só leitura',
+    commands: ['git status', 'git diff', 'git diff *', 'git log *'],
+  },
+  {
+    title: 'Testes e scripts do projeto',
+    commands: [
+      'npm test',
+      'npm start',
+      'bun test',
+      'bun test *',
+      'node --test',
+      'node --test *',
+    ],
+  },
+];

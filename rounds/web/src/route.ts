@@ -1,6 +1,7 @@
 /**
  * Where the reader is, in the hash: `#/` the index, `#/teste/<key>` a test,
- * `#/rodada/<id>` a round (`?agente=<nome>` opens that agent as it ran). A hash keeps the pages static: dist/ opens from
+ * `#/rodada/<id>` a round (`?agente=<nome>` opens that agent as it ran),
+ * `#/criar` the form that writes a new round's declaration. A hash keeps the pages static: dist/ opens from
  * a file or any folder.
  */
 
@@ -8,6 +9,7 @@ import { useEffect, useState } from 'react';
 
 export type Route =
   | { readonly page: 'index' }
+  | { readonly page: 'create' }
   | { readonly page: 'test'; readonly key: string }
   | {
       readonly page: 'round';
@@ -17,6 +19,7 @@ export type Route =
     };
 
 export function parse(hash: string): Route {
+  if (hash === '#/criar') return { page: 'create' };
   const match = /^#\/(teste|rodada)\/(.+)$/.exec(hash);
   const value = match?.[2];
   if (value === undefined) return { page: 'index' };
@@ -33,6 +36,7 @@ export function parse(hash: string): Route {
 }
 
 export const indexHref = (): string => '#/';
+export const createHref = (): string => '#/criar';
 export const testHref = (key: string): string =>
   `#/teste/${encodeURIComponent(key)}`;
 export const roundHref = (id: string, agent?: string): string =>

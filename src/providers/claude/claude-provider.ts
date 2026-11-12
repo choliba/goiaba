@@ -102,12 +102,12 @@ export class ClaudeProvider
   /** The live turn going on, whose messages each `result` answers. */
   private live: LiveChannel | undefined;
 
-  public constructor({
-    executable = 'claude',
-    model,
-    tools,
-    rulesOnce = false,
-  }: ClaudeProviderOptions) {
+  /** What the constructor was given, as written. */
+  private readonly declared: Readonly<Record<string, unknown>>;
+
+  public constructor(options: ClaudeProviderOptions) {
+    const { executable = 'claude', model, tools, rulesOnce = false } = options;
+    this.declared = { ...options };
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
     }
@@ -123,6 +123,11 @@ export class ClaudeProvider
     policy: AgentPolicy,
   ): PolicyTranslation<ClaudePermissions> {
     return translateClaudePolicy(policy);
+  }
+
+  /** The options it was created with, as written (a round's declaration). */
+  public declaredOptions(): Readonly<Record<string, unknown>> {
+    return this.declared;
   }
 
   public describe(): ProviderDescription {

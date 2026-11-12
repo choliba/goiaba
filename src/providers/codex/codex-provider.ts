@@ -81,12 +81,17 @@ export class CodexProvider
   private codexHome: string | undefined;
   private webSearchConfig: string | undefined;
 
-  public constructor({
-    executable = 'codex',
-    model,
-    login = true,
-    rulesOnce = false,
-  }: CodexProviderOptions) {
+  /** What the constructor was given, as written. */
+  private readonly declared: Readonly<Record<string, unknown>>;
+
+  public constructor(options: CodexProviderOptions) {
+    const {
+      executable = 'codex',
+      model,
+      login = true,
+      rulesOnce = false,
+    } = options;
+    this.declared = { ...options };
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
     }
@@ -95,6 +100,11 @@ export class CodexProvider
     this.model = model;
     this.login = login;
     this.rulesOnce = rulesOnce;
+  }
+
+  /** The options it was created with, as written (a round's declaration). */
+  public declaredOptions(): Readonly<Record<string, unknown>> {
+    return this.declared;
   }
 
   public describe(): ProviderDescription {

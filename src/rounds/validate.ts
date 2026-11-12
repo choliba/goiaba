@@ -329,6 +329,18 @@ const criterion: Check = (value, path) => {
 /** The declared criteria: by actor name (and `round`). */
 const criteria = record(list(criterion));
 
+/** A provider option as data: text, number, yes/no, or a list of texts. */
+const optionValue: Check = (value, path) => {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return;
+  }
+  list(string)(value, path);
+};
+
 const declaredActor = object({
   provider: object({
     name: nonEmpty,
@@ -337,12 +349,16 @@ const declaredActor = object({
     'contextWindow?': positive,
     'think?': boolean,
     'tools?': list(nonEmpty),
+    'options?': record(optionValue),
   }),
   workspace: object({
     type: oneOf(WORKSPACE_TYPES),
     image: nullable(nonEmpty),
     root: nonEmpty,
     hostState: nullable(oneOf(HOST_STATES)),
+    'writable?': list(nonEmpty),
+    'ports?': list(positive),
+    'homes?': nonEmpty,
   }),
   // Its shape is the policy module's to check.
   policy: nullable(anyObject),

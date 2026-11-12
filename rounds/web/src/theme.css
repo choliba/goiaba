@@ -261,6 +261,15 @@ ol {
 a.brand:hover {
   color: var(--guava);
 }
+/* The top bar's actions: create a round, every test */
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+a.all-tests-button {
+  text-decoration: none;
+}
 .all-tests-button {
   display: inline-flex;
   align-items: center;
@@ -1759,4 +1768,494 @@ tr.row-link:hover th a {
 }
 :root[data-theme='dark'] .code-block span {
   color: var(--shiki-dark);
+}
+
+/* Creating a round: the form, and the declaration it writes beside it */
+.create {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 1100px) {
+  .create {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: start;
+  }
+  .create-output {
+    position: sticky;
+    top: 16px;
+  }
+}
+.create-form {
+  display: grid;
+  gap: 16px;
+}
+.create-form fieldset {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.create-form legend {
+  padding: 0 6px;
+  font: 600 16px/1.3 var(--display);
+}
+.create-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+.create-form label .muted {
+  font-size: 12.5px;
+}
+.create-form input,
+.create-form select,
+.create-form textarea {
+  font: 14px/1.4 var(--body);
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  /* A field takes its column, never more: no intrinsic width pushing out */
+  width: 100%;
+  min-width: 0;
+}
+.create-form input[type='checkbox'] {
+  width: auto;
+}
+.create-form textarea {
+  resize: vertical;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.create-form input:focus-visible,
+.create-form select:focus-visible,
+.create-form textarea:focus-visible {
+  outline: 2px solid var(--guava);
+  outline-offset: 1px;
+}
+.create-output {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.create-output h2 {
+  margin: 0;
+  font: 600 15px/1.3 var(--mono);
+}
+.create-output .code-block {
+  margin: 0;
+  max-height: 75vh;
+  overflow: auto;
+  padding: 12px;
+  background: var(--code-bg);
+  border-radius: 6px;
+  font: 12.5px/1.5 var(--mono);
+}
+.create-problems {
+  margin: 0;
+  padding: 8px 10px 8px 28px;
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--amber-bg);
+  border-left: 3px solid var(--amber);
+  font-size: 13.5px;
+}
+/* The round's agents: one tab each, the chosen one's fields below */
+.agents {
+  display: grid;
+  gap: 0;
+}
+.agent-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 2px solid var(--line);
+}
+.agent-tab {
+  font: 600 14px/1.3 var(--display);
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 7px 14px;
+  margin-bottom: -2px;
+  cursor: pointer;
+}
+.agent-tab:hover,
+.agent-tab:focus-visible {
+  color: var(--ink);
+}
+.agent-tab[aria-selected='true'] {
+  color: var(--guava);
+  background: var(--surface);
+  border-color: var(--line);
+  border-bottom: 2px solid var(--surface);
+}
+/* Something to fill in this agent: a dot, so it is found from any tab */
+.agent-tab.has-problems::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--amber);
+}
+.agent-tab.add {
+  font-weight: 500;
+  color: var(--guava);
+}
+.agent-panel {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+.agent-remove {
+  justify-self: start;
+}
+/* Options seldom changed, folded away */
+.create-more {
+  display: grid;
+  gap: 10px;
+}
+.create-more[open] {
+  padding-bottom: 4px;
+}
+.create-more > summary {
+  font: 500 13.5px/1.3 var(--body);
+  color: var(--guava);
+  cursor: pointer;
+}
+.create-more > label,
+.create-more > p {
+  margin-top: 10px;
+}
+/* The agent's checks said as sentences */
+.criteria-words {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--sky-bg);
+  border-left: 3px solid var(--sky);
+  border-radius: 6px;
+  font-size: 13.5px;
+}
+.criteria-words ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.criteria-words p {
+  margin: 0;
+}
+.create-form fieldset > p {
+  margin: 0;
+  font-size: 13px;
+}
+/* A file criterion: the file, what it checks, what it contains, × */
+.criterion-row {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 3fr) minmax(0, 4fr) auto;
+  gap: 8px;
+  align-items: end;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.criterion-row .close {
+  align-self: end;
+  margin-bottom: 4px;
+}
+.criterion-row input:disabled {
+  opacity: 0.5;
+}
+.create-form > fieldset > .more-rounds {
+  justify-self: start;
+}
+/* The limits of the step: time, tokens and cost, side by side */
+.criterion-limits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+/* The flow's steps: in order, each an agent (chosen) and its ask */
+.step-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.step-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.step-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: 600 14px/1.3 var(--display);
+}
+.step-row-actions {
+  display: flex;
+  gap: 2px;
+}
+.step-row-actions .close {
+  font-size: 16px;
+  padding: 2px 8px;
+}
+.step-row-actions .close:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.step-row-who {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  /* The two fields on one line, whatever their labels' heights */
+  align-items: end;
+}
+.step-row label code {
+  font: 12px var(--mono);
+  color: var(--muted);
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.step-row select:disabled {
+  opacity: 0.6;
+}
+/* Commands to tick, in groups, and the typed ones below */
+.command-picker {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.create-form .command-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 6px 16px;
+  padding: 8px 10px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+.create-form .command-group legend {
+  padding: 0 4px;
+  font: 500 12.5px/1.3 var(--body);
+  color: var(--muted);
+}
+.create-form .command-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.command-option code {
+  font: 12.5px var(--mono);
+}
+/* Permitido | Não permitido: one pressed at most; pressed again, unmarked */
+.permission-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  flex: none;
+}
+.permission-toggle button {
+  font: 500 12px/1.3 var(--body);
+  color: var(--muted);
+  background: var(--surface);
+  border: 0;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.permission-toggle button + button {
+  border-left: 1px solid var(--line);
+}
+.permission-toggle .allow[aria-pressed='true'] {
+  color: var(--leaf);
+  background: var(--ok-bg);
+}
+.permission-toggle .deny[aria-pressed='true'] {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+/* The commands typed by hand: allowed, and not allowed, side by side */
+.command-more {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+/* The definition's own names beside a section's or a field's title */
+.create-form legend code,
+.create-form label > code {
+  font: 12px var(--mono);
+  color: var(--muted);
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 4px;
+}
+/* A conditional criterion: the condition, then the branch it picks */
+.criterion-if {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.criterion-if > p {
+  margin: 0;
+  font-size: 13px;
+}
+.criterion-if-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: 600 14px/1.3 var(--display);
+}
+.criterion-if .criterion-row {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 3fr) minmax(0, 4fr);
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.criterion-branch,
+.criterion-else {
+  font: 600 13.5px/1.3 var(--body);
+}
+.create-form .criterion-else {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.criterion-else input {
+  accent-color: var(--guava);
+}
+.criterion-if code,
+.criterion-branch code,
+.criterion-else code {
+  font: 12px var(--mono);
+  color: var(--muted);
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.criterion-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Filling the form from a pasted definition */
+.create-code {
+  position: relative;
+}
+.create-paste-open {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--surface);
+}
+.create-paste {
+  display: grid;
+  gap: 8px;
+}
+.create-paste textarea {
+  min-height: 60vh;
+  font: 13px/1.5 var(--mono);
+  color: var(--ink);
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  resize: vertical;
+}
+.create-paste p {
+  margin: 0;
+  font-size: 13px;
+}
+.create-paste-actions {
+  display: flex;
+  gap: 8px;
+}
+.create-form label.create-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.create-form label.create-check input {
+  width: auto;
+  padding: 0;
+}
+.tool-picker {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.tool-picker legend {
+  padding: 0 4px;
+  font-size: 13px;
+}
+.tool-picker .create-check {
+  flex-wrap: wrap;
+}
+/* A tool's name is long (goiaba/fetch_web_content): one per row, unbroken */
+.create-form .command-group.tool-group {
+  grid-template-columns: 1fr;
+}
+.tool-group .command-option {
+  flex-wrap: wrap;
+}
+.tool-group .command-option code {
+  white-space: nowrap;
+}
+/*
+ * By the form's width, not the window's: beside the code the form is narrow
+ * even on a wide window.
+ */
+.create-form {
+  container-type: inline-size;
+}
+@container (max-width: 560px) {
+  /* File, check, and passages below them; the × beside the check */
+  .criterion-row,
+  .criterion-if .criterion-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+  .criterion-row > label:nth-of-type(3) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .criterion-limits {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@container (max-width: 360px) {
+  .criterion-row,
+  .criterion-if .criterion-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .criterion-row > label:nth-of-type(2) {
+    grid-column: 1 / -1;
+  }
+}
+.create-form label.create-check input[type='checkbox'] {
+  flex-shrink: 0;
+}
+.create-check code {
+  white-space: nowrap;
 }

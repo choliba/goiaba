@@ -10,6 +10,7 @@
 import { useState, type ReactNode } from 'react';
 
 import { agentSource } from '../declaration';
+import { PROJECT_TOOLS } from '../known-tools';
 import type { RoundDeclaration } from '../../../../src/rounds/types';
 import { COPIED_MS } from '../constants';
 import { title } from '../format';
@@ -31,7 +32,7 @@ export function ExtractAgent({
   const [state, setState] = useState<Copy>('idle');
   /** What to do with the copied agent: shown after a copy, until closed. */
   const [hinted, setHinted] = useState(false);
-  const source = agentSource(name, actor);
+  const source = agentSource(name, actor, PROJECT_TOOLS);
   const copy = (): void => {
     setHinted(true);
     navigator.clipboard.writeText(source).then(

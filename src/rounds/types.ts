@@ -163,6 +163,9 @@ export interface RoundDeclaration {
   readonly repeat: number;
 }
 
+/** A provider option as data: what a constructor of the Goiaba takes. */
+export type DeclaredOptionValue = string | number | boolean | readonly string[];
+
 export interface DeclaredActor {
   readonly provider: {
     /** `ollama`, `claude`, `cursor`, `codex`: what `describe()` says. */
@@ -175,6 +178,12 @@ export interface DeclaredActor {
     readonly think?: boolean;
     /** The capabilities the model saw, when restricted (`GoiabaTool`). */
     readonly tools?: readonly string[];
+    /**
+     * The other options its constructor was given, as written (`baseUrl`,
+     * `compactAt`, `rulesOnce`, `login`, `executable`…): what the fields
+     * above do not say, so the declaration is written back whole.
+     */
+    readonly options?: Readonly<Record<string, DeclaredOptionValue>>;
   };
   readonly workspace: {
     readonly type: RoundWorkspaceType;
@@ -183,6 +192,12 @@ export interface DeclaredActor {
     readonly root: string;
     /** As declared; `null` when left to the default. */
     readonly hostState: RoundHostState | null;
+    /** Paths writable besides the root, as declared. */
+    readonly writable?: readonly string[];
+    /** Ports of the sandbox reached on the host, as declared. */
+    readonly ports?: readonly number[];
+    /** Where the workspaces' homes are kept, as declared. */
+    readonly homes?: string;
   };
   readonly policy: AgentPolicy | null;
   readonly readOnly: boolean;

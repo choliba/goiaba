@@ -7,6 +7,7 @@
 import { useState, type ReactNode } from 'react';
 
 import { declarationSource } from '../declaration';
+import { PROJECT_TOOLS } from '../known-tools';
 import type { RoundDeclaration } from '../../../../src/rounds/types';
 import { COPIED_MS } from '../constants';
 
@@ -18,7 +19,7 @@ export function CopyDeclaration({
   readonly declaration: RoundDeclaration;
 }): ReactNode {
   const [state, setState] = useState<Copy>('idle');
-  const source = declarationSource(declaration);
+  const source = declarationSource(declaration, PROJECT_TOOLS);
   const copy = (): void => {
     navigator.clipboard.writeText(source).then(
       () => {

@@ -17,6 +17,8 @@ import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
 import { format } from 'prettier';
 
 import { agentSource, declarationSource } from '../rounds/web/src/declaration';
+import { toolsOf } from '../rounds/web/src/project-tools';
+import type { RoundDeclaration } from '../src/rounds/types';
 import type { Interaction } from '../src/interaction/index';
 import type { Provider, ProviderEvent } from '../src/providers/types';
 import {
@@ -1054,6 +1056,8 @@ test('a declaração vira dados e volta a ser um arquivo que declara a mesma rod
           type: 'bubblewrap',
           root: '/tmp/rodada',
           hostState: 'none',
+          writable: ['/tmp/rodada/notas'],
+          ports: [5173],
         },
         policy: {
           default: 'deny',
@@ -1118,13 +1122,21 @@ test('a declaração vira dados e volta a ser um arquivo que declara a mesma rod
             cli: 'claude',
             model: 'qwen3.5:4b',
             contextWindow: 32_768,
+            // What the declaration's fields do not say goes back as written.
+            options: { baseUrl: 'http://127.0.0.1:11435' },
           },
         },
       ]),
     ),
   };
+  expect(declaration.actors['analista']?.workspace).toMatchObject({
+    writable: ['/tmp/rodada/notas'],
+    ports: [5173],
+  });
   const source = declarationSource(known);
   expect(source).toContain("cli: 'claude',");
+  expect(source).toContain("baseUrl: 'http://127.0.0.1:11435'");
+  expect(source).toContain('ports: [5173]');
   // Already in the project's style: prettier changes nothing.
   expect(
     await format(source, { parser: 'typescript', singleQuote: true }),
@@ -1215,5 +1227,94 @@ test('o registro guarda a declaração com que rodou', async () => {
     ]);
   } finally {
     cleanup();
+  }
+});
+
+test('declarationSource escreve uma ferramenta do projeto como o import dela, e a rodada volta igual', async () => {
+  const path = join(
+    import.meta.dir,
+    '..',
+    'agents',
+    'tools',
+    'fetch-web-content.ts',
+  );
+  const tools = toolsOf(path, readFileSync(path, 'utf8'));
+  expect(tools).toEqual([
+    expect.objectContaining({
+      name: 'goiaba/fetch_web_content',
+      binding: 'FETCH_WEB_CONTENT',
+      from: '../../agents/tools/fetch-web-content',
+    }),
+  ]);
+
+  const declaration: RoundDeclaration = {
+    id: 'zz-ferramenta',
+    goal: 'Buscar com a ferramenta do projeto.',
+    // No start: the root is written as is (roundDir needs rounds.dir).
+    start: null,
+    actors: {
+      buscador: {
+        provider: {
+          name: 'ollama',
+          cli: 'claude',
+          model: 'qwen3.5:4b',
+          contextWindow: 32_768,
+          think: false,
+          tools: ['file_write', 'goiaba/fetch_web_content'],
+        },
+        workspace: {
+          type: 'bubblewrap',
+          image: null,
+          root: '/tmp/zz-ferramenta',
+          hostState: 'none',
+        },
+        policy: {
+          default: 'deny',
+          allow: {
+            filesystem: [{ operations: ['*'], paths: ['/workspace/**'] }],
+            tools: [
+              { operations: ['call'], tools: ['goiaba/fetch_web_content'] },
+            ],
+          },
+        },
+        readOnly: false,
+      },
+    },
+    flow: [{ actor: 'buscador', by: null, prompt: ['Busque.'] }],
+    rules: ['no-questions'],
+    repeat: 1,
+  };
+  const source = declarationSource(declaration, tools);
+  expect(source.split('\n')[0]).toBe(
+    "import { FETCH_WEB_CONTENT } from '../../agents/tools/fetch-web-content';",
+  );
+  expect(source).toContain("tools: ['file_write', FETCH_WEB_CONTENT],");
+  expect(source).toContain(
+    "tools: [{ operations: ['call'], tools: [FETCH_WEB_CONTENT] }],",
+  );
+  expect(
+    await format(source, { parser: 'typescript', singleQuote: true }),
+  ).toBe(source);
+
+  // Loaded by the engine: the import registers the tool, the names come back.
+  const file = join(
+    import.meta.dir,
+    '..',
+    'rounds',
+    'definitions',
+    `zz-ferramenta-${String(process.pid)}.ts`,
+  );
+  try {
+    writeFileSync(file, source);
+    const loaded: unknown = await import(file);
+    const written =
+      typeof loaded === 'object' && loaded !== null && 'default' in loaded
+        ? loaded.default
+        : undefined;
+    if (!isRoundDefinition(written)) throw new Error('não exportou a rodada');
+    const again = captureDeclaration(written, undefined);
+    expect(again).toEqual(declaration);
+  } finally {
+    rmSync(file, { force: true });
   }
 });

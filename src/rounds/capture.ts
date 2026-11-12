@@ -4,9 +4,10 @@
  * the rules by id. `declarationSource` writes it back as a file.
  */
 
-import type { RoundDefinition } from './define';
+import type { RoundActor, RoundDefinition } from './define';
 import type {
   DeclaredActor,
+  DeclaredOptionValue,
   RoundCriteria,
   RoundCriterion,
   RoundDeclaration,
@@ -34,6 +35,37 @@ function promptLines(step: RoundDefinition['flow'][number]): string[] | null {
   }
 }
 
+/** The provider options the declaration's own fields already say. */
+const MODELED = new Set(['cli', 'model', 'contextWindow', 'think', 'tools']);
+
+/** An option as data, when it is one (a function or object is not written back). */
+function optionValue(value: unknown): DeclaredOptionValue | undefined {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return value;
+  }
+  return Array.isArray(value) &&
+    value.every((item): item is string => typeof item === 'string')
+    ? value
+    : undefined;
+}
+
+/** The constructor's other options, as written; `undefined` without any. */
+function otherOptions(
+  provider: RoundActor['provider'],
+): Readonly<Record<string, DeclaredOptionValue>> | undefined {
+  const entries = Object.entries(provider.declaredOptions?.() ?? {}).flatMap(
+    ([key, value]): [string, DeclaredOptionValue][] => {
+      const data = MODELED.has(key) ? undefined : optionValue(value);
+      return data === undefined ? [] : [[key, data]];
+    },
+  );
+  return entries.length === 0 ? undefined : Object.fromEntries(entries);
+}
+
 /** The declaration as data, with `label` the run's (the `--label` given, if any). */
 export function captureDeclaration(
   definition: RoundDefinition,
@@ -55,6 +87,7 @@ export function captureDeclaration(
     actors: Object.fromEntries(
       Object.entries(definition.actors).map(([name, actor]) => {
         const described = actor.provider.describe?.();
+        const options = otherOptions(actor.provider);
         const { workspace } = actor;
         const declared: DeclaredActor = {
           provider: {
@@ -70,6 +103,7 @@ export function captureDeclaration(
             ...(described?.tools === undefined
               ? {}
               : { tools: described.tools }),
+            ...(options === undefined ? {} : { options }),
           },
           workspace: {
             type: workspace.type,
@@ -77,6 +111,15 @@ export function captureDeclaration(
               workspace.type === 'docker' ? (workspace.image ?? null) : null,
             root: workspace.root,
             hostState: workspace.hostState ?? null,
+            ...(workspace.writable === undefined
+              ? {}
+              : { writable: workspace.writable }),
+            ...(workspace.ports === undefined
+              ? {}
+              : { ports: workspace.ports }),
+            ...(workspace.homes === undefined
+              ? {}
+              : { homes: workspace.homes }),
           },
           policy: actor.policy ?? null,
           readOnly: actor.readOnly ?? false,

@@ -1,5 +1,6 @@
 import { UsageError } from '../../errors';
 import {
+  OLLAMA_CLIS,
   COMPACT_AT,
   DEFAULT_CONTEXT_WINDOW,
   DEFAULT_OLLAMA_URL,
@@ -24,9 +25,6 @@ import type {
 import { readOllamaTraffic } from './ollama-traffic';
 import type { ToolServer } from '../../tools/broker';
 import type { AgentToolName } from '../tools';
-
-/** The CLIs that can drive a model on Ollama: they run the tools and apply the policy. */
-const OLLAMA_CLIS = ['claude', 'codex'] as const;
 
 export type OllamaCli = (typeof OLLAMA_CLIS)[number];
 
@@ -105,7 +103,11 @@ export class OllamaProvider implements Provider<string, string> {
     sessionId?: string,
   ) => LiveTurn;
 
+  /** What the constructor was given, as written. */
+  private readonly declared: Readonly<Record<string, unknown>>;
+
   public constructor(options: OllamaProviderOptions) {
+    this.declared = { ...options };
     if (!(OLLAMA_CLIS as readonly string[]).includes(options.cli)) {
       throw new UsageError(
         `O OllamaProvider precisa de um CLI que conduza o modelo: cli: ${OLLAMA_CLIS.map((cli) => `'${cli}'`).join(' ou ')}, veio ${JSON.stringify(options.cli)}.`,
@@ -174,6 +176,11 @@ export class OllamaProvider implements Provider<string, string> {
         'RUST_LOG=error,codex_models_manager=off',
       ];
     }
+  }
+
+  /** The options it was created with, as written (a round's declaration). */
+  public declaredOptions(): Readonly<Record<string, unknown>> {
+    return this.declared;
   }
 
   public describe(): ProviderDescription {

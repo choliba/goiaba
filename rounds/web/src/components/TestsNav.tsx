@@ -11,7 +11,7 @@ import { useState, type ReactNode } from 'react';
 import { RECENT_TESTS } from '../constants';
 import { lastRun, recentTests, type Test } from '../data';
 import { count, goalOf, when } from '../format';
-import { indexHref, testHref } from '../route';
+import { createHref, indexHref, testHref } from '../route';
 import { Modal } from './Modal';
 
 function Chip({
@@ -118,15 +118,20 @@ export function TestsNav({
             Rodadas
           </a>
         )}
-        <button
-          type="button"
-          className="all-tests-button"
-          onClick={show}
-          aria-haspopup="dialog"
-        >
-          Todos os testes
-          <span className="rounds-count">{recentTests.length}</span>
-        </button>
+        <span className="topbar-actions">
+          <a className="all-tests-button" href={createHref()}>
+            Criar rodada
+          </a>
+          <button
+            type="button"
+            className="all-tests-button"
+            onClick={show}
+            aria-haspopup="dialog"
+          >
+            Todos os testes
+            <span className="rounds-count">{recentTests.length}</span>
+          </button>
+        </span>
       </div>
       <nav className="recent" aria-label="Testes recentes">
         {/* The index lists every test, with their latest rounds. */}

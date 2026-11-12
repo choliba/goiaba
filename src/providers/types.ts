@@ -149,6 +149,11 @@ export interface Provider<TInput, TOutput> {
   readonly id: string;
   describe?(): ProviderDescription;
   /**
+   * The options it was created with, as written (defaults not filled in):
+   * what a round's declaration keeps to write the provider back.
+   */
+  declaredOptions?(): Readonly<Record<string, unknown>>;
+  /**
    * `host:port` its CLI needs to work (the model API). With network rules,
    * Goiaba lets them through whatever the policy says.
    */

@@ -1,5 +1,11 @@
 /** Defaults of the providers. */
 
+/**
+ * The CLIs that can drive a model on Ollama (`OllamaProvider`, option
+ * `cli`): they run the tools and apply the policy. The pages offer the same.
+ */
+export const OLLAMA_CLIS = ['claude', 'codex'] as const;
+
 /** Where Ollama listens unless told otherwise (`OllamaProvider`, option `baseUrl`). */
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 

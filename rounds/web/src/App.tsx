@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 
 import { roundById, testByKey } from './data';
+import { CreatePage } from './pages/CreatePage';
 import { IndexPage } from './pages/IndexPage';
 import { RoundPage } from './pages/RoundPage';
 import { TestPage } from './pages/TestPage';
@@ -25,6 +26,7 @@ function NotFound({ what }: { readonly what: string }): ReactNode {
 export function App(): ReactNode {
   const route = useRoute();
   if (route.page === 'index') return <IndexPage />;
+  if (route.page === 'create') return <CreatePage />;
   if (route.page === 'test') {
     const test = testByKey(route.key);
     return test === undefined ? (
