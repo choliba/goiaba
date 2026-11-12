@@ -1,0 +1,1288 @@
+{
+  "schema": 4,
+  "id": "2026-11-10T21-27-48.567Z",
+  "definition": {
+    "id": "ollama-product-owner-2",
+    "goal": "O agente implementa o ticket: troca o título da página por Goiaba"
+  },
+  "start": {
+    "tag": "rodada-base",
+    "commit": "21d11e8",
+    "fixture": "site-vazio"
+  },
+  "repeat": {
+    "index": 1,
+    "total": 1
+  },
+  "timing": {
+    "startedAt": "2026-11-10T21:27:48.567Z",
+    "endedAt": "2026-11-10T21:28:58.713Z",
+    "durationMs": 70146,
+    "actors": {
+      "product-owner-2": {
+        "startedAt": "2026-11-10T21:27:50.104Z",
+        "endedAt": "2026-11-10T21:28:58.699Z",
+        "durationMs": 68595,
+        "workspaceMs": null,
+        "gitCheckMs": 21,
+        "approvalMs": null
+      }
+    }
+  },
+  "actors": {
+    "product-owner-2": {
+      "role": "product-owner-2",
+      "provider": {
+        "id": "ollama-codex",
+        "name": "ollama",
+        "model": "qwen3.5:4b",
+        "cli": "codex",
+        "cliVersion": null,
+        "options": {},
+        "contextWindow": 20000,
+        "readableContext": 16000
+      },
+      "workspace": {
+        "type": "bubblewrap",
+        "image": null,
+        "root": "~/.local/share/goiaba/rodadas/ollama-product-owner-2",
+        "writable": [],
+        "hostState": "none",
+        "ports": []
+      },
+      "network": {
+        "rules": {
+          "default": "deny",
+          "allow": [],
+          "requireApproval": [],
+          "deny": []
+        },
+        "alwaysAllow": [
+          "127.0.0.1:11434"
+        ],
+        "alwaysDeny": [
+          "api.openai.com:443",
+          "chatgpt.com:443",
+          "auth.openai.com:443"
+        ],
+        "decisions": [
+          {
+            "ts": "2026-11-10T21:27:50.596Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-10T21:27:50.711Z",
+            "destination": "github.com:443",
+            "protocol": "https",
+            "decision": "deny",
+            "decidedBy": "default",
+            "reason": "Negado: este destino aguarda a aprovação de uma pessoa (pedido #215). Não tente de novo nem outro caminho para ele; continue com outra parte da tarefa ou termine o turno e espere."
+          },
+          {
+            "ts": "2026-11-10T21:27:50.726Z",
+            "destination": "chatgpt.com:443",
+            "protocol": "https",
+            "decision": "deny",
+            "decidedBy": "provider",
+            "reason": "Bloqueado pelo provider: a CLI não precisa deste endereço."
+          },
+          {
+            "ts": "2026-11-10T21:27:50.808Z",
+            "destination": "api.github.com:443",
+            "protocol": "https",
+            "decision": "deny",
+            "decidedBy": "default",
+            "reason": "Negado: este destino aguarda a aprovação de uma pessoa (pedido #216). Não tente de novo nem outro caminho para ele; continue com outra parte da tarefa ou termine o turno e espere."
+          },
+          {
+            "ts": "2026-11-10T21:27:50.821Z",
+            "destination": "chatgpt.com:443",
+            "protocol": "https",
+            "decision": "deny",
+            "decidedBy": "provider",
+            "reason": "Bloqueado pelo provider: a CLI não precisa deste endereço."
+          },
+          {
+            "ts": "2026-11-10T21:27:50.911Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-10T21:28:05.231Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-10T21:28:13.138Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-10T21:28:20.013Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-10T21:28:26.318Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-10T21:28:37.443Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-10T21:28:47.712Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          },
+          {
+            "ts": "2026-11-10T21:28:55.784Z",
+            "destination": "127.0.0.1:11434",
+            "protocol": "https",
+            "decision": "allow",
+            "decidedBy": "provider",
+            "reason": "Endereço do provider."
+          }
+        ]
+      },
+      "policy": {
+        "default": "deny",
+        "allow": {
+          "filesystem": [
+            {
+              "operations": [
+                "*"
+              ],
+              "paths": [
+                "/workspace/**"
+              ]
+            }
+          ],
+          "execution": [
+            {
+              "operations": [
+                "run"
+              ],
+              "commands": [
+                "ls *",
+                "cat *",
+                "find *",
+                "pwd",
+                "git status",
+                "git diff *",
+                "git log *"
+              ]
+            }
+          ]
+        }
+      },
+      "readOnly": false,
+      "configHash": "1e16786e76eaed7964badad33a431174633b09af8f821a2b66eaf1a0c44cf03d"
+    }
+  },
+  "configHash": "793822e11246e65620591999179a7ee80708d012b28f41f29d39fe11aa146fd1",
+  "steps": [
+    {
+      "key": "product-owner-2#1",
+      "actor": "product-owner-2",
+      "by": null,
+      "prompt": {
+        "text": "leia o arquivo só o for pra implementar do ticket.txt\nCom base nas instruções dele implemente a alteração no index.html **NADA MAIS**\nApenas implemente a solicitação escrita em ticket.txt\no nome do arquivo a ser lido é ticket.txt\n**NÃO TENTE ACESSAR NENHUM SITE NA WEB**",
+        "hash": "8d0df7468552cbb71af5499c32af97003d2295d6bd1e4a10464082b27ac0a64a"
+      },
+      "span": {
+        "startedAt": "2026-11-10T21:27:50.104Z",
+        "endedAt": "2026-11-10T21:28:58.699Z",
+        "durationMs": 68595
+      },
+      "said": [
+        "✓ /bin/bash -lc 'cat ~/.local/share/goiaba/rodadas/ollama-product-owner-2/ticket.txt'"
+      ],
+      "asked": [],
+      "turns": [
+        {
+          "index": 1,
+          "span": {
+            "startedAt": "2026-11-10T21:27:50.136Z",
+            "endedAt": "2026-11-10T21:28:58.697Z",
+            "durationMs": 68561
+          }
+        }
+      ],
+      "tools": [
+        {
+          "turn": 1,
+          "name": "shell",
+          "detail": {
+            "tool": "shell",
+            "command": "/bin/bash -lc 'cat ~/.local/share/goiaba/rodadas/ollama-product-owner-2/ticket.txt'",
+            "exitCode": 0
+          },
+          "outcome": "unfinished",
+          "span": {
+            "startedAt": "2026-11-10T21:28:05.221Z",
+            "endedAt": "2026-11-10T21:28:58.699Z",
+            "durationMs": 53478
+          }
+        }
+      ],
+      "changed": [],
+      "diff": "",
+      "criteria": [],
+      "totals": {
+        "tokens": {
+          "input": 32882,
+          "output": 909,
+          "cacheRead": 28216,
+          "cacheWrite": null,
+          "reasoning": 0
+        },
+        "fresh": 5575,
+        "costUsd": null
+      },
+      "references": {
+        "cited": 0,
+        "valid": 0,
+        "invalid": []
+      }
+    }
+  ],
+  "usage": [
+    {
+      "ts": "2026-11-10T21:28:05.147Z",
+      "actor": "product-owner-2",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 3900,
+        "output": 113,
+        "cacheRead": 0,
+        "cacheWrite": null,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-10T21:28:13.126Z",
+      "actor": "product-owner-2",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 4269,
+        "output": 124,
+        "cacheRead": 4012,
+        "cacheWrite": null,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-10T21:28:19.997Z",
+      "actor": "product-owner-2",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 4491,
+        "output": 110,
+        "cacheRead": 4392,
+        "cacheWrite": null,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-10T21:28:26.306Z",
+      "actor": "product-owner-2",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 4699,
+        "output": 99,
+        "cacheRead": 4600,
+        "cacheWrite": null,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-10T21:28:37.433Z",
+      "actor": "product-owner-2",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 4898,
+        "output": 177,
+        "cacheRead": 4797,
+        "cacheWrite": null,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-10T21:28:47.698Z",
+      "actor": "product-owner-2",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 5180,
+        "output": 162,
+        "cacheRead": 5074,
+        "cacheWrite": null,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    },
+    {
+      "ts": "2026-11-10T21:28:55.773Z",
+      "actor": "product-owner-2",
+      "step": 0,
+      "turn": 1,
+      "action": null,
+      "tokens": {
+        "input": 5445,
+        "output": 124,
+        "cacheRead": 5341,
+        "cacheWrite": null,
+        "reasoning": 0
+      },
+      "costUsd": null,
+      "costSource": null
+    }
+  ],
+  "totals": {
+    "round": {
+      "tokens": {
+        "input": 32882,
+        "output": 909,
+        "cacheRead": 28216,
+        "cacheWrite": null,
+        "reasoning": 0
+      },
+      "fresh": 5575,
+      "costUsd": null
+    },
+    "actors": {
+      "product-owner-2": {
+        "tokens": {
+          "input": 32882,
+          "output": 909,
+          "cacheRead": 28216,
+          "cacheWrite": null,
+          "reasoning": 0
+        },
+        "fresh": 5575,
+        "costUsd": null
+      }
+    }
+  },
+  "measures": {
+    "product-owner-2": {
+      "turns": 1,
+      "tools": 1,
+      "questions": 0,
+      "changedFiles": 0,
+      "tests": null,
+      "typecheck": null
+    }
+  },
+  "violations": [
+    {
+      "rule": "no-questions",
+      "actor": "product-owner-2",
+      "passed": true,
+      "detail": "Não fez nenhuma pergunta."
+    }
+  ],
+  "declaration": {
+    "id": "ollama-product-owner-2",
+    "goal": "O agente implementa o ticket: troca o título da página por Goiaba",
+    "start": {
+      "fixture": "site-vazio"
+    },
+    "actors": {
+      "product-owner-2": {
+        "provider": {
+          "name": "ollama",
+          "cli": "codex",
+          "model": "qwen3.5:4b",
+          "contextWindow": 20000
+        },
+        "workspace": {
+          "type": "bubblewrap",
+          "image": null,
+          "root": "~/.local/share/goiaba/rodadas/ollama-product-owner-2",
+          "hostState": "none"
+        },
+        "policy": {
+          "default": "deny",
+          "allow": {
+            "filesystem": [
+              {
+                "operations": [
+                  "*"
+                ],
+                "paths": [
+                  "/workspace/**"
+                ]
+              }
+            ],
+            "execution": [
+              {
+                "operations": [
+                  "run"
+                ],
+                "commands": [
+                  "ls *",
+                  "cat *",
+                  "find *",
+                  "pwd",
+                  "git status",
+                  "git diff *",
+                  "git log *"
+                ]
+              }
+            ]
+          }
+        },
+        "readOnly": false
+      }
+    },
+    "flow": [
+      {
+        "actor": "product-owner-2",
+        "by": null,
+        "prompt": [
+          "leia o arquivo só o for pra implementar do ticket.txt",
+          "Com base nas instruções dele implemente a alteração no index.html **NADA MAIS**",
+          "Apenas implemente a solicitação escrita em ticket.txt",
+          "o nome do arquivo a ser lido é ticket.txt",
+          "**NÃO TENTE ACESSAR NENHUM SITE NA WEB**"
+        ]
+      }
+    ],
+    "rules": [
+      "no-questions"
+    ],
+    "repeat": 1
+  },
+  "resources": {
+    "machine": {
+      "os": "Linux 7.0.0-42-generic",
+      "bun": "1.4.2",
+      "cpu": {
+        "model": "12th Gen Intel(R) Core(TM) i7-12650H",
+        "cores": 16
+      },
+      "memTotalMb": 15218,
+      "gpu": {
+        "name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+        "memTotalMb": 4096,
+        "driver": "595.99.02"
+      }
+    },
+    "intervalMs": 1000,
+    "samples": [
+      {
+        "ts": "2026-11-10T21:27:51.078Z",
+        "cpuPct": 9.48,
+        "memUsedMb": 7959,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 12,
+          "powerW": 11.21,
+          "tempC": 50
+        }
+      },
+      {
+        "ts": "2026-11-10T21:27:52.113Z",
+        "cpuPct": 8.36,
+        "memUsedMb": 8366,
+        "gpu": {
+          "utilPct": 25,
+          "memUsedMb": 90,
+          "powerW": 12.03,
+          "tempC": 50
+        }
+      },
+      {
+        "ts": "2026-11-10T21:27:53.136Z",
+        "cpuPct": 6.88,
+        "memUsedMb": 8358,
+        "gpu": {
+          "utilPct": 0,
+          "memUsedMb": 90,
+          "powerW": 11.32,
+          "tempC": 51
+        }
+      },
+      {
+        "ts": "2026-11-10T21:27:54.157Z",
+        "cpuPct": 16.82,
+        "memUsedMb": 8848,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2684,
+          "powerW": 17.33,
+          "tempC": 52
+        }
+      },
+      {
+        "ts": "2026-11-10T21:27:55.180Z",
+        "cpuPct": 30.42,
+        "memUsedMb": 8888,
+        "gpu": {
+          "utilPct": 98,
+          "memUsedMb": 2924,
+          "powerW": 36.53,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T21:27:56.208Z",
+        "cpuPct": 34.35,
+        "memUsedMb": 8880,
+        "gpu": {
+          "utilPct": 97,
+          "memUsedMb": 2926,
+          "powerW": 54.38,
+          "tempC": 57
+        }
+      },
+      {
+        "ts": "2026-11-10T21:27:57.234Z",
+        "cpuPct": 33.7,
+        "memUsedMb": 8818,
+        "gpu": {
+          "utilPct": 95,
+          "memUsedMb": 2928,
+          "powerW": 55.06,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T21:27:58.265Z",
+        "cpuPct": 34.34,
+        "memUsedMb": 8870,
+        "gpu": {
+          "utilPct": 94,
+          "memUsedMb": 2930,
+          "powerW": 53.12,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T21:27:59.292Z",
+        "cpuPct": 39.53,
+        "memUsedMb": 9000,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2930,
+          "powerW": 37.15,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:00.323Z",
+        "cpuPct": 40.65,
+        "memUsedMb": 8981,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2930,
+          "powerW": 29.47,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:01.359Z",
+        "cpuPct": 40.31,
+        "memUsedMb": 8954,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2930,
+          "powerW": 19.38,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:02.392Z",
+        "cpuPct": 40.16,
+        "memUsedMb": 8944,
+        "gpu": {
+          "utilPct": 15,
+          "memUsedMb": 2930,
+          "powerW": 19.34,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:03.425Z",
+        "cpuPct": 38.41,
+        "memUsedMb": 8863,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2930,
+          "powerW": 19.76,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:04.458Z",
+        "cpuPct": 39.19,
+        "memUsedMb": 8865,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2930,
+          "powerW": 19.59,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:05.490Z",
+        "cpuPct": 37.77,
+        "memUsedMb": 8924,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2930,
+          "powerW": 19.35,
+          "tempC": 56
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:06.518Z",
+        "cpuPct": 39.93,
+        "memUsedMb": 8962,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2930,
+          "powerW": 33.28,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:07.551Z",
+        "cpuPct": 39.9,
+        "memUsedMb": 8934,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2930,
+          "powerW": 32.51,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:08.585Z",
+        "cpuPct": 40.85,
+        "memUsedMb": 8932,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2930,
+          "powerW": 20.77,
+          "tempC": 57
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:09.618Z",
+        "cpuPct": 40.05,
+        "memUsedMb": 8933,
+        "gpu": {
+          "utilPct": 16,
+          "memUsedMb": 2930,
+          "powerW": 19.52,
+          "tempC": 57
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:10.651Z",
+        "cpuPct": 39.34,
+        "memUsedMb": 8931,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2930,
+          "powerW": 19.92,
+          "tempC": 57
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:11.685Z",
+        "cpuPct": 38.69,
+        "memUsedMb": 8923,
+        "gpu": {
+          "utilPct": 15,
+          "memUsedMb": 2930,
+          "powerW": 19.99,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:12.720Z",
+        "cpuPct": 39.13,
+        "memUsedMb": 8927,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2930,
+          "powerW": 20.06,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:13.753Z",
+        "cpuPct": 39.94,
+        "memUsedMb": 9051,
+        "gpu": {
+          "utilPct": 34,
+          "memUsedMb": 2930,
+          "powerW": 24.33,
+          "tempC": 59
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:14.783Z",
+        "cpuPct": 40.51,
+        "memUsedMb": 9083,
+        "gpu": {
+          "utilPct": 10,
+          "memUsedMb": 2930,
+          "powerW": 32.7,
+          "tempC": 60
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:15.814Z",
+        "cpuPct": 39.62,
+        "memUsedMb": 9060,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2930,
+          "powerW": 26.56,
+          "tempC": 58
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:16.846Z",
+        "cpuPct": 39.43,
+        "memUsedMb": 9085,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2930,
+          "powerW": 20.11,
+          "tempC": 59
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:17.877Z",
+        "cpuPct": 38.54,
+        "memUsedMb": 9068,
+        "gpu": {
+          "utilPct": 14,
+          "memUsedMb": 2930,
+          "powerW": 20.18,
+          "tempC": 59
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:18.909Z",
+        "cpuPct": 39.37,
+        "memUsedMb": 9061,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2930,
+          "powerW": 20.21,
+          "tempC": 59
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:19.941Z",
+        "cpuPct": 38.49,
+        "memUsedMb": 9062,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2930,
+          "powerW": 20.26,
+          "tempC": 59
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:20.975Z",
+        "cpuPct": 39.28,
+        "memUsedMb": 9235,
+        "gpu": {
+          "utilPct": 23,
+          "memUsedMb": 2932,
+          "powerW": 25.93,
+          "tempC": 61
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:22.006Z",
+        "cpuPct": 40.24,
+        "memUsedMb": 8856,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2932,
+          "powerW": 32.24,
+          "tempC": 61
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:23.038Z",
+        "cpuPct": 40.46,
+        "memUsedMb": 8855,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2932,
+          "powerW": 22.16,
+          "tempC": 60
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:24.070Z",
+        "cpuPct": 38.37,
+        "memUsedMb": 8826,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.35,
+          "tempC": 60
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:25.101Z",
+        "cpuPct": 38.95,
+        "memUsedMb": 8833,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.16,
+          "tempC": 60
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:26.134Z",
+        "cpuPct": 38.45,
+        "memUsedMb": 8842,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.39,
+          "tempC": 60
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:27.166Z",
+        "cpuPct": 39.19,
+        "memUsedMb": 9012,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2932,
+          "powerW": 26.81,
+          "tempC": 62
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:28.207Z",
+        "cpuPct": 40.08,
+        "memUsedMb": 9052,
+        "gpu": {
+          "utilPct": 10,
+          "memUsedMb": 2932,
+          "powerW": 32.94,
+          "tempC": 62
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:29.239Z",
+        "cpuPct": 40.86,
+        "memUsedMb": 9039,
+        "gpu": {
+          "utilPct": 17,
+          "memUsedMb": 2932,
+          "powerW": 24.84,
+          "tempC": 61
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:30.271Z",
+        "cpuPct": 39.78,
+        "memUsedMb": 9032,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.1,
+          "tempC": 61
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:31.308Z",
+        "cpuPct": 40.64,
+        "memUsedMb": 9034,
+        "gpu": {
+          "utilPct": 20,
+          "memUsedMb": 2932,
+          "powerW": 20.1,
+          "tempC": 61
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:32.342Z",
+        "cpuPct": 39.85,
+        "memUsedMb": 9053,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2932,
+          "powerW": 20.17,
+          "tempC": 61
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:33.375Z",
+        "cpuPct": 40.95,
+        "memUsedMb": 9052,
+        "gpu": {
+          "utilPct": 17,
+          "memUsedMb": 2932,
+          "powerW": 19.72,
+          "tempC": 61
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:34.412Z",
+        "cpuPct": 38.75,
+        "memUsedMb": 8971,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2932,
+          "powerW": 20.58,
+          "tempC": 61
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:35.445Z",
+        "cpuPct": 39.08,
+        "memUsedMb": 8986,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.61,
+          "tempC": 61
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:36.479Z",
+        "cpuPct": 38.51,
+        "memUsedMb": 8986,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.61,
+          "tempC": 62
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:37.514Z",
+        "cpuPct": 39.66,
+        "memUsedMb": 9001,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 19.92,
+          "tempC": 62
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:38.544Z",
+        "cpuPct": 38.58,
+        "memUsedMb": 9020,
+        "gpu": {
+          "utilPct": 14,
+          "memUsedMb": 2932,
+          "powerW": 30.02,
+          "tempC": 63
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:39.574Z",
+        "cpuPct": 40.52,
+        "memUsedMb": 9013,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2932,
+          "powerW": 32.92,
+          "tempC": 64
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:40.605Z",
+        "cpuPct": 40.07,
+        "memUsedMb": 9052,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2932,
+          "powerW": 20.39,
+          "tempC": 62
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:41.635Z",
+        "cpuPct": 40.59,
+        "memUsedMb": 9047,
+        "gpu": {
+          "utilPct": 12,
+          "memUsedMb": 2932,
+          "powerW": 20.34,
+          "tempC": 63
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:42.666Z",
+        "cpuPct": 39.78,
+        "memUsedMb": 9082,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2932,
+          "powerW": 20.32,
+          "tempC": 62
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:43.698Z",
+        "cpuPct": 40.01,
+        "memUsedMb": 9094,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.38,
+          "tempC": 63
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:44.733Z",
+        "cpuPct": 38.42,
+        "memUsedMb": 9044,
+        "gpu": {
+          "utilPct": 14,
+          "memUsedMb": 2932,
+          "powerW": 20.81,
+          "tempC": 63
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:45.765Z",
+        "cpuPct": 38.92,
+        "memUsedMb": 9050,
+        "gpu": {
+          "utilPct": 13,
+          "memUsedMb": 2932,
+          "powerW": 20.8,
+          "tempC": 63
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:46.794Z",
+        "cpuPct": 38.71,
+        "memUsedMb": 9058,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.49,
+          "tempC": 63
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:47.829Z",
+        "cpuPct": 39.44,
+        "memUsedMb": 9129,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.3,
+          "tempC": 63
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:48.853Z",
+        "cpuPct": 38.76,
+        "memUsedMb": 9154,
+        "gpu": {
+          "utilPct": 10,
+          "memUsedMb": 2932,
+          "powerW": 30.84,
+          "tempC": 64
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:49.884Z",
+        "cpuPct": 40.52,
+        "memUsedMb": 9337,
+        "gpu": {
+          "utilPct": 10,
+          "memUsedMb": 2932,
+          "powerW": 33.23,
+          "tempC": 65
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:50.917Z",
+        "cpuPct": 39.77,
+        "memUsedMb": 9361,
+        "gpu": {
+          "utilPct": 11,
+          "memUsedMb": 2932,
+          "powerW": 21.82,
+          "tempC": 64
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:51.948Z",
+        "cpuPct": 40.57,
+        "memUsedMb": 9184,
+        "gpu": {
+          "utilPct": 17,
+          "memUsedMb": 2932,
+          "powerW": 20.15,
+          "tempC": 64
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:52.980Z",
+        "cpuPct": 38.76,
+        "memUsedMb": 9181,
+        "gpu": {
+          "utilPct": 19,
+          "memUsedMb": 2932,
+          "powerW": 20.59,
+          "tempC": 64
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:54.012Z",
+        "cpuPct": 39.61,
+        "memUsedMb": 9109,
+        "gpu": {
+          "utilPct": 18,
+          "memUsedMb": 2932,
+          "powerW": 20.65,
+          "tempC": 64
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:55.048Z",
+        "cpuPct": 38.52,
+        "memUsedMb": 9129,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 20.59,
+          "tempC": 64
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:56.079Z",
+        "cpuPct": 38.46,
+        "memUsedMb": 9204,
+        "gpu": {
+          "utilPct": 92,
+          "memUsedMb": 2932,
+          "powerW": 20.05,
+          "tempC": 64
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:57.107Z",
+        "cpuPct": 39.8,
+        "memUsedMb": 9235,
+        "gpu": {
+          "utilPct": 20,
+          "memUsedMb": 2932,
+          "powerW": 31.44,
+          "tempC": 65
+        }
+      },
+      {
+        "ts": "2026-11-10T21:28:58.143Z",
+        "cpuPct": 40.62,
+        "memUsedMb": 9474,
+        "gpu": {
+          "utilPct": 21,
+          "memUsedMb": 2932,
+          "powerW": 30.5,
+          "tempC": 65
+        }
+      }
+    ],
+    "round": {
+      "cpu": {
+        "avgPct": 37.39,
+        "peakPct": 40.95
+      },
+      "mem": {
+        "avgMb": 8987.15,
+        "peakMb": 9474
+      },
+      "gpu": {
+        "avgUtilPct": 22.62,
+        "peakUtilPct": 98,
+        "avgMemMb": 2796.94,
+        "peakMemMb": 2932,
+        "energyWh": 0.46
+      }
+    },
+    "actors": {
+      "product-owner-2": {
+        "cpu": {
+          "avgPct": 37.39,
+          "peakPct": 40.95
+        },
+        "mem": {
+          "avgMb": 8987.15,
+          "peakMb": 9474
+        },
+        "gpu": {
+          "avgUtilPct": 22.62,
+          "peakUtilPct": 98,
+          "avgMemMb": 2796.94,
+          "peakMemMb": 2932,
+          "energyWh": 0.46
+        }
+      }
+    }
+  }
+}
