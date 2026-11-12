@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { constants, homedir } from 'node:os';
 import { promisify } from 'node:util';
 
-import { HELPER_MAX_OUTPUT_BYTES } from './constants';
+import { HELPER_MAX_OUTPUT_BYTES } from './constants.ts';
 
 /**
  * The current process and the programs Goiaba starts besides the agent's CLI

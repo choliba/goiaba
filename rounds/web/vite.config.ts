@@ -3,10 +3,10 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
-import { environment } from '../../src/execute/process';
-import { resolve } from '../../src/filesystem/index';
-import { ROUNDS_DATA_ENV, ROUNDS_JSON } from '../../src/rounds/constants';
-import { roundsPayload } from '../../src/rounds/payload';
+import { environment } from '../../src/execute/process.ts';
+import { resolve } from '../../src/filesystem/index.ts';
+import { ROUNDS_DATA_ENV, ROUNDS_JSON } from '../../src/rounds/constants.ts';
+import { roundsPayload } from '../../src/rounds/payload.ts';
 
 /**
  * Where the records are: `rounds.data`, given by `goiaba rounds` when it

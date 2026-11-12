@@ -7,7 +7,11 @@
     "types": ["node", "bun"],
     "verbatimModuleSyntax": true,
     "noEmit": true,
-    "skipLibCheck": true
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@./*": ["./*"]
+    }
   },
   "include": [
     "src/**/*.ts",

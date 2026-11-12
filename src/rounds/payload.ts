@@ -5,7 +5,12 @@
  * Vite's config imports it too.
  */
 
-import { join, listDirectory, pathExists, readText } from '../filesystem/index';
+import {
+  join,
+  listDirectory,
+  pathExists,
+  readText,
+} from '../filesystem/index.ts';
 
 /** Every record of `data`, by file name, as the pages read them. */
 export function roundsPayload(data: string): string {
