@@ -1,8 +1,8 @@
 /**
- * Exemplo 3 do curso de rounds: dois agentes, instruções e regras. O
+ * Exemplo 3 do curso de rounds: dois agentes, critérios e regras. O
  * product owner escreve um ticket; o analista recebe o que ele disse, mas,
- * mesmo com `readOnly`, grava um arquivo. A rodada confere sozinha as
- * instruções de cada um (o arquivo existe? tem o trecho? não alterou nada?)
+ * mesmo com `readOnly`, grava um arquivo. A rodada confere sozinha os
+ * critérios de cada um (o arquivo existe? tem o trecho? não alterou nada?)
  * e as regras, e o exemplo mostra os vereditos que ficaram no registro. O
  * provider é de mentira (a "CLI" é o próprio bun): escreve os arquivos que
  * recebeu e responde o texto que recebeu.

@@ -52,13 +52,15 @@ const wrong: [string, RoundDefinition][] = [
     { ...base, start: { fixture: '../fora' } },
   ],
   [
-    'otherwise sem when',
+    'critério de quem não está em actors',
     {
       ...base,
-      criteria: {
-        analista: [{ file: { name: 'a.txt', exists: true } }],
-      },
+      criteria: { revisor: [{ file: { name: 'a.txt', exists: true } }] },
     },
+  ],
+  [
+    'limite com uma duração que não existe',
+    { ...base, criteria: { analista: [{ limit: { time: '2 dias' } }] } },
   ],
   ['repeat zero', { ...base, repeat: 0 }],
 ];

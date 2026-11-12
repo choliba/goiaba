@@ -33,7 +33,12 @@ declaração ──▶ runRound ──▶ pasta da rodada (fixture ou tag) ─�
   - [`defineRound` e a declaração](#defineround-e-a-declaração)
   - [Os agentes e os passos](#os-agentes-e-os-passos)
   - [`start`: de onde a rodada parte](#start-de-onde-a-rodada-parte)
-  - [`instructions` e `limits`](#instructions-e-limits)
+  - [`criteria`: o que conta como bem feito](#criteria-o-que-conta-como-bem-feito)
+    - [`file`: um arquivo no fim do passo](#file-um-arquivo-no-fim-do-passo)
+    - [`limit`: quanto pode gastar](#limit-quanto-pode-gastar)
+    - [`if`: um ramo ou outro](#if-um-ramo-ou-outro)
+    - [O que `defineRound` recusa](#o-que-defineround-recusa)
+  - [Do pedido ao critério](#do-pedido-ao-critério)
   - [As regras](#as-regras)
   - [`runRound` e as opções](#runround-e-as-opções)
   - [`roundDir`](#rounddir)
@@ -44,17 +49,19 @@ declaração ──▶ runRound ──▶ pasta da rodada (fixture ou tag) ─�
   - [Onde a rodada roda: `rounds.dir`](#onde-a-rodada-roda-roundsdir)
   - [Fixture ou repositório, e as travas](#fixture-ou-repositório-e-as-travas)
   - [O que é medido](#o-que-é-medido)
+  - [Os critérios, do passo à nota](#os-critérios-do-passo-à-nota)
   - [O registro](#o-registro)
   - [As notas](#as-notas)
   - [Linha de comando, limpeza e páginas](#linha-de-comando-limpeza-e-páginas)
 - [Exemplos](#exemplos)
   - [1. Declarar uma rodada](#1-declarar-uma-rodada)
   - [2. A primeira rodada](#2-a-primeira-rodada)
-  - [3. Dois agentes, instruções e regras](#3-dois-agentes-instruções-e-regras)
+  - [3. Dois agentes, critérios e regras](#3-dois-agentes-critérios-e-regras)
   - [4. As notas](#4-as-notas)
   - [5. As referências `arquivo:linha`](#5-as-referências-arquivolinha)
   - [6. Partir de um repositório, e as travas](#6-partir-de-um-repositório-e-as-travas)
-  - [7. Rodadas de verdade](#7-rodadas-de-verdade)
+  - [7. Os critérios](#7-os-critérios)
+  - [8. Rodadas de verdade](#8-rodadas-de-verdade)
 - [Regras do módulo](#regras-do-módulo)
 - [Exercícios](#exercícios)
 
@@ -69,7 +76,7 @@ O motor fica em `src/rounds`; o que é de cada rodada fica em `rounds/`, version
 | `src/rounds/run.ts`          | `runRound`: prepara a partida, roda os passos, mede, confere e grava.                                                                                         |
 | `src/rounds/git.ts`          | O git da rodada: `prepareFixture`, `resetTo`, as travas (`assertOwnRepository`, `assertApart`), o diff.                                                       |
 | `src/rounds/dir.ts`          | `roundDir(id)`: a pasta de uma rodada dentro do `rounds.dir`.                                                                                                 |
-| `src/rounds/instructions.ts` | Confere as `instructions` no workspace, no início e no fim de cada passo.                                                                                     |
+| `src/rounds/criteria.ts`     | Confere os `criteria`: os de arquivo no fim de cada passo, os limites contra o que foi medido.                                                                |
 | `src/rounds/rules.ts`        | As regras prontas: `readOnlyRespected`, `noQuestions`, `noToolCallAsText`.                                                                                    |
 | `src/rounds/references.ts`   | Tira as citações `arquivo:linha` do que o agente disse e confere cada uma.                                                                                    |
 | `src/rounds/measures.ts`     | `StepRecorder`: ouve os eventos de um passo (falas, perguntas, ferramentas, tokens).                                                                          |
@@ -96,18 +103,17 @@ Tudo sai de `src/rounds/index.ts`, menos as peças avulsas indicadas.
 `defineRound(definition)` confere a declaração e a devolve como veio. Uma declaração errada é um `UsageError` que diz
 o que corrigir, antes de qualquer agente rodar ([Exemplo 1](#1-declarar-uma-rodada)).
 
-| Campo          | Tipo                                  | O que é                                                                                                       |
-| -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `id`           | `string`                              | Letras minúsculas, números e hífens. É o endereço do teste nas páginas e o nome do arquivo.                   |
-| `goal`         | `string`                              | O que a rodada quer descobrir, em português. Rodadas com outro `goal` são outra configuração.                 |
-| `label`        | `string?`                             | O que mudou desde a última execução, nas suas palavras. Só uma nota; `--label` na linha de comando vale mais. |
-| `start`        | `RoundStartDefinition?`               | De onde toda execução parte: `{ fixture }` ou `{ git: { root, tag } }`. Sem ele, nada é conferido pelo git.   |
-| `actors`       | `Record<string, RoundActor>`          | Os agentes, pelo nome do papel (`analista`, `programador`).                                                   |
-| `flow`         | `RoundFlowStep[]`                     | Os passos, em ordem. Um agente pode aparecer em vários.                                                       |
-| `rules`        | `RoundRule[]?`                        | O que se confere de fora, depois de rodar.                                                                    |
-| `instructions` | `Record<string, RoundInstruction[]>?` | Por agente, as partes do prompt que a rodada confere sozinha.                                                 |
-| `limits`       | `RoundLimits?`                        | Limites de tempo e custo, declarados antes: cumprir faz parte da meta.                                        |
-| `repeat`       | `number?`                             | Quantas vezes rodar; cada execução tem o seu registro. 1 por padrão.                                          |
+| Campo      | Tipo                                | O que é                                                                                                       |
+| ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `id`       | `string`                            | Letras minúsculas, números e hífens. É o endereço do teste nas páginas e o nome do arquivo.                   |
+| `goal`     | `string`                            | O que a rodada quer descobrir, em português. Rodadas com outro `goal` são outra configuração.                 |
+| `label`    | `string?`                           | O que mudou desde a última execução, nas suas palavras. Só uma nota; `--label` na linha de comando vale mais. |
+| `start`    | `RoundStartDefinition?`             | De onde toda execução parte: `{ fixture }` ou `{ git: { root, tag } }`. Sem ele, nada é conferido pelo git.   |
+| `actors`   | `Record<string, RoundActor>`        | Os agentes, pelo nome do papel (`analista`, `programador`).                                                   |
+| `flow`     | `RoundFlowStep[]`                   | Os passos, em ordem. Um agente pode aparecer em vários.                                                       |
+| `rules`    | `RoundRule[]?`                      | O que se confere de fora, depois de rodar.                                                                    |
+| `criteria` | `Record<string, RoundCriterion[]>?` | Por agente (e `round`, para a rodada inteira), o que a rodada confere sozinha: arquivos, limites e condições. |
+| `repeat`   | `number?`                           | Quantas vezes rodar; cada execução tem o seu registro. 1 por padrão.                                          |
 
 Um campo desconhecido também é recusado: um erro de digitação não passa em silêncio.
 
@@ -117,7 +123,7 @@ Um campo desconhecido também é recusado: um erro de digitação não passa em 
 interface RoundActor {
   provider: AgentProvider; // qual CLI roda (ClaudeProvider, OllamaProvider…)
   workspace: WorkspaceOptions; // onde: um Workspace novo a cada passo do agente
-  permissions?: AgentPolicy; // a política dele
+  policy?: AgentPolicy; // a política dele
   readOnly?: boolean; // pedido de não alterar nada: o git confere
 }
 
@@ -147,36 +153,164 @@ type RoundStartDefinition =
 Um dos dois, nunca os dois. O nome da fixture é só o nome da pasta (`site-vazio`), sem `/` nem `..`. Os dois modos
 estão em [Fixture ou repositório, e as travas](#fixture-ou-repositório-e-as-travas).
 
-### `instructions` e `limits`
+### `criteria`: o que conta como bem feito
 
-Uma **instrução** é um pedido do prompt que deixa (ou não deixa) algo no workspace, conferido sem interpretar texto:
+Um **critério** transforma um pedido do prompt num fato que a rodada confere sozinha, sem ler a resposta do agente:
+"escreva o ticket em `ticket.md`" vira "`ticket.md` foi criado e contém `Então`". É dos critérios que sai a nota
+**Critérios do prompt**, a principal parte da eficácia: sem eles, a rodada sabe quanto o agente gastou, mas não se ele
+fez o que foi pedido.
+
+Os critérios ficam na declaração, em `criteria`, agrupados por quem eles avaliam:
 
 ```ts
-interface RoundInstruction {
-  when?: { file: string; contains?: string }; // a condição, conferida no início do passo
-  check: RoundCheck; // o que tem que ser verdade no fim do passo
-  otherwise?: RoundCheck; // o que tem que ser verdade se a condição não valeu
-}
+type RoundCriteria = Record<string, RoundCriterion[]>; // a chave: um agente de actors, ou 'round'
 
-type RoundCheck =
-  | { file: string; contains?: string } // o arquivo existe (e tem o trecho, sem diferenciar maiúsculas)
-  | { unchanged: true }; // o agente não alterou nada no passo
+type RoundCriterion =
+  | { file: FileCriterion } // algo sobre um arquivo, conferido no fim de cada passo do agente
+  | { limit: LimitCriterion } // quanto o agente (ou a rodada) pode gastar
+  | ConditionalCriterion; // { if, check, else? }: um ramo ou outro, conforme o início do passo
 ```
 
-- `file` é relativo à raiz do workspace (`tickets/ticket-01.txt`); caminho absoluto ou com `..` é recusado.
-- Sem `when`, o `check` vale sempre. Com `when` que não valeu e sem `otherwise`, a instrução não se aplica.
-- `otherwise` sem `when` é recusado.
+Cada critério é um objeto com **uma chave só**, que diz o tipo: `file`, `limit` ou `if`. Numa declaração:
+
+```ts
+defineRound({
+  // … id, goal, start, actors, flow …
+  criteria: {
+    dev: [
+      { file: { name: 'index.html', changed: true, contains: ['Goiaba'] } },
+      { file: { name: 'README.md', changed: false } },
+      { limit: { time: '2min' } },
+    ],
+    round: [{ limit: { time: '10min' } }],
+  },
+});
+```
+
+Quando um agente aparece em mais de um passo do `flow`, os critérios de arquivo dele são conferidos **em cada um**.
+Numa declaração que cresce, os critérios podem ir para um arquivo à parte, como em
+[`rounds/definitions/kanban/criteria.ts`](../../rounds/definitions/kanban/criteria.ts).
+
+#### `file`: um arquivo no fim do passo
+
+```ts
+interface FileCriterion {
+  name: string; // relativo à raiz do workspace; aceita curinga
+  ignore?: string[]; // com curinga: o que deixar de fora
+  exists?: boolean; // no fim do passo: true existe, false não existe
+  created?: boolean; // true: não existia no início do passo e existe no fim
+  deleted?: boolean; // true: existia no início do passo e não existe no fim
+  changed?: boolean; // true: o git viu mudar no passo; false: não viu
+  contains?: string[]; // tem TODOS os trechos, sem diferenciar maiúsculas
+  matches?: (RegExp | string)[]; // casa TODAS as expressões
+  equals?: string; // o conteúdo é exatamente este
+}
+```
+
+- **Tudo o que está num `file` vale junto** (é um "e"). O critério só é cumprido se todas as asserções forem, e o
+  motivo (`detail`) diz a primeira que falhou: `index.html não contém "<footer".`. Para cobrar duas coisas
+  separadamente, escreva dois critérios: cada um conta na nota.
+- `{ file: { name: 'a.txt' } }`, sem nenhuma asserção, confere que o arquivo existe.
+- `created`, `deleted` e `changed` comparam o **início e o fim do passo**, não da rodada: o que um agente anterior
+  criou já estava lá quando este começou.
+- `changed` vem do git (`git status`): sem `start`, a rodada não tem git, e nada aparece como mudado.
+- `contains` ignora maiúsculas e minúsculas; `matches` e `equals`, não (use a flag `i`, como em `/goiaba/i`).
 - O registro guarda só o veredito (o que foi conferido, se cumpriu, por quê), nunca o conteúdo do arquivo.
 
-Os **limites** entram na eficácia: dentro dá 5, acima dá 0.
+**Curingas** em `name` (e em `ignore`):
+
+| Curinga | Casa                                 | Exemplo                                                   |
+| ------- | ------------------------------------ | --------------------------------------------------------- |
+| `*`     | qualquer coisa num nível só, sem `/` | `docs/*` casa `docs/a.md`, não `docs/sub/b.md` nem `a.md` |
+| `**`    | qualquer coisa, inclusive subpastas  | `**` casa todo arquivo do workspace                       |
+| `?`     | um caractere, menos `/`              | `ticket-0?.md` casa `ticket-01.md`                        |
+
+Com curinga, o critério vale para **cada** arquivo que casa (no início ou no fim do passo) e falha no primeiro que não
+cumprir. Se nenhum casar, ele é cumprido quando só proíbe (`exists: false`, `changed: false`) e não cumprido quando
+exige algo de um arquivo (`exists: true`, `created`, `changed: true`, `contains`, `matches`, `equals`). Cuidado: `*`
+sozinho olha só a raiz; para "nada mudou, em pasta nenhuma", use `**`.
+
+#### `limit`: quanto pode gastar
 
 ```ts
-interface RoundLimits {
-  roundMs?: number; // a rodada inteira, no relógio, em ms
-  actorMs?: Record<string, number>; // cada agente, a soma dos seus passos, em ms
-  costUsd?: number; // a rodada inteira, em dólares
+interface LimitCriterion {
+  time?: string; // '500ms', '20s', '2min', '1h'
+  tokens?: number; // tokens novos: entrada que não veio do cache, mais a saída
+  cost?: string; // em dólares, como texto: '0.05'
 }
 ```
+
+- Na lista de um agente, o limite vale para **a soma de todos os passos dele**; em `round`, para a rodada inteira.
+- Cada campo vira um critério próprio na nota: `{ limit: { time: '1min', tokens: 5000 } }` são dois, cada um 5 se
+  ficou dentro e 0 se passou.
+- **O que não foi medido conta como não cumprido** (0, com o motivo `tokens não medido.`), ao contrário dos outros
+  critérios da rubrica. Só declare limite do que a CLI informa: o Cursor não informa custo, e o Ollama só informa tokens
+  quando o agente tem política.
+- Limite só vale no primeiro nível da lista. Dentro de um `if`, ele não é conferido.
+
+#### `if`: um ramo ou outro
+
+```ts
+interface ConditionalCriterion {
+  if: { name: string; exists?: boolean; contains?: string[] }; // conferido no INÍCIO do passo
+  check: RoundCriterion[]; // os critérios, se a condição valeu
+  else?: RoundCriterion[]; // os critérios, se não valeu
+}
+```
+
+- A condição olha o workspace **antes** de o agente agir: serve para pedidos que dependem do estado ("se o ticket está
+  pendente, marque como done"; "se é a sua vez, escreva; senão, não mexa em nada").
+- Condição que não valeu e sem `else`: nenhum critério se aplica naquele passo, e nada conta na nota.
+- `name` da condição é um caminho exato, sem curinga. `if: { name: 'a.txt' }`, sem `exists` nem `contains`, vale
+  sempre: diga o que conferir.
+- `check` e `else` levam critérios de arquivo e outros `if`. (`check`, não `then`: um objeto com `then` vira uma
+  promessa em JavaScript.)
+
+#### O que `defineRound` recusa
+
+Um critério errado para a rodada antes de qualquer agente rodar, com um `UsageError` que diz o que corrigir
+([Exemplo 1](#1-declarar-uma-rodada)):
+
+- uma chave de `criteria` que não é um agente de `actors` nem `round`;
+- um `name` (de `file`, `ignore` ou `if`) absoluto ou com `..`;
+- um trecho vazio em `contains`;
+- `time` fora do formato (`2 dias`), `tokens` que não é maior que zero, `cost` que não é um valor maior que zero.
+
+Um campo com nome errado (`contain` no lugar de `contains`) quem pega é o typecheck: declare as rodadas em `.ts`.
+
+### Do pedido ao critério
+
+Escreva o prompt primeiro e, para cada pedido dele que deixa (ou não deixa) rastro no workspace, um critério:
+
+| No prompt                                    | Critério                                                                                                                          |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| "Crie o `relatorio.md`"                      | `{ file: { name: 'relatorio.md', created: true } }`                                                                               |
+| "Escreva o ticket com o cenário em Gherkin"  | `{ file: { name: 'ticket.md', contains: ['Dado', 'Quando', 'Então'] } }`                                                          |
+| "Corrija o título no `index.html`"           | `{ file: { name: 'index.html', changed: true, matches: [/<h1>[^<]*Goiaba<\/h1>/] } }`                                             |
+| "Não mexa no README"                         | `{ file: { name: 'README.md', changed: false } }`                                                                                 |
+| "Não altere nada"                            | `{ file: { name: '**', changed: false } }` (e `readOnly: true` com a regra `readOnlyRespected`)                                   |
+| "Apague o `tmp.txt`"                         | `{ file: { name: 'tmp.txt', deleted: true } }`                                                                                    |
+| "Um arquivo por ticket em `tickets/`"        | `{ file: { name: 'tickets/*.md', created: true, contains: ['Critérios de aceite'] } }`                                            |
+| "Responda em JSON com a chave `status`"      | `{ file: { name: 'saida.json', matches: [/"status"\s*:/] } }`                                                                     |
+| "Em até 2 minutos"                           | `{ limit: { time: '2min' } }`                                                                                                     |
+| "Se for a sua vez, escreva; senão, não mexa" | `{ if: { name: 'ticket.txt', contains: ['PROXIMO_ATOR: dev\n'] }, check: […], else: [{ file: { name: '**', changed: false } }] }` |
+
+Algumas lições:
+
+- **Um critério por pedido.** A nota "Critérios do prompt" é a fração cumprida, `5 × cumpridos ÷ conferidos`, somando
+  todos os passos do agente. Repetir um critério dá peso dobrado ao pedido; juntar dois pedidos num `file` só faz os
+  dois valerem por um.
+- **Confira o que o prompt pede, com as palavras dele.** Se o prompt diz "escreva o resultado em `pesquisa.txt`",
+  exigir `contains: ['termo:']` cobra um formato que ninguém pediu. Ou o prompt pede o formato, ou o critério não o
+  cobra.
+- **Prefira `contains` a `equals`.** Um modelo varia espaços, ordem e pontuação; `equals` reprova quem acertou.
+- **Pedido que não deixa rastro no workspace não vira critério de arquivo.** "Explique o problema" se confere pelas
+  referências `arquivo:linha` ([Exemplo 5](#5-as-referências-arquivolinha)) ou por uma regra própria.
+- **Modelos pequenos às vezes respondem com o conteúdo em vez de gravar o arquivo.** Sem um critério de arquivo, a
+  eficácia não vê que nada foi gravado.
+
+O [Exemplo 7](#7-os-critérios) roda uma rodada com critérios dos três tipos e mostra o veredito de cada um e a nota que
+sai deles.
 
 ### As regras
 
@@ -255,12 +389,13 @@ os seus critérios (`id`, `label`, `score` de 0 a 5 ou `null`, `detail`); e o me
    `rodada-base`. Com `start.git`, o repositório volta à tag (`checkout --force` e `clean -fd`). Antes, as travas.
 2. **Cada passo do `flow`**, em ordem:
    - o `prompt` do passo recebe o que cada agente disse no último passo dele (`said`);
-   - as condições (`when`) das instruções do agente são conferidas no workspace;
+   - se o agente tem critérios, o workspace é lido: o "antes" das condições (`if`) e de `created`/`deleted`;
    - um `Agent` novo roda o pedido uma vez, num `Workspace` novo, sem conversa: ninguém responde. Se ele pergunta, a
      rodada responde que ninguém vai responder e que ele decida;
    - o `StepRecorder` ouve os eventos do agente: falas, perguntas, ferramentas, tokens, custo;
    - o git compara o workspace antes e depois: o que mudou (`changed`) e o diff;
-   - as instruções são conferidas no fim do passo, e as referências `arquivo:linha` do que ele disse, contra a tag.
+   - os critérios de arquivo do agente são conferidos no fim do passo, e as referências `arquivo:linha` do que ele
+     disse, contra a tag.
    - Se o agente terminou sem dizer nada, a rodada para ali.
 3. **As regras** olham todos os passos.
 4. **O registro** é montado, sem segredos nem o caminho do projeto, conferido pelo `validateRound` e gravado.
@@ -321,13 +456,38 @@ No modo `git`, use uma cópia que só sirva às rodadas: o `clean -fd` apaga o q
 | tokens e custo    | o que a CLI informa (ou o tráfego do Ollama, com política) | `usage`, `steps[i].totals`, `totals` |
 | tempo             | o relógio, por passo, por agente e da rodada               | `steps[i].span`, `timing`            |
 | o que mudou       | o git, antes e depois de cada passo                        | `steps[i].changed`, `steps[i].diff`  |
-| instruções        | o workspace, no início e no fim do passo                   | `steps[i].instructions`              |
+| critérios         | o workspace e o git, no início e no fim do passo           | `steps[i].criteria`                  |
 | referências       | o que o agente disse, contra a tag de partida              | `steps[i].references`                |
 | rede              | as decisões da fronteira de rede de cada agente            | `actors[nome].network.decisions`     |
 | regras            | as `rules` da declaração                                   | `violations`                         |
 
 O que não foi medido fica `null`, nunca `0`. O Cursor não informa custo; o Ollama só informa tokens quando o agente tem
 política (é ela que dá a fronteira de rede que lê o tráfego).
+
+### Os critérios, do passo à nota
+
+```
+início do passo ──▶ agente roda ──▶ fim do passo ──────────────────▶ depois da rodada
+ lê o workspace                      lê o workspace de novo           scoreRound
+ (o "antes" de if,                   + o que o git viu mudar           Critérios do prompt = 5 × cumpridos ÷ conferidos
+  created, deleted)                  confere file e if do agente       cada limite: 5 dentro, 0 fora (ou não medido)
+                                     ──▶ steps[i].criteria
+```
+
+1. **No início de cada passo** de um agente que tem critérios, o motor lê o workspace inteiro (menos o `.git`). É contra
+   essa leitura que valem as condições de `if` e o `created`/`deleted`.
+2. **No fim do passo**, lê de novo, junta o que o `git status` viu mudar no passo, e confere os critérios `file` e `if`
+   daquele agente. Cada veredito vai para `steps[i].criteria`, como `{ description, met, detail }`:
+   `{ description: 'README.md não mudou', met: true, detail: 'README.md não mudou.' }`.
+3. **Depois da rodada**, `scoreRound` transforma os vereditos em nota. Na eficácia de cada agente entram
+   **Critérios do prompt** (todos os vereditos de todos os passos dele) e um **Limite do agente** para cada campo de
+   cada `limit`, comparado com o tempo, os tokens e o custo somados dos passos dele. Os limites de `round` entram, como
+   **Limite da rodada**, na eficácia da rodada: a média das eficácias dos agentes e desses limites, todos com o mesmo peso.
+4. O registro guarda também os critérios como foram declarados (`criteria`, com cada `RegExp` como texto): a página
+   mostra o que foi pedido ao lado do que foi cumprido.
+
+Um agente sem critério de arquivo fica com "Critérios do prompt" **não avaliado** (`—`), não `0`. Os critérios de
+`round` são só limites: um `file` ali não é conferido, porque não há um passo da rodada inteira para comparar.
 
 ### O registro
 
@@ -337,7 +497,7 @@ Um JSON por execução, em `rounds/data/<início>.json` (o formato está em `src
 
 O registro também guarda a declaração com que a rodada rodou, em dados (`declaration`): o objetivo, a partida, cada
 agente (provider, CLI, modelo, workspace, política, `readOnly`), o `flow` com os pedidos (com `{{said:analista}}` no
-lugar do que outro agente disse), as instruções, os limites, as regras e a repetição. Não é preciso commitar a
+lugar do que outro agente disse), os critérios, as regras e a repetição. Não é preciso commitar a
 definição a cada mudança: na página da rodada, **Copiar definição** escreve de volta o arquivo de
 `rounds/definitions/<id>.ts` (`declarationSource`). Registros anteriores a isso não têm o bloco, e o botão não aparece.
 
@@ -353,14 +513,15 @@ Cada agente recebe três notas, de 0 a 5:
 nota final = 60% × eficácia + 40% × base da eficiência
 ```
 
-- **Eficácia**: atingiu o objetivo? Média de instruções do prompt, permissões, referências corretas e limite de tempo.
+- **Eficácia**: atingiu o objetivo? Média de critérios do prompt, permissões, referências corretas e limites do agente
+  ([Os critérios, do passo à nota](#os-critérios-do-passo-à-nota)).
 - **Eficiência**: quanto gastou para chegar lá? Tempo e tokens contra a mediana das execuções anteriores do mesmo
   agente, mais o processo sem desperdício (perguntas, ferramentas com erro). A base é escalada pela eficácia: quem
   gasta pouco e não entrega fica com zero.
 - **Eliminatórias** zeram as três: violar `readOnlyRespected` ou `noToolCallAsText`, ou terminar sem entregar nada.
 
-Um critério sem o que medir fica **não avaliado** (`—`), não `0`. Sem nenhum critério de eficácia (instrução,
-política, `readOnly`, referência ou limite), não há eficácia, e sem ela não há nota final. Cada critério, cada número e
+Um critério sem o que medir fica **não avaliado** (`—`), não `0`. Sem nenhum critério de eficácia (critério de
+arquivo, política, `readOnly`, referência ou limite), não há eficácia, e sem ela não há nota final. Cada critério, cada número e
 o motivo dele estão em [`rounds/README.md`](../../rounds/README.md#avaliação-as-notas-de-cada-rodada).
 
 ### Linha de comando, limpeza e páginas
@@ -449,15 +610,15 @@ const wrong: [string, RoundDefinition][] = [
     { ...base, start: { fixture: '../fora' } },
   ],
   [
-    'otherwise sem when',
+    'critério de quem não está em actors',
     {
       ...base,
-      instructions: {
-        analista: [
-          { check: { file: 'a.txt' }, otherwise: { unchanged: true } },
-        ],
-      },
+      criteria: { revisor: [{ file: { name: 'a.txt', exists: true } }] },
     },
+  ],
+  [
+    'limite com uma duração que não existe',
+    { ...base, criteria: { analista: [{ limit: { time: '2 dias' } }] } },
   ],
   ['repeat zero', { ...base, repeat: 0 }],
 ];
@@ -486,8 +647,10 @@ passo de quem não está em actors:
   A rodada so-analise: o passo 1 usa actor "revisor", que não está em actors (analista).
 fixture que não é um nome de pasta:
   A rodada so-analise: start.fixture deve ser o nome de uma pasta de rounds/fixtures, como site-vazio; veio "../fora".
-otherwise sem when:
-  A rodada so-analise: instructions.analista tem otherwise sem when: o otherwise vale quando a condição (when) não vale.
+critério de quem não está em actors:
+  A rodada so-analise: criteria fala de "revisor", que não está em actors (analista) nem é "round".
+limite com uma duração que não existe:
+  A rodada so-analise: criteria.analista.limit.time inválido: "2 dias" (use 20s, 2min, 1h).
 repeat zero:
   A rodada so-analise: repeat deve ser um inteiro a partir de 1, veio 0.
 ```
@@ -631,19 +794,19 @@ alterou: ?? index.html
 - `dev#1` é a chave do passo: o primeiro passo do agente `dev`.
 - `?? index.html` é a linha do `git status`: um arquivo novo.
 
-### 3. Dois agentes, instruções e regras
+### 3. Dois agentes, critérios e regras
 
 O product owner escreve o ticket; o analista recebe o que ele disse no próprio pedido (`said`), mas grava um arquivo
-mesmo com `readOnly`. A rodada confere as instruções de cada um e as regras, sem ler o que eles disseram.
+mesmo com `readOnly`. A rodada confere os critérios de cada um e as regras, sem ler o que eles disseram.
 
 `guides/rounds/exemplos/3-dois-agentes.ts`
 
 ```ts
 /**
- * Exemplo 3 do curso de rounds: dois agentes, instruções e regras. O
+ * Exemplo 3 do curso de rounds: dois agentes, critérios e regras. O
  * product owner escreve um ticket; o analista recebe o que ele disse, mas,
- * mesmo com `readOnly`, grava um arquivo. A rodada confere sozinha as
- * instruções de cada um (o arquivo existe? tem o trecho? não alterou nada?)
+ * mesmo com `readOnly`, grava um arquivo. A rodada confere sozinha os
+ * critérios de cada um (o arquivo existe? tem o trecho? não alterou nada?)
  * e as regras, e o exemplo mostra os vereditos que ficaram no registro. O
  * provider é de mentira (a "CLI" é o próprio bun): escreve os arquivos que
  * recebeu e responde o texto que recebeu.
@@ -757,16 +920,16 @@ await runScript(async () => {
             ],
           },
         ],
-        instructions: {
+        criteria: {
           // "Escreva o ticket em tickets/ticket-01.txt."
           'product-owner': [
-            { check: { file: 'tickets/ticket-01.txt', contains: 'rodapé' } },
+            { file: { name: 'tickets/ticket-01.txt', contains: ['rodapé'] } },
           ],
           // "Não altere nada", se o ticket estava lá quando ele começou.
           analista: [
             {
-              when: { file: 'tickets/ticket-01.txt' },
-              check: { unchanged: true },
+              if: { name: 'tickets/ticket-01.txt', exists: true },
+              check: [{ file: { name: '*', changed: false } }],
             },
           ],
         },
@@ -782,9 +945,9 @@ await runScript(async () => {
         step.key,
         `  pedido: ${step.prompt.text.replace(/\n/g, ' / ')}`,
       );
-      for (const instruction of step.instructions) {
+      for (const criterion of step.criteria) {
         lines.push(
-          `  instrução: ${instruction.check} → ${instruction.met ? 'cumpriu' : 'não cumpriu'} (${instruction.detail})`,
+          `  critério: ${criterion.description} → ${criterion.met ? 'cumpriu' : 'não cumpriu'} (${criterion.detail})`,
         );
       }
     }
@@ -804,7 +967,7 @@ await runScript(async () => {
 Saída:
 
 ```
-Workspace no ponto de partida: rodada-base (83966f7)
+Workspace no ponto de partida: rodada-base (c069b77)
 Product-owner…
 O ticket está pronto.
 O product-owner alterou:
@@ -816,21 +979,21 @@ Basta um <footer></footer>.
 ⚠ O analista alterou arquivos, mesmo com o pedido de não alterar:
 ?? notas.txt
 
-Rodada guardada em /home/dev/.cache/goiaba/rounds-exemplo/6cddc6b8-79de-4e54-be50-8a9ff8ac8198/registros/2026-11-06T14-19-31.005Z.json
+Rodada guardada em /home/dev/.cache/goiaba/rounds-exemplo/1c7b5974-3bc6-4df2-aceb-2a5e7b5f4756/registros/2026-11-12T19-24-49.567Z.json
 
 product-owner#1
   pedido: Escreva o ticket em tickets/ticket-01.txt.
-  instrução: tickets/ticket-01.txt contém "rodapé" → cumpriu (tickets/ticket-01.txt contém "rodapé".)
+  critério: tickets/ticket-01.txt contém "rodapé" → cumpriu (tickets/ticket-01.txt contém "rodapé".)
 analista#1
   pedido: Leia o ticket e diga como implementar. Não altere nada. / O product owner disse: O ticket está pronto.
-  instrução: não alterou nada → não cumpriu (Alterou: ?? notas.txt.)
+  critério: * não mudou → não cumpriu (notas.txt mudou, mas não devia.)
 regras:
   read-only-respected · analista: violou (Alterou arquivos fora do que a política libera para escrita: ?? notas.txt)
   no-questions · product-owner: cumpriu (Não fez nenhuma pergunta.)
   no-questions · analista: cumpriu (Não fez nenhuma pergunta.)
 ```
 
-- A instrução do analista tem `when`: o ticket existia quando ele começou, então o `check` (`unchanged`) valeu, e ele
+- O critério do analista é um `if`: o ticket existia quando ele começou, então valeu o `check` (`*` não mudou), e ele
   não cumpriu.
 - `read-only-respected` violada é eliminatória: as notas do analista seriam 0.
 
@@ -938,8 +1101,8 @@ await runScript(async () => {
           },
         },
         flow: [{ actor: 'dev', prompt: () => ['Crie um index.html.'] }],
-        // Sem uma instrução conferível, não há eficácia, e sem ela, nota final.
-        instructions: { dev: [{ check: { file: 'index.html' } }] },
+        // Sem um critério conferível, não há eficácia, e sem ela, nota final.
+        criteria: { dev: [{ file: { name: 'index.html', exists: true } }] },
         repeat: 3,
       }),
       { dir: records, project, roundsDir },
@@ -975,52 +1138,49 @@ Saída:
 
 ```
 Rodada tres-vezes: execução 1 de 3
-Workspace no ponto de partida: rodada-base (83966f7)
+Workspace no ponto de partida: rodada-base (c069b77)
 Dev…
 Pronto.
 O dev alterou:
-?? index.html
+ M index.html
 
-Rodada guardada em /home/dev/.cache/goiaba/rounds-exemplo/aab9399e-0d46-420a-8f91-c04e52a3749a/registros/2026-11-06T14-19-31.189Z.json
+Rodada guardada em /home/dev/.cache/goiaba/rounds-exemplo/a55d536c-3d67-4ae5-aeb9-bb3bf9977e8a/registros/2026-11-12T19-24-51.270Z.json
 Rodada tres-vezes: execução 2 de 3
-Workspace no ponto de partida: rodada-base (83966f7)
+Workspace no ponto de partida: rodada-base (c069b77)
 Dev…
 Pronto.
 O dev alterou:
-?? index.html
+ M index.html
 
-Rodada guardada em /home/dev/.cache/goiaba/rounds-exemplo/aab9399e-0d46-420a-8f91-c04e52a3749a/registros/2026-11-06T14-19-31.274Z.json
+Rodada guardada em /home/dev/.cache/goiaba/rounds-exemplo/a55d536c-3d67-4ae5-aeb9-bb3bf9977e8a/registros/2026-11-12T19-24-51.390Z.json
 Rodada tres-vezes: execução 3 de 3
-Workspace no ponto de partida: rodada-base (83966f7)
+Workspace no ponto de partida: rodada-base (c069b77)
 Dev…
 Pronto.
 O dev alterou:
-?? index.html
+ M index.html
 
-Rodada guardada em /home/dev/.cache/goiaba/rounds-exemplo/aab9399e-0d46-420a-8f91-c04e52a3749a/registros/2026-11-06T14-19-31.345Z.json
+Rodada guardada em /home/dev/.cache/goiaba/rounds-exemplo/a55d536c-3d67-4ae5-aeb9-bb3bf9977e8a/registros/2026-11-12T19-24-51.496Z.json
 
 execução 1: nota 5 · eficácia 5 · eficiência 5
-  Instruções do prompt: 5 (Cumpriu as 1 instruções: index.html existe.)
+  Critérios do prompt: 5 (Cumpriu os 1 critérios: index.html existe.)
   Permissões: — (Sem política nem readOnly para conferir.)
   Referências corretas: — (Não citou nenhum arquivo:linha.)
-  Limite de tempo: — (Sem limite declarado.)
   Tempo gasto: — (0 s; sem rodadas anteriores para comparar.)
   Tokens novos: — (1 mil tokens novos; sem rodadas anteriores para comparar.)
   Processo sem desperdício: 5 (Nenhum desperdício: sem perguntas nem ferramentas com erro.)
 execução 2: nota 5 · eficácia 5 · eficiência 4.9
-  Instruções do prompt: 5 (Cumpriu as 1 instruções: index.html existe.)
+  Critérios do prompt: 5 (Cumpriu os 1 critérios: index.html existe.)
   Permissões: — (Sem política nem readOnly para conferir.)
   Referências corretas: — (Não citou nenhum arquivo:linha.)
-  Limite de tempo: — (Sem limite declarado.)
-  Tempo gasto: 4.4 (0 s, contra a mediana de 0 s nas rodadas anteriores.)
+  Tempo gasto: 4.6 (0 s, contra a mediana de 0 s nas rodadas anteriores.)
   Tokens novos: 5 (1 mil tokens novos, contra a mediana de 1 mil tokens novos nas rodadas anteriores.)
   Processo sem desperdício: 5 (Nenhum desperdício: sem perguntas nem ferramentas com erro.)
-execução 3: nota 4.4 · eficácia 5 · eficiência 3.4
-  Instruções do prompt: 5 (Cumpriu as 1 instruções: index.html existe.)
+execução 3: nota 4.5 · eficácia 5 · eficiência 3.8
+  Critérios do prompt: 5 (Cumpriu os 1 critérios: index.html existe.)
   Permissões: — (Sem política nem readOnly para conferir.)
   Referências corretas: — (Não citou nenhum arquivo:linha.)
-  Limite de tempo: — (Sem limite declarado.)
-  Tempo gasto: 3.5 (0 s, contra a mediana de 0 s nas rodadas anteriores.)
+  Tempo gasto: 5 (0 s, contra a mediana de 0 s nas rodadas anteriores.)
   Tokens novos: 0 (3 mil tokens novos, contra a mediana de 1 mil tokens novos nas rodadas anteriores.)
   Processo sem desperdício: 5 (Nenhum desperdício: sem perguntas nem ferramentas com erro.)
 ```
@@ -1268,7 +1428,272 @@ pendente.txt continua? sim
 - `fixture null`: a partida veio de um repositório, não de uma fixture.
 - `pendente.txt`, um arquivo não commitado do repositório em volta, continua lá: a trava parou antes do reset.
 
-### 7. Rodadas de verdade
+### 7. Os critérios
+
+O dev atende o ticket da fixture (trocar o título para Goiaba, sem apagar o rodapé, anotando a mudança em `docs/` e
+marcando o ticket como done); o revisor só lê. Cada pedido do prompt tem o seu critério, dos três tipos, e alguns não
+são cumpridos de propósito, para mostrar o motivo que fica no registro e o efeito na nota.
+
+`guides/rounds/exemplos/7-criterios.ts`
+
+```ts
+/**
+ * Exemplo 7 do curso de rounds: os critérios. O dev atende o ticket da
+ * fixture (trocar o título para Goiaba) e o revisor só lê. A rodada declara
+ * critérios dos três tipos (arquivo, limite e condicional), com curinga,
+ * `ignore`, `contains`, `matches`, `created` e `changed`; alguns não são
+ * cumpridos de propósito, para mostrar o motivo que fica no registro. Depois,
+ * a rubrica transforma os vereditos em nota. O provider é de mentira (a
+ * "CLI" é o próprio bun): escreve os arquivos que recebeu e responde o texto
+ * que recebeu.
+ */
+import { randomUUID } from 'node:crypto';
+
+import type { ProgramCommand, ProgramOutput } from '../../../src/execute/types';
+import { environment, runtimeExecutable } from '../../../src/execute/process';
+import {
+  ensureDirectory,
+  goiabaCacheDir,
+  join,
+  readText,
+  removePath,
+  resolve,
+} from '../../../src/filesystem/index';
+import { writeOut } from '../../../src/output/stdio';
+import type { Provider, ProviderEvent } from '../../../src/providers/types';
+import {
+  defineRound,
+  runRound,
+  scoreRound,
+  validateRound,
+} from '../../../src/rounds/index';
+import { runScript } from '../../../src/usage';
+
+/** Uma "CLI" que grava `files` (caminho → conteúdo) e responde `answer`. */
+class ScriptProvider implements Provider<string, string> {
+  public readonly id = 'roteiro';
+
+  public constructor(
+    private readonly answer: string,
+    private readonly files: Readonly<Record<string, string>> = {},
+  ) {}
+
+  public describe(): { name: string; model: string } {
+    return { name: 'roteiro', model: 'roteiro' };
+  }
+
+  public createCommand(): ProgramCommand {
+    const script = [
+      "const fs = require('fs');",
+      "const path = require('path');",
+      `for (const [file, text] of Object.entries(${JSON.stringify(this.files)})) {`,
+      '  fs.mkdirSync(path.dirname(file), { recursive: true });',
+      '  fs.writeFileSync(file, text);',
+      '}',
+      `process.stdout.write(${JSON.stringify(this.answer)});`,
+    ].join('\n');
+    return { executable: runtimeExecutable(), arguments: ['-e', script] };
+  }
+
+  public async *parseOutput(
+    output: AsyncIterable<ProgramOutput>,
+  ): AsyncIterable<ProviderEvent<string>> {
+    for await (const { channel, chunk } of output) {
+      if (channel === 'stdout') yield { type: 'output', value: chunk };
+    }
+  }
+}
+
+const project = resolve(import.meta.dir, '../../..');
+const scratch = join(
+  goiabaCacheDir(environment()),
+  'rounds-exemplo',
+  randomUUID(),
+);
+const roundsDir = join(scratch, 'rodadas');
+const records = join(scratch, 'registros');
+ensureDirectory(roundsDir);
+ensureDirectory(records);
+
+const id = 'titulo-goiaba';
+const root = join(roundsDir, id);
+const workspace = { type: 'bubblewrap', root } as const;
+
+await runScript(async () => {
+  try {
+    const [file = ''] = await runRound(
+      defineRound({
+        id,
+        goal: 'O dev troca o título para Goiaba e anota a mudança; o revisor só lê.',
+        start: { fixture: 'site-vazio' },
+        actors: {
+          dev: {
+            provider: new ScriptProvider('Título trocado.', {
+              // Reescreve a página inteira: o título mudou, o rodapé sumiu.
+              'index.html': '<html><body><h1>🚀 Goiaba</h1></body></html>\n',
+              'docs/mudancas.md': '# Mudanças\n\nTítulo trocado para Goiaba.\n',
+              'docs/rascunho.tmp': 'rascunho\n',
+            }),
+            workspace,
+          },
+          revisor: {
+            provider: new ScriptProvider('Está certo.'),
+            workspace,
+            readOnly: true,
+          },
+        },
+        flow: [
+          {
+            actor: 'dev',
+            prompt: () => [
+              'Atenda o ticket.txt, sem apagar o rodapé.',
+              'Anote a mudança num arquivo em docs/ e marque o ticket como done.',
+            ],
+          },
+          {
+            actor: 'revisor',
+            prompt: () => ['Revise a mudança. Não altere nada.'],
+          },
+        ],
+        criteria: {
+          dev: [
+            // O título mudou: o arquivo mudou, tem a palavra e a tag certa.
+            {
+              file: {
+                name: 'index.html',
+                changed: true,
+                contains: ['Goiaba'],
+                matches: [/<h1>[^<]*Goiaba<\/h1>/],
+              },
+            },
+            // "sem apagar o rodapé"
+            { file: { name: 'index.html', contains: ['<footer'] } },
+            // "Anote a mudança num arquivo em docs/": todo arquivo de docs/,
+            // menos os .tmp, foi criado e fala do Goiaba.
+            {
+              file: {
+                name: 'docs/*',
+                ignore: ['docs/*.tmp'],
+                created: true,
+                contains: ['goiaba'],
+              },
+            },
+            // O que não foi pedido não muda.
+            { file: { name: 'README.md', changed: false } },
+            // "marque o ticket como done", se ele estava pendente.
+            {
+              if: { name: 'ticket.txt', contains: ['status: pending'] },
+              check: [
+                { file: { name: 'ticket.txt', contains: ['status: done'] } },
+              ],
+            },
+            // O que o dev pode gastar. Os tokens este provider não informa.
+            { limit: { time: '1min', tokens: 5000 } },
+          ],
+          revisor: [
+            // Se a anotação ainda não existia, ele não fez o trabalho do dev;
+            // se já existia (o caso aqui), ele não altera nada, em pasta
+            // nenhuma (`**`; `*` só olha a raiz).
+            {
+              if: { name: 'docs/mudancas.md', exists: false },
+              check: [{ file: { name: 'docs/mudancas.md', exists: false } }],
+              else: [{ file: { name: '**', changed: false } }],
+            },
+          ],
+          // A rodada inteira.
+          round: [{ limit: { time: '10min' } }],
+        },
+      }),
+      { dir: records, project, roundsDir },
+    );
+
+    const record = validateRound(JSON.parse(readText(file)));
+    const lines = ['', 'No fim de cada passo (step.criteria):'];
+    for (const step of record.steps) {
+      lines.push(`  ${step.key}`);
+      for (const criterion of step.criteria) {
+        lines.push(
+          `    ${criterion.met ? '✓' : '✗'} ${criterion.description} (${criterion.detail})`,
+        );
+      }
+    }
+
+    const score = scoreRound(record, []);
+    lines.push('', 'Na nota (scoreRound):');
+    for (const [actor, actorScore] of Object.entries(score.actors)) {
+      lines.push(
+        `  ${actor}: eficácia ${String(actorScore.effectiveness.score)}`,
+      );
+      for (const criterion of actorScore.effectiveness.criteria) {
+        if (criterion.score === null) continue;
+        lines.push(
+          `    ${criterion.label}: ${String(criterion.score)} (${criterion.detail})`,
+        );
+      }
+    }
+    lines.push(`  rodada: eficácia ${String(score.round.effectiveness.score)}`);
+    for (const criterion of score.round.effectiveness.criteria) {
+      lines.push(
+        `    ${criterion.label}: ${String(criterion.score)} (${criterion.detail})`,
+      );
+    }
+    writeOut(`${lines.join('\n')}\n`);
+  } finally {
+    removePath(scratch);
+  }
+});
+```
+
+Saída:
+
+```
+Workspace no ponto de partida: rodada-base (c069b77)
+Dev…
+Título trocado.
+O dev alterou:
+ M index.html
+?? docs/mudancas.md
+?? docs/rascunho.tmp
+Revisor…
+Está certo.
+✓ O revisor não alterou nenhum arquivo.
+
+Rodada guardada em /home/dev/.cache/goiaba/rounds-exemplo/c6ebbb32-a541-4342-8dac-53000af84746/registros/2026-11-12T19-24-51.625Z.json
+
+No fim de cada passo (step.criteria):
+  dev#1
+    ✓ index.html mudou e contém "Goiaba" e casa /<h1>[^<]*Goiaba<\/h1>/ (index.html mudou e contém "Goiaba" e casa /<h1>[^<]*Goiaba<\/h1>/.)
+    ✗ index.html contém "<footer" (index.html não contém "<footer".)
+    ✓ docs/* foi criado e contém "goiaba" (docs/* foi criado e contém "goiaba".)
+    ✓ README.md não mudou (README.md não mudou.)
+    ✗ ticket.txt contém "status: done" (ticket.txt não contém "status: done".)
+  revisor#1
+    ✓ ** não mudou (** não mudou.)
+
+Na nota (scoreRound):
+  dev: eficácia 2.7
+    Critérios do prompt: 3 (Cumpriu 3 de 5. index.html não contém "<footer". ticket.txt não contém "status: done".)
+    Limite do agente: 5 (50 ms, dentro de 1min.)
+    Limite do agente: 0 (tokens não medido.)
+  revisor: eficácia 5
+    Critérios do prompt: 5 (Cumpriu os 1 critérios: ** não mudou.)
+    Permissões: 5 (Ficou dentro da política: nada alterado fora do permitido, nenhum destino negado.)
+  rodada: eficácia 4.2
+    Limite da rodada: 5 (152 ms, dentro de 10min.)
+```
+
+- **`dev#1`, cinco vereditos**: os cinco critérios de arquivo (o `if` do ticket valeu, porque o ticket estava
+  `status: pending` no início, e trouxe o critério do `check`). O de `docs/*` ignorou o `rascunho.tmp` e conferiu só o
+  `mudancas.md`; o `contains: ['goiaba']` achou `Goiaba`, porque não diferencia maiúsculas.
+- **`revisor#1`, o ramo `else`**: o `docs/mudancas.md` já existia quando ele começou (o dev criou), então valeu o
+  `else`, `**` não mudou.
+- **Critérios do prompt do dev: 3**, porque cumpriu 3 de 5 (`5 × 3 ÷ 5`). O motivo lista só os que falharam.
+- **Os limites do dev são dois critérios**: o tempo ficou dentro (5) e os tokens deram 0, porque este provider não os
+  informa. Daí a eficácia `2.7`, a média de 3, 5 e 0 (Permissões e Referências não foram avaliadas e ficam fora).
+- **A rodada**: a média das eficácias dos dois agentes e do limite dela, `(2.7 + 5 + 5) ÷ 3 = 4.2`.
+- O tempo e o commit da partida mudam a cada execução.
+
+### 8. Rodadas de verdade
 
 As rodadas com modelos de verdade ficam em `rounds/definitions/` e rodam com `bun run rounds <id>`. Precisam do
 `rounds.dir` configurado e, conforme o provider, do Ollama rodando com o modelo baixado ou das credenciais da CLI.
@@ -1285,8 +1710,8 @@ Duas lições que essas rodadas já ensinaram:
   com `cat *`, mas tem redirecionamento: nenhuma regra libera um comando assim, e numa rodada ninguém aprova. A
   ferramenta de arquivo da CLI (o `Write` do Claude Code, o `apply_patch` do Codex) passa só pela regra de
   `filesystem`.
-- **Modelos pequenos às vezes respondem com o conteúdo em vez de chamar a ferramenta.** Declare instruções
-  conferíveis (`instructions`) para cada arquivo pedido: sem elas, a eficácia não vê que nada foi gravado.
+- **Modelos pequenos às vezes respondem com o conteúdo em vez de chamar a ferramenta.** Declare um critério de arquivo
+  (`criteria`) para cada arquivo pedido: sem ele, a eficácia não vê que nada foi gravado.
 
 [↑ topo](#topo)
 
@@ -1306,9 +1731,10 @@ Duas lições que essas rodadas já ensinaram:
 
 ## Exercícios
 
-1. Copie o [Exemplo 2](#2-a-primeira-rodada) e acrescente `instructions: { dev: [{ check: { file: 'index.html',
-contains: 'Olá' } }] }`. Rode e veja "Instruções do prompt" no registro. Troque `'Olá'` por `'Tchau'`: o que muda?
-2. No [Exemplo 3](#3-dois-agentes-instruções-e-regras), dê ao analista `permissions` com escrita só em `notas/**`
+1. Copie o [Exemplo 2](#2-a-primeira-rodada) e acrescente `criteria: { dev: [{ file: { name: 'index.html', contains:
+['Olá'] } }] }`. Rode e veja `step.criteria` no registro e "Critérios do prompt" em `scoreRound`. Troque `'Olá'` por
+   `'Tchau'`: o que muda?
+2. No [Exemplo 3](#3-dois-agentes-critérios-e-regras), dê ao analista `policy` com escrita só em `notas/**`
    (`{ operations: ['write'], paths: ['/workspace/notas/**'] }`, junto do `read` em `/workspace/**`) e faça-o gravar
    em `notas/rascunho.txt`. A regra `readOnlyRespected` continua violada? Por quê?
 3. Escreva uma regra própria, `noEmptyAnswer`, que reprova um passo cuja fala tem menos de 10 caracteres, e use-a no
@@ -1316,7 +1742,12 @@ contains: 'Olá' } }] }`. Rode e veja "Instruções do prompt" no registro. Troq
 4. No [Exemplo 4](#4-as-notas), mude os tokens para `[1000, 1000, 1000]`. Que nota "Tokens novos" recebe a terceira
    execução, e por quê (veja a tabela da referência em `rounds/README.md`)?
 5. Crie uma fixture `rounds/fixtures/meu-site/` com um `index.html` e uma rodada em `rounds/definitions/` que peça para
-   o agente acrescentar um rodapé, com uma instrução `contains: '<footer'`. Rode com `bun run rounds <id>` e abra a
-   rodada nas páginas.
+   o agente acrescentar um rodapé, com o critério `{ file: { name: 'index.html', changed: true, contains: ['<footer']
+} }`. Rode com `bun run rounds <id>` e abra a rodada nas páginas.
+6. No [Exemplo 7](#7-os-critérios), faça o dev cumprir os cinco critérios (devolva o rodapé e marque o ticket como
+   `status: done`). Depois troque `name: '**'` por `name: '*'` no `else` do revisor e faça-o gravar `docs/nota.md`: o
+   critério percebe? Por quê?
+7. Ainda no Exemplo 7, troque o limite do dev por `{ limit: { time: '1ms' } }`. Que nota "Limite do agente" ele recebe,
+   e o que acontece com a eficácia da rodada?
 
 [↑ topo](#topo)
