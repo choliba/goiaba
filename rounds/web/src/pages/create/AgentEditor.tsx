@@ -657,6 +657,18 @@ export function AgentEditor({
             onChange={(e) => onChange({ hosts: e.target.value })}
           />
         </label>
+        <label>
+          Sites e endereços que não pode acessar{' '}
+          <span className="muted">
+            um por linha (openai.com, *.openai.com); vale mesmo que o campo de
+            cima libere, como com *. Negados sem ir para a fila de aprovação
+          </span>
+          <textarea
+            rows={2}
+            value={agent.deniedHosts}
+            onChange={(e) => onChange({ deniedHosts: e.target.value })}
+          />
+        </label>
         {PROJECT_TOOLS.length > 0 && (
           <fieldset className="command-group tool-group">
             <legend>Ferramentas do projeto que pode usar</legend>

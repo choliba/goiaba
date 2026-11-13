@@ -1616,7 +1616,9 @@ tr.row-link:hover th a {
 .sample-tip {
   position: absolute;
   top: 0;
-  transform: translateX(-50%);
+  /* Beside the cursor, toward the inside of the chart (to-left past the
+     middle): centered on it, it ran off the right edge. */
+  transform: translateX(12px);
   z-index: 2;
   display: grid;
   gap: 2px;
@@ -1629,6 +1631,32 @@ tr.row-link:hover th a {
   color: var(--ink);
   pointer-events: none;
   white-space: nowrap;
+}
+.sample-tip.to-left {
+  transform: translateX(calc(-100% - 12px));
+}
+/* Where each turn began (top row, amber) and each agent (below it): the
+   same dashed line and label, each in its own color */
+.sample-chart .turn-marks line {
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.sample-chart .turn-marks text {
+  font: 600 10px var(--body);
+}
+.sample-chart .turn-marks .turn line {
+  stroke: var(--amber);
+  opacity: 0.8;
+}
+.sample-chart .turn-marks .turn text {
+  fill: var(--amber);
+}
+.sample-chart .turn-marks .actor line {
+  stroke: var(--sky);
+  opacity: 0.8;
+}
+.sample-chart .turn-marks .actor text {
+  fill: var(--sky);
 }
 .sample-tip .swatch {
   display: inline-block;

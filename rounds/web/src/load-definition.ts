@@ -69,7 +69,14 @@ const GOIABA: Readonly<Record<string, unknown>> = {
 };
 
 /** Whether an import is the Goiaba's (src/…), the only ones stood in for. */
-const isGoiaba = (path: string): boolean => /(^|\/)src(\/|$)/.test(path);
+/**
+ * Whether an import is the Goiaba's: its package (`goiaba`, `goiaba/rounds`)
+ * or its source (`../../src/…`), the only ones stood in for.
+ */
+const isGoiaba = (path: string): boolean =>
+  path === 'goiaba' ||
+  path.startsWith('goiaba/') ||
+  /(^|\/)src(\/|$)/.test(path);
 
 /** A pasted definition, read as data; an `Error` saying what to fix. */
 export async function declarationFromSource(
@@ -111,7 +118,7 @@ export async function declarationFromSource(
     const hint =
       others.size === 0
         ? ''
-        : ` Ela importa ${[...others].join(', ')}: cole uma definição que só importe do Goiaba (src/…) e das ferramentas do projeto (agents/tools), num arquivo só.`;
+        : ` Ela importa ${[...others].join(', ')}: cole uma definição que só importe do Goiaba (goiaba, goiaba/rounds) e das ferramentas do projeto (agents/tools), num arquivo só.`;
     throw new Error(
       `A definição não rodou: ${error instanceof Error ? error.message : String(error)}.${hint}`,
       { cause: error },
@@ -121,7 +128,7 @@ export async function declarationFromSource(
   if (others.size > 0) {
     // What came from there is missing: the form would be filled wrong.
     throw new Error(
-      `A definição importa ${[...others].join(', ')}, que esta página não conhece: cole uma definição que só importe do Goiaba (src/…) e das ferramentas do projeto (agents/tools), num arquivo só.`,
+      `A definição importa ${[...others].join(', ')}, que esta página não conhece: cole uma definição que só importe do Goiaba (goiaba, goiaba/rounds) e das ferramentas do projeto (agents/tools), num arquivo só.`,
     );
   }
   return declarationOf(module.exports['default']);

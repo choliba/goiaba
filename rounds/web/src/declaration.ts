@@ -276,18 +276,18 @@ export function declarationSource(
   const opening = 'export default defineRound(';
 
   return [
-    // The project's tools (../../agents/…) sort before the Goiaba's (../../src/…).
+    // The project's tools (../../agents/…), then the Goiaba, by its package
+    // name: the same file works in this repository and in any project that
+    // installed it (or points rounds.definitions elsewhere).
     ...toolImportLines(imports),
-    ...(providers.length === 0
-      ? []
-      : [importLine(providers, '../../src/index')]),
+    ...(providers.length === 0 ? [] : [importLine(providers, 'goiaba')]),
     importLine(
       [
         'defineRound',
         ...known,
         ...(fixture && sharedRoot ? ['roundDir'] : []),
       ].toSorted(),
-      '../../src/rounds/index',
+      'goiaba/rounds',
     ),
     '',
     `const id = ${quote(declaration.id)};`,
@@ -339,7 +339,7 @@ export function agentSource(
   ].toSorted();
 
   return [
-    importLine(names, '../src/index'),
+    importLine(names, 'goiaba'),
     // An agent lives in agents/, next to the tools (agents/tools).
     ...toolImportLines(imports, './'),
     '',

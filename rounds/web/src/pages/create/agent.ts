@@ -327,6 +327,8 @@ export interface AgentForm {
   readonly moreAllowed: string;
   readonly moreDenied: string;
   readonly hosts: string;
+  /** Hosts denied even when an allowed pattern covers them (`deny.network`). */
+  readonly deniedHosts: string;
   /** The project's tools the policy allows or denies (`tools`, by name). */
   readonly toolDecided: ReadonlyMap<string, Permission>;
   readonly criteria: readonly CriterionRow[];
@@ -361,6 +363,7 @@ export const newAgent = (key: number, name: string): AgentForm => ({
   moreAllowed: '',
   moreDenied: '',
   hosts: '',
+  deniedHosts: '',
   toolDecided: new Map(),
   criteria: [],
   limits: noLimits,
@@ -392,6 +395,7 @@ export function policyOf(
   const allowedCommands = marked('allow');
   const deniedCommands = marked('deny');
   const allowedHosts = lines(agent.hosts);
+  const deniedHosts = lines(agent.deniedHosts);
   const toolsWith = (permission: Permission): string[] =>
     PROJECT_TOOLS.map((tool) => tool.name).filter(
       (tool) => agent.toolDecided.get(tool) === permission,
@@ -418,8 +422,10 @@ export function policyOf(
         : { tools: [{ operations: ['call'], tools: allowedTools }] }),
     },
     // Not allowed even when an allowed pattern covers it (git * but not
-    // git push *).
-    ...(deniedCommands.length === 0 && deniedTools.length === 0
+    // git push *; every site but *.openai.com).
+    ...(deniedCommands.length === 0 &&
+    deniedTools.length === 0 &&
+    deniedHosts.length === 0
       ? {}
       : {
           deny: {
@@ -430,6 +436,9 @@ export function policyOf(
                     { operations: ['run'], commands: deniedCommands },
                   ],
                 }),
+            ...(deniedHosts.length === 0
+              ? {}
+              : { network: [{ operations: ['*'], hosts: deniedHosts }] }),
             ...(deniedTools.length === 0
               ? {}
               : { tools: [{ operations: ['call'], tools: deniedTools }] }),
@@ -666,7 +675,9 @@ export function agentFromDeclaration(
           if (!Array.isArray(rules) || rules.length === 0) return false;
           if (
             group === 'deny' &&
-            (category === 'execution' || category === 'tools')
+            (category === 'execution' ||
+              category === 'tools' ||
+              category === 'network')
           )
             return false;
           return group !== 'allow' || !shown.has(category);
@@ -794,6 +805,9 @@ export function agentFromDeclaration(
     moreAllowed: allowed.filter((c) => !offered.includes(c)).join('\n'),
     moreDenied: denied.filter((c) => !offered.includes(c)).join('\n'),
     hosts: (policy?.allow?.network ?? [])
+      .flatMap((rule) => rule.hosts)
+      .join('\n'),
+    deniedHosts: (policy?.deny?.network ?? [])
       .flatMap((rule) => rule.hosts)
       .join('\n'),
     toolDecided: new Map([

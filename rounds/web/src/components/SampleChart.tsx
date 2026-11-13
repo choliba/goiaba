@@ -27,7 +27,12 @@ import type {
 import { CHART_WIDTH, SAMPLE_CHART_HEIGHT } from '../constants';
 import { duration, megabytes, percent, title } from '../format';
 
-const MARGIN = { top: 10, right: 12, bottom: 24, left: 34 } as const;
+// Room on top for two rows of labels, above the lines: the turns, then
+// the agents.
+const MARGIN = { top: 34, right: 12, bottom: 24, left: 34 } as const;
+/** Where the labels stand: the turns' row, and below it the agents'. */
+const TURN_ROW = MARGIN.top - 20;
+const ACTOR_ROW = MARGIN.top - 8;
 const PLOT_W = CHART_WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_H = SAMPLE_CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
 const Y_TICKS = [0, 25, 50, 75, 100] as const;
@@ -135,6 +140,29 @@ export function SampleChart({
       label: `${title(step.actor)} · ${toolLabel(tool)}`,
     })),
   );
+
+  /** A moment on the timeline, kept inside it (a turn may begin just before the first sample). */
+  const onTimeline = (iso: string): number =>
+    Math.min(maxT, Math.max(0, secondsOf(iso)));
+  // Every turn of the round, in order, numbered across it: Turno 1, 2, 3…
+  // whoever the agent (a new one, or the same one messaged again after a
+  // question). The hover box says the same number.
+  const roundTurns = steps
+    .flatMap((step) => step.turns.map((turn) => ({ step, turn })))
+    .toSorted(
+      (a, b) =>
+        Date.parse(a.turn.span.startedAt) - Date.parse(b.turn.span.startedAt),
+    )
+    .map((entry, index) => ({ ...entry, number: index + 1 }));
+  const turnMarks = roundTurns.map(({ turn, number }) => ({
+    t: onTimeline(turn.span.startedAt),
+    label: `Turno ${String(number)}`,
+  }));
+  // Where each agent began: its step's start.
+  const actorMarks = steps.map((step) => ({
+    t: onTimeline(step.span.startedAt),
+    label: title(step.actor),
+  }));
 
   const build = (value: (s: ResourceSample) => number | null): Point[] =>
     samples.map((s) => ({ t: elapsedOf(s), v: value(s) }));
@@ -260,6 +288,9 @@ export function SampleChart({
     current === undefined
       ? undefined
       : activeStep?.turns.find((turn) => within(current.ts, turn.span));
+  const activeTurnNumber = roundTurns.find(
+    (entry) => entry.turn === activeTurn,
+  )?.number;
   const activeTool =
     current === undefined
       ? undefined
@@ -344,6 +375,35 @@ export function SampleChart({
             y1={MARGIN.top}
             y2={MARGIN.top + PLOT_H}
           />
+          <g className="turn-marks" aria-hidden="true">
+            {[
+              ...turnMarks.map((mark) => ({
+                ...mark,
+                kind: 'turn',
+                y: TURN_ROW,
+              })),
+              ...actorMarks.map((mark) => ({
+                ...mark,
+                kind: 'actor',
+                y: ACTOR_ROW,
+              })),
+            ].map((mark) => (
+              <g
+                key={`${mark.kind}-${mark.label}-${String(mark.t)}`}
+                className={mark.kind}
+              >
+                <line
+                  x1={x(mark.t)}
+                  x2={x(mark.t)}
+                  y1={mark.y + 3}
+                  y2={MARGIN.top + PLOT_H}
+                />
+                <text x={x(mark.t) + 3} y={mark.y}>
+                  {mark.label}
+                </text>
+              </g>
+            ))}
+          </g>
           <g className="marks" aria-hidden="true">
             {marks
               .filter((mark) => mark.t >= 0 && mark.t <= maxT)
@@ -446,7 +506,13 @@ export function SampleChart({
         </svg>
         {current !== undefined && (
           <div
-            className="sample-tip"
+            // Opens toward the inside: past the middle, to the cursor's
+            // left, so it never runs off the chart's right edge.
+            className={
+              x(elapsedOf(current)) > CHART_WIDTH / 2
+                ? 'sample-tip to-left'
+                : 'sample-tip'
+            }
             style={{
               left: `${String((x(elapsedOf(current)) / CHART_WIDTH) * 100)}%`,
             }}
@@ -460,7 +526,7 @@ export function SampleChart({
                 {title(activeStep.actor)}
                 {activeTurn === undefined
                   ? ''
-                  : ` · turno ${String(activeTurn.index)}`}
+                  : ` · turno ${String(activeTurnNumber ?? activeTurn.index)}`}
               </span>
             )}
             {activity !== undefined && (

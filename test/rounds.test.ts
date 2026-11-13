@@ -17,6 +17,7 @@ import type { ProgramCommand, ProgramOutput } from '../src/execute/types';
 import { format } from 'prettier';
 
 import { agentSource, declarationSource } from '../rounds/web/src/declaration';
+import { importLine } from '../rounds/web/src/source';
 import { toolsOf } from '../rounds/web/src/project-tools';
 import type { RoundCriterion, RoundDeclaration } from '../src/rounds/types';
 import type { Interaction } from '../src/interaction/index';
@@ -1462,5 +1463,27 @@ test('declarationSource escreve uma ferramenta do projeto como o import dela, e 
     expect(again).toEqual(declaration);
   } finally {
     rmSync(file, { force: true });
+  }
+});
+
+test('importLine põe o import numa linha e, longo demais, um nome por linha, como o prettier', async () => {
+  const short = importLine(['defineRound', 'roundDir'], 'goiaba/rounds');
+  expect(short).toBe("import { defineRound, roundDir } from 'goiaba/rounds';");
+  // Every rule of a round, plus roundDir: past the line's width.
+  const long = importLine(
+    [
+      'defineRound',
+      'noQuestions',
+      'noToolCallAsText',
+      'readOnlyRespected',
+      'roundDir',
+    ],
+    'goiaba/rounds',
+  );
+  expect(long.split('\n')).toHaveLength(7);
+  for (const line of [short, long]) {
+    expect(
+      await format(line, { parser: 'typescript', singleQuote: true }),
+    ).toBe(`${line}\n`);
   }
 });

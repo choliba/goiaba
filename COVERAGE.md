@@ -1,6 +1,6 @@
 # Cobertura de testes
 
-Gerado automaticamente por `bun run test:cov` em 13/11/2026 00:06:20: não edite à mão.
+Gerado automaticamente por `bun run test:cov` em 13/11/2026 01:04:52: não edite à mão.
 
 Limites (coverage-thresholds.json, só sobem): funções 91.32%, linhas 93.62%. O Bun mede funções e linhas; o total é a média por arquivo, como o "All files" dele.
 
@@ -9,7 +9,7 @@ Limites (coverage-thresholds.json, só sobem): funções 91.32%, linhas 93.62%. 
 Status|Módulo|% Funcs|% Lines
 --|--|--|--
 🟢|**Total**|91.32|93.63
-🟢|[rounds/web](rounds/web)|86.74|86.50
+🟢|[rounds/web](rounds/web)|86.74|86.48
 🟢|[scripts](scripts)|100.00|100.00
 🟢|[src/adapters](src/adapters)|90.84|97.80
 🟢|[src/agent](src/agent)|98.03|98.65
@@ -36,11 +36,11 @@ Status|Módulo|% Funcs|% Lines
 ## Por módulo
 
 <details open>
-<summary>🟢 <b>rounds/web</b>: 86.50% das linhas, 3 arquivos</summary>
+<summary>🟢 <b>rounds/web</b>: 86.48% das linhas, 3 arquivos</summary>
 
 Status|Arquivo|% Funcs|% Lines
 --|--|--|--
-🟢|[src/declaration.ts](rounds/web/src/declaration.ts)|93.55|88.93
+🟢|[src/declaration.ts](rounds/web/src/declaration.ts)|93.55|88.85
 🟡|[src/project-tools.ts](rounds/web/src/project-tools.ts)|66.67|70.59
 🟢|[src/source.ts](rounds/web/src/source.ts)|100.00|100.00
 
