@@ -32,6 +32,7 @@ goiaba.config.ts  ──loadConfig()──▶  ResolvedGoiabaConfig  ──getCo
   - [Onde o arquivo é procurado](#onde-o-arquivo-é-procurado)
   - [Do arquivo ao resultado](#do-arquivo-ao-resultado)
   - [envs](#envs)
+  - [logger.logrotate: como os logs são guardados](#loggerlogrotate-como-os-logs-são-guardados)
   - [Quem carrega a config](#quem-carrega-a-config)
 - [Exemplos](#exemplos)
   - [1. Um arquivo e o que ele vira](#1-um-arquivo-e-o-que-ele-vira)
@@ -66,6 +67,13 @@ export default defineConfig({
   logger: {
     dir: 'storage/logs', // relativo a este arquivo
     use: () => ({ debug() {}, info() {}, warn() {}, error() {} }),
+    // como os logs são guardados; sem isso, toda sessão fica, num arquivo só
+    logrotate: {
+      maxFileSize: '20mb',
+      days: 14,
+      maxTotalSize: '200mb',
+      compress: false,
+    },
   },
   database: { dir: 'storage/db', name: 'agentes.db' },
   workspaces: {
@@ -91,22 +99,23 @@ export default defineConfig({
 
 O que `loadConfig` e `getConfig` devolvem. Tudo já decidido: nada opcional, caminhos absolutos.
 
-| Campo                | Tipo                         | O que é                                                           |
-| -------------------- | ---------------------------- | ----------------------------------------------------------------- |
-| `logger.dir`         | `string`                     | diretório do log, absoluto                                        |
-| `logger.use`         | `LoggerFactory \| undefined` | a fábrica do pacote, se houver                                    |
-| `databasePath`       | `string`                     | caminho absoluto do arquivo do banco                              |
-| `workspaces.dir`     | `string`                     | a raiz padrão dos workspaces, absoluta                            |
-| `workspaces.homes`   | `string`                     | diretório absoluto dos homes, um por workspace                    |
-| `rounds.dir`         | `string \| undefined`        | onde as rodadas rodam, absoluto; `undefined` sem a opção          |
-| `rounds.definitions` | `string`                     | a pasta das declarações das rodadas, absoluta                     |
-| `rounds.fixtures`    | `string`                     | a pasta dos pontos de partida, absoluta                           |
-| `rounds.data`        | `string`                     | a pasta dos registros das execuções, absoluta                     |
-| `project`            | `string`                     | o projeto: a pasta do arquivo de config (ou onde a busca começou) |
-| `debug`              | `boolean`                    |                                                                   |
-| `configPath`         | `string \| undefined`        | o arquivo lido; `undefined` sem arquivo                           |
-| `env`                | `{ vars } \| undefined`      | o env ativo: o **primeiro** de `envs`                             |
-| `envs`               | `{ vars }[]`                 | todos os envs; `vars` tem só os valores de texto                  |
+| Campo                | Tipo                                                           | O que é                                                                                                 |
+| -------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `logger.dir`         | `string`                                                       | diretório do log, absoluto                                                                              |
+| `logger.use`         | `LoggerFactory \| undefined`                                   | a fábrica do pacote, se houver                                                                          |
+| `logger.logrotate`   | `{ maxFileBytes, days, maxTotalBytes, compress } \| undefined` | como os logs são guardados, com os padrões preenchidos e os tamanhos em bytes; sem a opção, `undefined` |
+| `databasePath`       | `string`                                                       | caminho absoluto do arquivo do banco                                                                    |
+| `workspaces.dir`     | `string`                                                       | a raiz padrão dos workspaces, absoluta                                                                  |
+| `workspaces.homes`   | `string`                                                       | diretório absoluto dos homes, um por workspace                                                          |
+| `rounds.dir`         | `string \| undefined`                                          | onde as rodadas rodam, absoluto; `undefined` sem a opção                                                |
+| `rounds.definitions` | `string`                                                       | a pasta das declarações das rodadas, absoluta                                                           |
+| `rounds.fixtures`    | `string`                                                       | a pasta dos pontos de partida, absoluta                                                                 |
+| `rounds.data`        | `string`                                                       | a pasta dos registros das execuções, absoluta                                                           |
+| `project`            | `string`                                                       | o projeto: a pasta do arquivo de config (ou onde a busca começou)                                       |
+| `debug`              | `boolean`                                                      |                                                                                                         |
+| `configPath`         | `string \| undefined`                                          | o arquivo lido; `undefined` sem arquivo                                                                 |
+| `env`                | `{ vars } \| undefined`                                        | o env ativo: o **primeiro** de `envs`                                                                   |
+| `envs`               | `{ vars }[]`                                                   | todos os envs; `vars` tem só os valores de texto                                                        |
 
 ### Funções
 
@@ -150,6 +159,22 @@ Com `path`, usa exatamente esse arquivo (e falha se ele não existir). Sem arqui
 `envs` é uma lista, mas **só o primeiro** é o env ativo: é ele que `getEnv()` devolve e que entra no ambiente. Os outros só servem ao logger, que mascara no log os valores de todos.
 
 De cada env, só entram valores de **texto**. Um número, um boolean ou um `undefined` (por exemplo, `process.env.X` de uma variável que não existe) é descartado sem aviso.
+
+### logger.logrotate: como os logs são guardados
+
+Cada execução de um programa abre uma **sessão** de log, gravada em `<logger.dir>/<início>.jsonl`. Sem
+`logrotate`, toda sessão fica, num arquivo só. Com ele, o `src/logger` cuida de duas coisas, para o logger padrão e
+para o do `use` (desde que ele grave em `dir/<session>.jsonl`, como o pino do exemplo):
+
+| Campo          | Padrão    | O que faz                                                                                                   |
+| -------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
+| `maxFileSize`  | `'20mb'`  | Limite suave de um arquivo: o registro termina inteiro e o próximo vai para `<início>.2.jsonl`, `.3.jsonl`… |
+| `days`         | 14        | Quando uma sessão abre, as sessões mais antigas que isso são apagadas (todas as partes juntas).             |
+| `maxTotalSize` | `'200mb'` | Se a pasta passa disso, as sessões mais antigas são apagadas até caber.                                     |
+| `compress`     | false     | As sessões encerradas viram `.jsonl.gz` (leia com `zcat` ou `zgrep`).                                       |
+
+Os tamanhos levam a unidade: `'500k'`, `'1024kb'`, `'10m'`, `'20mb'`, `'50M'`, `'1g'`, `'2gb'` (maiúscula ou minúscula, com decimais, como `'1.5mb'`). Um `k` vale 1024 bytes, como no `du -h`. Um número sem unidade é recusado: `20` não diz se são bytes ou megabytes. O campo que você não diz vale o padrão (`src/logger/constants.ts`). A sessão atual nunca é apagada nem compactada, nem a de outro programa ainda gravando, como uma rodada com as páginas abertas: enquanto escreve, cada sessão deixa um `<início>.pid` com o número do processo, e a limpeza só a toca depois que esse processo termina, por mais parada que ela esteja.
+Um campo desconhecido (`size`, `dias`) é recusado.
 
 ### Quem carrega a config
 

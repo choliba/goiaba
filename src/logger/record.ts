@@ -139,6 +139,13 @@ function messageOf(entry: LogEntry): string {
       return 'Entrada enviada ao agente';
     case 'resume':
       return 'Sessão retomada';
+    case 'logrotate': {
+      const count = (key: string): number => {
+        const value = entry[key];
+        return Array.isArray(value) ? value.length : 0;
+      };
+      return `Logs antigos: ${String(count('deleted'))} sessão(ões) apagada(s), ${String(count('compressed'))} arquivo(s) compactado(s)`;
+    }
     case 'session':
       return 'Sessão iniciada';
     case 'output':

@@ -13,6 +13,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
@@ -55,6 +56,29 @@ export function isSymlink(path: string): boolean {
 /** Last modification time, in milliseconds. */
 export function modifiedAt(path: string): number {
   return statSync(path).mtimeMs;
+}
+
+/** Sets a file's modification time, in milliseconds (a copy keeps its age). */
+export function setModifiedAt(path: string, ms: number): void {
+  utimesSync(path, ms / 1000, ms / 1000);
+}
+
+/** Size of a file, in bytes. */
+export function fileSize(path: string): number {
+  return statSync(path).size;
+}
+
+/** A file's content as bytes (compressed files, binaries). */
+export function readBytes(path: string): Uint8Array {
+  return readFileSync(path);
+}
+
+export function writeBytes(
+  path: string,
+  content: Uint8Array,
+  mode?: number,
+): void {
+  writeFileSync(path, content, mode === undefined ? {} : { mode });
 }
 
 export function readLink(path: string): string {

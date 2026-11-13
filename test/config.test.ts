@@ -158,7 +158,11 @@ test('loadConfig usa defaults quando não há arquivo', async () => {
     const config = await loadConfig({ cwd });
 
     expect(config).toEqual({
-      logger: { dir: resolve(cwd, '.goiaba/logs'), use: undefined },
+      logger: {
+        dir: resolve(cwd, '.goiaba/logs'),
+        use: undefined,
+        logrotate: undefined,
+      },
       databasePath: resolve(cwd, '.goiaba/goiaba.db'),
       workspaces: {
         dir: resolve(cwd, '.goiaba/workspaces'),

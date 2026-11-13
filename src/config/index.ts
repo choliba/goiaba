@@ -12,6 +12,14 @@ import {
 } from '../filesystem/index';
 import { UsageError } from '../errors';
 import {
+  LOGROTATE_COMPRESS,
+  LOGROTATE_DAYS,
+  LOGROTATE_MAX_FILE_SIZE,
+  LOGROTATE_MAX_TOTAL_SIZE,
+} from '../logger/constants';
+import type { LogRotation } from '../logger/rotate';
+import { parseSize, SIZE_EXAMPLES } from '../logger/size';
+import {
   currentDirectory,
   environment,
   setEnvironmentDefault,
@@ -53,11 +61,29 @@ export interface LoggerTarget {
  */
 export type LoggerFactory = (target: LoggerTarget) => object;
 
+/**
+ * How the logs are kept: a session too long for one file goes on in the
+ * next (`<sessão>.2.jsonl`), and old sessions are deleted (or compressed).
+ * Each field left out takes its default (src/logger/constants.ts).
+ */
+export interface GoiabaLogRotateConfig {
+  /** Soft limit of one file, with its unit (`'20mb'`): the record ends, the next goes on in a new file. */
+  readonly maxFileSize?: string;
+  /** Sessions older than this many days are deleted. */
+  readonly days?: number;
+  /** Past this size in the folder (`'200mb'`), the oldest sessions are deleted. */
+  readonly maxTotalSize?: string;
+  /** Ended sessions become `.jsonl.gz`. */
+  readonly compress?: boolean;
+}
+
 export interface GoiabaLoggerConfig {
   /** Directory, relative to the config file; defaults to `.goiaba/logs`. */
   readonly dir?: string;
   /** Without it, Goiaba writes ECS JSONL in `dir` with no package. */
   readonly use?: LoggerFactory;
+  /** Without it, every session stays, in one file. */
+  readonly logrotate?: GoiabaLogRotateConfig;
 }
 
 /** The workspaces: where they are kept, and their CLIs' homes. */
@@ -112,6 +138,8 @@ export interface ResolvedGoiabaConfig {
     /** Absolute directory of the log. */
     readonly dir: string;
     readonly use: LoggerFactory | undefined;
+    /** Every field filled in, sizes in bytes; `undefined` without `logger.logrotate`. */
+    readonly logrotate: LogRotation | undefined;
   };
   /** Absolute path of the SQLite database file. */
   readonly databasePath: string;
@@ -354,7 +382,17 @@ function normalizeLogger(
     throw new UsageError(`logger em ${configPath} deve ser um objeto.`);
   }
 
+  const unknown = Object.keys(logger).find(
+    (key) => !LOGGER_OPTIONS.includes(key),
+  );
+  if (unknown !== undefined) {
+    throw new UsageError(
+      `Opção desconhecida "logger.${unknown}" em ${configPath}. Opções: ${LOGGER_OPTIONS.join(', ')}.`,
+    );
+  }
+
   const { dir, use } = logger;
+  const logrotate = normalizeLogRotate(logger['logrotate'], configPath);
 
   if (dir !== undefined && (typeof dir !== 'string' || dir.trim() === '')) {
     throw new UsageError(
@@ -371,7 +409,72 @@ function normalizeLogger(
   return {
     ...(dir === undefined ? {} : { dir }),
     ...(use === undefined ? {} : { use }),
+    ...(logrotate === undefined ? {} : { logrotate }),
   };
+}
+
+const LOGGER_OPTIONS: readonly string[] = ['dir', 'use', 'logrotate'];
+
+const LOGROTATE_SIZES = ['maxFileSize', 'maxTotalSize'] as const;
+
+const LOGROTATE_OPTIONS: readonly string[] = [
+  ...LOGROTATE_SIZES,
+  'days',
+  'compress',
+];
+
+function normalizeLogRotate(
+  value: unknown,
+  configPath: string,
+): GoiabaLogRotateConfig | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) {
+    throw new UsageError(
+      `logger.logrotate em ${configPath} deve ser um objeto, como { days: 14 }.`,
+    );
+  }
+  const unknown = Object.keys(value).find(
+    (key) => !LOGROTATE_OPTIONS.includes(key),
+  );
+  if (unknown !== undefined) {
+    throw new UsageError(
+      `Opção desconhecida "logger.logrotate.${unknown}" em ${configPath}. Opções: ${LOGROTATE_OPTIONS.join(', ')}.`,
+    );
+  }
+  for (const name of LOGROTATE_SIZES) {
+    const size = value[name];
+    if (
+      size !== undefined &&
+      (typeof size !== 'string' || parseSize(size) === undefined)
+    ) {
+      throw new UsageError(
+        `logger.logrotate.${name} em ${configPath} deve ser um tamanho com a unidade, como ${SIZE_EXAMPLES} (k, kb, m, mb, g ou gb); veio ${JSON.stringify(size)}.`,
+      );
+    }
+  }
+  const days = value['days'];
+  if (days !== undefined && !(typeof days === 'number' && days > 0)) {
+    throw new UsageError(
+      `logger.logrotate.days em ${configPath} deve ser um número maior que zero, veio ${JSON.stringify(days)}.`,
+    );
+  }
+  if (
+    value['compress'] !== undefined &&
+    typeof value['compress'] !== 'boolean'
+  ) {
+    throw new UsageError(
+      `logger.logrotate.compress em ${configPath} deve ser true ou false.`,
+    );
+  }
+  // Checked above, field by field.
+  return value;
+}
+
+/** A size already checked by `normalizeLogRotate`, in bytes. */
+function sizeOf(text: string): number {
+  const size = parseSize(text);
+  if (size === undefined) throw new UsageError(`Tamanho inválido: ${text}.`);
+  return size;
 }
 
 function isLoggerFactory(value: unknown): value is LoggerFactory {
@@ -575,6 +678,19 @@ function resolveConfig(
         envOverrides.logDir ?? file.logger?.dir ?? DEFAULT_LOG_DIR,
       ),
       use: file.logger?.use,
+      logrotate:
+        file.logger?.logrotate === undefined
+          ? undefined
+          : {
+              maxFileBytes: sizeOf(
+                file.logger.logrotate.maxFileSize ?? LOGROTATE_MAX_FILE_SIZE,
+              ),
+              days: file.logger.logrotate.days ?? LOGROTATE_DAYS,
+              maxTotalBytes: sizeOf(
+                file.logger.logrotate.maxTotalSize ?? LOGROTATE_MAX_TOTAL_SIZE,
+              ),
+              compress: file.logger.logrotate.compress ?? LOGROTATE_COMPRESS,
+            },
     },
     databasePath: join(
       absolute(baseDir, file.database?.dir ?? DEFAULT_DATABASE_DIR),
