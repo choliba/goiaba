@@ -103,17 +103,18 @@ Tudo sai de `src/rounds/index.ts`, menos as peças avulsas indicadas.
 `defineRound(definition)` confere a declaração e a devolve como veio. Uma declaração errada é um `UsageError` que diz
 o que corrigir, antes de qualquer agente rodar ([Exemplo 1](#1-declarar-uma-rodada)).
 
-| Campo      | Tipo                                | O que é                                                                                                       |
-| ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `id`       | `string`                            | Letras minúsculas, números e hífens. É o endereço do teste nas páginas e o nome do arquivo.                   |
-| `goal`     | `string`                            | O que a rodada quer descobrir, em português. Rodadas com outro `goal` são outra configuração.                 |
-| `label`    | `string?`                           | O que mudou desde a última execução, nas suas palavras. Só uma nota; `--label` na linha de comando vale mais. |
-| `start`    | `RoundStartDefinition?`             | De onde toda execução parte: `{ fixture }` ou `{ git: { root, tag } }`. Sem ele, nada é conferido pelo git.   |
-| `actors`   | `Record<string, RoundActor>`        | Os agentes, pelo nome do papel (`analista`, `programador`).                                                   |
-| `flow`     | `RoundFlowStep[]`                   | Os passos, em ordem. Um agente pode aparecer em vários.                                                       |
-| `rules`    | `RoundRule[]?`                      | O que se confere de fora, depois de rodar.                                                                    |
-| `criteria` | `Record<string, RoundCriterion[]>?` | Por agente (e `round`, para a rodada inteira), o que a rodada confere sozinha: arquivos, limites e condições. |
-| `repeat`   | `number?`                           | Quantas vezes rodar; cada execução tem o seu registro. 1 por padrão.                                          |
+| Campo      | Tipo                                | O que é                                                                                                                                                                                                                                                                     |
+| ---------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`       | `string`                            | Letras minúsculas, números e hífens. É o endereço do teste nas páginas e o nome do arquivo.                                                                                                                                                                                 |
+| `goal`     | `string`                            | O que a rodada quer descobrir, em português. Rodadas com outro `goal` são outra configuração.                                                                                                                                                                               |
+| `label`    | `string?`                           | O que mudou desde a última execução, nas suas palavras. Só uma nota; `--label` na linha de comando vale mais.                                                                                                                                                               |
+| `start`    | `RoundStartDefinition?`             | De onde toda execução parte: `{ fixture }` ou `{ git: { root, tag } }`. Sem ele, nada é conferido pelo git.                                                                                                                                                                 |
+| `actors`   | `Record<string, RoundActor>`        | Os agentes, pelo nome do papel (`analista`, `programador`).                                                                                                                                                                                                                 |
+| `flow`     | `RoundFlowStep[]`                   | Os passos, em ordem. Um agente pode aparecer em vários.                                                                                                                                                                                                                     |
+| `rules`    | `RoundRule[]?`                      | O que se confere de fora, depois de rodar.                                                                                                                                                                                                                                  |
+| `criteria` | `Record<string, RoundCriterion[]>?` | Por agente (e `round`, para a rodada inteira), o que a rodada confere sozinha: arquivos, limites e condições.                                                                                                                                                               |
+| `inputs`   | `Record<string, string>?`           | O que a rodada pergunta antes de rodar, por nome (`{ termo: 'Quem você quer pesquisar?' }`): uma vez, para todas as repetições. O prompt recebe as respostas (`({ inputs }) => …`) e os critérios usam `{{input:termo}}`. A declaração guarda a pergunta, nunca a resposta. |
+| `repeat`   | `number?`                           | Quantas vezes rodar; cada execução tem o seu registro. 1 por padrão.                                                                                                                                                                                                        |
 
 Um campo desconhecido também é recusado: um erro de digitação não passa em silêncio.
 
@@ -135,12 +136,20 @@ interface RoundFlowStep {
 
 interface RoundContext {
   said: Readonly<Record<string, string>>; // por agente, tudo o que disse no último passo
+  inputs: Readonly<Record<string, string>>; // as respostas das perguntas de `inputs`
+  repeat: { index: number; total: number }; // qual execução é esta: index de 1 a total (o `repeat`)
 }
 ```
 
 O `prompt` é uma função porque um passo usa o que os anteriores disseram: `({ said }) => ['Corrija:',
 said['analista'] ?? '']`. Todo agente deve trabalhar na pasta da rodada (`workspace.root`): a rodada confere antes de
 começar.
+
+`repeat` serve para o pedido dizer qual tentativa é: `` `Tentativa ${String(repeat.index)} de ${String(repeat.total)}.` ``.
+Escreva os números, sem fazer contas com eles (`repeat.index + 1`): ao ler a declaração, eles são trocados por marcas
+(`{{repeat:index}}`), e uma conta sairia errada no arquivo gerado. Um pedido que muda a cada execução tem o mesmo
+`configHash`: as médias da página juntam pedidos diferentes. Para comparar configurações, declare uma rodada para cada
+uma.
 
 ### `start`: de onde a rodada parte
 
@@ -215,6 +224,8 @@ interface FileCriterion {
   criou já estava lá quando este começou.
 - `changed` vem do git (`git status`): sem `start`, a rodada não tem git, e nada aparece como mudado.
 - `contains` ignora maiúsculas e minúsculas; `matches` e `equals`, não (use a flag `i`, como em `/goiaba/i`).
+- `{{input:nome}}` em `name`, `contains`, `matches` (como texto), `equals` ou na condição vira a resposta da pergunta
+  `nome` de `inputs`. Um `{{input:…}}` sem a pergunta é recusado pelo `defineRound`.
 - O registro guarda só o veredito (o que foi conferido, se cumpriu, por quê), nunca o conteúdo do arquivo.
 
 **Curingas** em `name` (e em `ignore`):

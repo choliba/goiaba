@@ -807,8 +807,16 @@ export function agentFromDeclaration(
 
 // --- in plain words ---
 
+/** A passage in words: an answer asked before the round is said as such. */
+const passage = (item: string): string => {
+  const whole = /^\{\{input:([^}]+)\}\}$/.exec(item);
+  return whole?.[1] === undefined
+    ? `“${item.replace(/\{\{input:([^}]+)\}\}/g, '‹resposta de $1›')}”`
+    : `a resposta de ${whole[1]}`;
+};
+
 const quoted = (items: readonly string[]): string =>
-  items.map((item) => `“${item}”`).join(', ');
+  items.map(passage).join(', ');
 
 /** `pesquisa.txt deve ter sido criado e conter “x”`. */
 function fileInWords(file: FileFields): string {

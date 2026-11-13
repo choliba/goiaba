@@ -70,6 +70,61 @@ export function checkLimits(
   );
 }
 
+/**
+ * The criteria with each `{{input:nome}}` replaced by that input's answer:
+ * in the file names, the passages, the patterns given as text and the
+ * conditions. A `RegExp` is left as written.
+ */
+export function fillInputs(
+  criteria: readonly RoundCriterion[],
+  inputs: Readonly<Record<string, string>>,
+): RoundCriterion[] {
+  const fill = (text: string): string =>
+    text.replace(/\{\{input:([^}]+)\}\}/g, (marker, name: string) =>
+      Object.hasOwn(inputs, name) ? (inputs[name] ?? marker) : marker,
+    );
+  const fillAll = (
+    texts: readonly string[] | undefined,
+  ): string[] | undefined => texts?.map(fill);
+  const one = (criterion: RoundCriterion): RoundCriterion => {
+    if ('limit' in criterion) return criterion;
+    if ('file' in criterion) {
+      const { file } = criterion;
+      const ignore = fillAll(file.ignore);
+      const contains = fillAll(file.contains);
+      return {
+        file: {
+          ...file,
+          name: fill(file.name),
+          ...(ignore === undefined ? {} : { ignore }),
+          ...(contains === undefined ? {} : { contains }),
+          ...(file.matches === undefined
+            ? {}
+            : {
+                matches: file.matches.map((pattern) =>
+                  typeof pattern === 'string' ? fill(pattern) : pattern,
+                ),
+              }),
+          ...(file.equals === undefined ? {} : { equals: fill(file.equals) }),
+        },
+      };
+    }
+    const contains = fillAll(criterion.if.contains);
+    return {
+      if: {
+        ...criterion.if,
+        name: fill(criterion.if.name),
+        ...(contains === undefined ? {} : { contains }),
+      },
+      check: criterion.check.map(one),
+      ...(criterion.else === undefined
+        ? {}
+        : { else: criterion.else.map(one) }),
+    };
+  };
+  return criteria.map(one);
+}
+
 // --- files ---
 
 function checkFile(file: FileCriterion, context: FileContext): CriterionResult {

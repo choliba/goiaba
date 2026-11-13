@@ -137,18 +137,25 @@ const field = (value: unknown, key: string): unknown =>
 /** `{{said:analista}}`: where a prompt puts what that actor said. */
 const saidMarker = (actor: string): string => `{{said:${actor}}}`;
 
-/** A step's prompt lines, with each `said` marked; `null` when it fails so. */
-function promptLines(prompt: unknown): string[] | null {
-  if (typeof prompt !== 'function') return null;
-  const said = new Proxy<Record<string, string>>(
+/** A record whose every entry is its marker. */
+const markers = (mark: (key: string) => string): Record<string, string> =>
+  new Proxy<Record<string, string>>(
     {},
     {
-      get: (_target, key) =>
-        typeof key === 'string' ? saidMarker(key) : undefined,
+      get: (_target, key) => (typeof key === 'string' ? mark(key) : undefined),
     },
   );
+
+/** A step's prompt lines, with each `said` and input marked; `null` when it fails so. */
+function promptLines(prompt: unknown): string[] | null {
+  if (typeof prompt !== 'function') return null;
+  const said = markers(saidMarker);
+  const inputs = markers((name) => `{{input:${name}}}`);
+  const repeat = markers((name) => `{{repeat:${name}}}`);
   try {
-    const lines: unknown = Reflect.apply(prompt, undefined, [{ said }]);
+    const lines: unknown = Reflect.apply(prompt, undefined, [
+      { said, inputs, repeat },
+    ]);
     return Array.isArray(lines) ? lines.map((line) => text(line)) : null;
   } catch {
     return null;
@@ -387,6 +394,17 @@ function declarationOf(definition: unknown): RoundDeclaration {
           ),
         }
       : {}),
+    ...((): Partial<RoundDeclaration> => {
+      const inputs = field(definition, 'inputs');
+      if (!isRecord(inputs)) return {};
+      return {
+        inputs: Object.fromEntries(
+          Object.entries(inputs).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
+        ),
+      };
+    })(),
     repeat: typeof definition['repeat'] === 'number' ? definition['repeat'] : 1,
   };
 }

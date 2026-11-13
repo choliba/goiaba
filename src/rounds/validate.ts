@@ -380,6 +380,7 @@ const declaration = object({
   ),
   rules: list(nonEmpty),
   'criteria?': criteria,
+  'inputs?': record(nonEmpty),
   repeat: positive,
 });
 

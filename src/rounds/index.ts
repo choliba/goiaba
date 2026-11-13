@@ -11,6 +11,7 @@ export {
   type RoundContext,
   type RoundDefinition,
   type RoundFlowStep,
+  type RoundRepeat,
   type RoundRule,
   type RoundStartDefinition,
   type RoundStartGit,

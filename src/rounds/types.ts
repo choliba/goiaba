@@ -160,6 +160,8 @@ export interface RoundDeclaration {
   readonly rules: readonly string[];
   /** The declared criteria, by actor (and `round`); `matches` as its source. */
   readonly criteria?: RoundCriteria;
+  /** What the round asks before it runs, by name; never the answers. */
+  readonly inputs?: Readonly<Record<string, string>>;
   readonly repeat: number;
 }
 

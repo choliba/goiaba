@@ -4,7 +4,7 @@
  * the rules by id. `declarationSource` writes it back as a file.
  */
 
-import type { RoundActor, RoundDefinition } from './define';
+import type { RoundActor, RoundDefinition, RoundRepeat } from './define';
 import type {
   DeclaredActor,
   DeclaredOptionValue,
@@ -16,20 +16,48 @@ import type {
 /** `{{said:analista}}`: where a prompt puts what that actor said. */
 const saidMarker = (actor: string): string => `{{said:${actor}}}`;
 
+/** `{{input:termo}}`: where a prompt puts an input's answer. */
+const inputMarker = (name: string): string => `{{input:${name}}}`;
+
+/**
+ * The run's numbers as their markers, `{{repeat:index}}` and
+ * `{{repeat:total}}`: text where the prompt expects numbers. A prompt that
+ * writes them (`String(repeat.index)`) is captured as it is; arithmetic
+ * with them (`repeat.index + 1`) would be captured wrong, so a prompt only
+ * writes them.
+ */
+function repeatMarkers(): RoundRepeat {
+  return new Proxy<RoundRepeat>(
+    { index: 0, total: 0 },
+    {
+      get: (_target, key) =>
+        typeof key === 'string' ? `{{repeat:${key}}}` : undefined,
+    },
+  );
+}
+
+/** A record whose every entry is its marker. */
+const markers = (mark: (key: string) => string): Record<string, string> =>
+  new Proxy<Record<string, string>>(
+    {},
+    {
+      get: (_target, key) => (typeof key === 'string' ? mark(key) : undefined),
+    },
+  );
+
 /**
  * The prompt's lines, called with a `said` whose every entry is its
  * marker; `null` when the prompt does more than join lines and fails so.
  */
 function promptLines(step: RoundDefinition['flow'][number]): string[] | null {
-  const said = new Proxy<Record<string, string>>(
-    {},
-    {
-      get: (_target, key) =>
-        typeof key === 'string' ? saidMarker(key) : undefined,
-    },
-  );
   try {
-    return [...step.prompt({ said })];
+    return [
+      ...step.prompt({
+        said: markers(saidMarker),
+        inputs: markers(inputMarker),
+        repeat: repeatMarkers(),
+      }),
+    ];
   } catch {
     return null;
   }
@@ -136,6 +164,7 @@ export function captureDeclaration(
     ...(definition.criteria === undefined
       ? {}
       : { criteria: serializeCriteria(definition.criteria) }),
+    ...(definition.inputs === undefined ? {} : { inputs: definition.inputs }),
     repeat: definition.repeat ?? 1,
   };
 }

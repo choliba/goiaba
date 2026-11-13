@@ -18,7 +18,7 @@ import { format } from 'prettier';
 
 import { agentSource, declarationSource } from '../rounds/web/src/declaration';
 import { toolsOf } from '../rounds/web/src/project-tools';
-import type { RoundDeclaration } from '../src/rounds/types';
+import type { RoundCriterion, RoundDeclaration } from '../src/rounds/types';
 import type { Interaction } from '../src/interaction/index';
 import type { Provider, ProviderEvent } from '../src/providers/types';
 import {
@@ -873,6 +873,152 @@ test('runRound de uma fixture cria a pasta com repositório e tag, e cada execu�
   } finally {
     cleanup();
   }
+});
+
+test('runRound pergunta os inputs uma vez, antes de rodar, e os entrega aos prompts e aos critérios, com o número da execução', async () => {
+  const { project, roundsDir, dir, cleanup } = fixtureSetup('site-vazio', {
+    'README.md': 'base\n',
+  });
+  const root = join(roundsDir, 'perguntas');
+  // A conversation's `ask` does not show the question: it is written first.
+  const asked: string[] = [];
+  const shown: string[] = [];
+  const screen: Interaction = {
+    ask: () => {
+      asked.push(shown.at(-1) ?? '');
+      return Promise.resolve(' novo ');
+    },
+    write: (value) => {
+      shown.push(value);
+    },
+  };
+  const provider = new ScriptedProvider('ok', 'b.txt');
+  const round = defineRound({
+    id: 'perguntas',
+    goal: 'g',
+    start: { fixture: 'site-vazio' },
+    inputs: { termo: 'O que escrever?' },
+    actors: { dev: { provider, workspace: { type: 'bubblewrap', root } } },
+    flow: [
+      {
+        actor: 'dev',
+        prompt: ({ inputs, repeat }) => [
+          `Escreva ${inputs['termo'] ?? ''}.`,
+          `Tentativa ${String(repeat.index)} de ${String(repeat.total)}.`,
+        ],
+      },
+    ],
+    criteria: {
+      dev: [{ file: { name: 'b.txt', contains: ['{{input:termo}}'] } }],
+    },
+    repeat: 2,
+  });
+  try {
+    const files = await runRound(round, {
+      dir,
+      project,
+      roundsDir,
+      screen,
+    });
+    // Asked once for both runs, the answer trimmed.
+    expect(asked).toEqual(['O que escrever?']);
+    expect(
+      provider.prompts.every((prompt) => prompt.includes('Escreva novo.')),
+    ).toBe(true);
+    // Each run knows which it is.
+    expect(provider.prompts.map((prompt) => prompt.split('\n')[1])).toEqual([
+      'Tentativa 1 de 2.',
+      'Tentativa 2 de 2.',
+    ]);
+    const record = validateRound(
+      JSON.parse(readFileSync(files[0] ?? '', 'utf8')),
+    );
+    expect(record.steps[0]?.criteria).toEqual([
+      {
+        description: 'b.txt contém "novo"',
+        met: true,
+        detail: 'b.txt contém "novo".',
+      },
+    ]);
+    // The declaration keeps the question and the marker, not the answer.
+    expect(record.declaration?.inputs).toEqual({ termo: 'O que escrever?' });
+    expect(record.declaration?.flow[0]?.prompt).toEqual([
+      'Escreva {{input:termo}}.',
+      'Tentativa {{repeat:index}} de {{repeat:total}}.',
+    ]);
+    // And the file written back says it the same way.
+    if (record.declaration === undefined) throw new Error('sem declaração');
+    const source = declarationSource(record.declaration);
+    expect(source).toContain('prompt: ({ inputs, repeat }) => [');
+    expect(source).toContain(
+      '`Tentativa ${String(repeat.index)} de ${String(repeat.total)}.`',
+    );
+
+    // Given beforehand, nothing is asked.
+    asked.length = 0;
+    await runRound(round, {
+      dir,
+      project,
+      roundsDir,
+      screen,
+      inputs: { termo: 'novo' },
+    });
+    expect(asked).toEqual([]);
+  } finally {
+    cleanup();
+  }
+});
+
+/** A round with only `criterion` for its one agent. */
+const withCriterion = (criterion: RoundCriterion): unknown =>
+  defineRound({
+    id: 'dois-tipos',
+    goal: 'g',
+    actors: {
+      dev: {
+        provider: new ScriptedProvider('ok'),
+        workspace: { type: 'bubblewrap', root: '/tmp/x' },
+      },
+    },
+    flow: [{ actor: 'dev', prompt: () => ['x'] }],
+    criteria: { dev: [criterion] },
+  });
+
+test('defineRound recusa um critério com dois tipos ou com um campo desconhecido', () => {
+  // Kept in variables: as literals, the typecheck would refuse them first.
+  const twoKinds = { file: { name: 'a.txt' }, limit: { time: '2min' } };
+  const misspelled = { file: { name: 'a.txt', contain: ['x'] } };
+  const unknownLimit = { limit: { time: '2min', custo: '1' } };
+  expect(() => withCriterion(twoKinds)).toThrow(
+    'um critério tem um tipo só, e este tem file e limit',
+  );
+  expect(() => withCriterion(misspelled)).toThrow(
+    '"contain" não é um campo daqui',
+  );
+  expect(() => withCriterion(unknownLimit)).toThrow(
+    '"custo" não é um campo daqui',
+  );
+});
+
+test('defineRound recusa um critério com {{input:…}} que inputs não pergunta', () => {
+  expect(() =>
+    defineRound({
+      id: 'sem-pergunta',
+      goal: 'g',
+      actors: {
+        dev: {
+          provider: new ScriptedProvider('ok'),
+          workspace: { type: 'bubblewrap', root: '/tmp/x' },
+        },
+      },
+      flow: [{ actor: 'dev', prompt: () => ['x'] }],
+      criteria: {
+        dev: [{ file: { name: 'a.txt', contains: ['{{input:termo}}'] } }],
+      },
+    }),
+  ).toThrow(
+    'criteria usa {{input:termo}}, mas inputs não tem a pergunta termo',
+  );
 });
 
 test('runRound de uma fixture que não existe diz quais existem', async () => {

@@ -34,7 +34,7 @@ import {
   tree,
   type Tree,
 } from './git';
-import { checkFiles, type Lookup } from './criteria';
+import { checkFiles, fillInputs, type Lookup } from './criteria';
 import { checkReferences } from './references';
 import { spanOf, StepRecorder } from './measures';
 import { measuresOf, sanitize, writeRound } from './record';
@@ -81,6 +81,11 @@ export interface RunRoundOptions {
   readonly signal?: AbortSignal;
   /** What changed in this run, in your words; wins over the declaration's `label`. */
   readonly label?: string;
+  /**
+   * Answers to the declaration's `inputs`, by name; what is missing is asked
+   * on `screen` before the first run.
+   */
+  readonly inputs?: Readonly<Record<string, string>>;
   /**
    * The cost in USD of a request the CLI does not price, by the actor's
    * model; `null` when unknown (the default: no price table yet).
@@ -130,6 +135,53 @@ function assertActorsAt(definition: RoundDefinition, root: string): void {
   }
 }
 
+/**
+ * One question on the round's screen: shown first (a conversation's `ask`
+ * does not show it), then answered. A screen with nobody to type (stdin
+ * closed) is a `UsageError` that says so.
+ */
+async function askOn(
+  screen: Interaction,
+  question: string,
+  signal: AbortSignal | undefined,
+  id: string,
+): Promise<string> {
+  screen.write(question);
+  try {
+    return await screen.ask('', signal);
+  } catch (error) {
+    if (signal?.aborted === true) throw error;
+    throw new UsageError(
+      `A rodada ${id} pergunta "${question}" antes de rodar, mas não há onde responder: rode-a num terminal.`,
+    );
+  }
+}
+
+/**
+ * The answer to each of the declaration's `inputs`: the ones given, the rest
+ * asked on `screen`, one at a time. An empty answer is a `UsageError`.
+ */
+async function answersOf(
+  definition: RoundDefinition,
+  given: Readonly<Record<string, string>>,
+  screen: Interaction,
+  signal: AbortSignal | undefined,
+): Promise<Record<string, string>> {
+  const answers: Record<string, string> = {};
+  for (const [name, question] of Object.entries(definition.inputs ?? {})) {
+    const answer = Object.hasOwn(given, name)
+      ? (given[name] ?? '')
+      : await askOn(screen, question, signal, definition.id);
+    if (answer.trim().length === 0) {
+      throw new UsageError(
+        `A rodada ${definition.id} precisa de uma resposta para "${question}" (inputs.${name}).`,
+      );
+    }
+    answers[name] = answer.trim();
+  }
+  return answers;
+}
+
 /** Runs every repetition of `definition`, in order; the records' paths. */
 export async function runRound(
   definition: RoundDefinition,
@@ -137,8 +189,22 @@ export async function runRound(
 ): Promise<string[]> {
   const total = definition.repeat ?? 1;
   const files: string[] = [];
+  // One screen for the questions and every run.
+  const screen = options.screen ?? agentConversation();
+  const inputs = await answersOf(
+    definition,
+    options.inputs ?? {},
+    screen,
+    options.signal,
+  );
   for (let index = 1; index <= total; index += 1) {
-    files.push(await runOnce(definition, { index, total }, options));
+    files.push(
+      await runOnce(
+        definition,
+        { index, total },
+        { ...options, screen, inputs },
+      ),
+    );
   }
   return files;
 }
@@ -225,6 +291,7 @@ async function runOnce(
     signal,
     label = definition.label,
     price = () => null,
+    inputs = {},
   }: RunRoundOptions,
 ): Promise<string> {
   const startedAt = now();
@@ -312,7 +379,7 @@ async function runOnce(
     }
     const actor = definition.actors[name];
     const readOnly = actor.readOnly ?? false;
-    const text = flowStep.prompt({ said }).join('\n');
+    const text = flowStep.prompt({ said, inputs, repeat }).join('\n');
     const workspace = new Workspace(actor.workspace);
     actors[name] ??= snapshotActor(
       {
@@ -347,7 +414,7 @@ async function runOnce(
     const before = await check(clock);
     // The actor's criteria, and the workspace as it is before the agent acts
     // (for `if` conditions and created/deleted).
-    const actorCriteria = definition.criteria?.[name] ?? [];
+    const actorCriteria = fillInputs(definition.criteria?.[name] ?? [], inputs);
     const startFiles =
       actorCriteria.length > 0 ? snapshot(workspace.root) : emptyLookup;
 

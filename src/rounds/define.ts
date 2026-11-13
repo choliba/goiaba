@@ -22,10 +22,23 @@ export interface RoundActor {
   readonly readOnly?: boolean;
 }
 
-/** What a step's prompt can use: what the agents said before it. */
+/** What a step's prompt can use: what the agents said before it, and the answers. */
 export interface RoundContext {
   /** By actor, everything it said in its last step, joined. */
   readonly said: Readonly<Record<string, string>>;
+  /** By name, the answer to each of the round's `inputs`. */
+  readonly inputs: Readonly<Record<string, string>>;
+  /**
+   * Which run of the round this is: `index` from 1 to `total` (the
+   * declaration's `repeat`). The same names as the record's `repeat`.
+   */
+  readonly repeat: RoundRepeat;
+}
+
+/** A run of the round among its repetitions: `index` of `total`, from 1. */
+export interface RoundRepeat {
+  readonly index: number;
+  readonly total: number;
 }
 
 export interface RoundFlowStep {
@@ -105,6 +118,13 @@ export interface RoundDefinition {
    * what it was asked (see rounds/README.md).
    */
   readonly criteria?: RoundCriteria;
+  /**
+   * What the round asks before it runs, by name: `{ termo: 'Quem você quer
+   * pesquisar?' }`. Asked once, for every repetition; the prompts get the
+   * answers (`({ inputs }) => …`) and the criteria take `{{input:termo}}`.
+   * The declaration keeps the questions, never the answers.
+   */
+  readonly inputs?: Readonly<Record<string, string>>;
   /** How many times it runs, each run its own record; 1 by default. */
   readonly repeat?: number;
 }
@@ -121,7 +141,14 @@ const KNOWN_FIELDS = new Set([
   'rules',
   'repeat',
   'criteria',
+  'inputs',
 ]);
+
+/** An input's name: lowercase letters, digits and `-`, as `termo`. */
+const INPUT = /^[a-z][a-z0-9-]*$/;
+
+/** `{{input:termo}}`: where a criterion takes an input's answer. */
+export const INPUT_MARKER = /\{\{input:([^}]+)\}\}/g;
 
 /**
  * The declaration, checked: an unknown field, an actor the flow names but
@@ -171,6 +198,29 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
       }
     }
   });
+  const inputs = Object.keys(definition.inputs ?? {});
+  for (const [name, question] of Object.entries(definition.inputs ?? {})) {
+    if (!INPUT.test(name)) {
+      throw new UsageError(
+        `${where}: o nome da pergunta "${name}" deve ter só letras minúsculas, números e hífens, como termo.`,
+      );
+    }
+    if (question.trim().length === 0) {
+      throw new UsageError(
+        `${where}: inputs.${name} não diz o que perguntar: escreva a pergunta.`,
+      );
+    }
+  }
+  const named = [
+    ...JSON.stringify(definition.criteria ?? {}).matchAll(INPUT_MARKER),
+  ].map(([, name]) => name);
+  for (const name of named) {
+    if (!inputs.includes(name)) {
+      throw new UsageError(
+        `${where}: criteria usa {{input:${name}}}, mas inputs não tem a pergunta ${name}${inputs.length === 0 ? '' : ` (tem: ${inputs.join(', ')})`}.`,
+      );
+    }
+  }
   for (const [name, list] of Object.entries(definition.criteria ?? {})) {
     if (name !== 'round' && !actors.includes(name)) {
       throw new UsageError(
@@ -192,8 +242,64 @@ export function defineRound(definition: RoundDefinition): RoundDefinition {
 }
 
 /** A criterion of the declaration, checked: shape, paths and limits. */
+/** The fields each part of a criterion takes; any other is refused. */
+const CRITERION_FIELDS = {
+  file: [
+    'name',
+    'ignore',
+    'exists',
+    'created',
+    'deleted',
+    'changed',
+    'contains',
+    'matches',
+    'equals',
+  ],
+  limit: ['time', 'tokens', 'cost'],
+  if: ['name', 'exists', 'contains'],
+} as const;
+
+/** A field `fields` does not have is a `UsageError` naming it and the known ones. */
+function checkFields(
+  value: object,
+  fields: readonly string[],
+  where: string,
+): void {
+  const unknown = Object.keys(value).filter((key) => !fields.includes(key));
+  if (unknown.length > 0) {
+    throw new UsageError(
+      `${where}: ${unknown.map((key) => `"${key}"`).join(', ')} não é um campo daqui (os campos são ${fields.join(', ')}).`,
+    );
+  }
+}
+
+/**
+ * A criterion is one kind only: `{ file }`, `{ limit }` or `{ if, check,
+ * else }`. Two kinds in one object (a limit beside a file) would leave one
+ * unchecked: each goes in an item of its own.
+ */
+function checkKind(criterion: RoundCriterion, where: string): void {
+  const kinds = (['file', 'limit', 'if'] as const).filter(
+    (kind) => kind in criterion,
+  );
+  if (kinds.length > 1) {
+    throw new UsageError(
+      `${where}: um critério tem um tipo só, e este tem ${kinds.join(' e ')}. Ponha cada um num item próprio da lista: ${kinds.map((kind) => `{ ${kind}: … }`).join(', ')}.`,
+    );
+  }
+  if (kinds.length === 0) return;
+  const kind = kinds[0];
+  checkFields(
+    criterion,
+    kind === 'if' ? ['if', 'check', 'else'] : [kind],
+    where,
+  );
+}
+
 function checkCriterion(criterion: RoundCriterion, where: string): void {
+  checkKind(criterion, where);
   if ('file' in criterion) {
+    checkFields(criterion.file, CRITERION_FIELDS.file, `${where}.file`);
     const { file } = criterion;
     checkRelPath(file.name, `${where}.file.name`);
     for (const pattern of file.ignore ?? []) {
@@ -207,6 +313,7 @@ function checkCriterion(criterion: RoundCriterion, where: string): void {
     return;
   }
   if ('limit' in criterion) {
+    checkFields(criterion.limit, CRITERION_FIELDS.limit, `${where}.limit`);
     const { time, tokens, cost } = criterion.limit;
     if (time !== undefined) {
       try {
@@ -230,6 +337,7 @@ function checkCriterion(criterion: RoundCriterion, where: string): void {
     return;
   }
   if ('if' in criterion) {
+    checkFields(criterion.if, CRITERION_FIELDS.if, `${where}.if`);
     checkRelPath(criterion.if.name, `${where}.if.name`);
     for (const inner of criterion.check) {
       checkCriterion(inner, `${where}.check`);

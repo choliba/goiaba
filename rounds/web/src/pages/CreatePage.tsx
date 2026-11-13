@@ -110,6 +110,23 @@ const nameOf = (agent: AgentForm, index: number): string =>
 /** What a step's prompt line becomes to bring in what `actor` said. */
 const saidMarker = (actor: string): string => `{{said:${actor}}}`;
 
+/** What a prompt line or a criterion becomes to bring in an answer. */
+const inputMarker = (name: string): string => `{{input:${name}}}`;
+
+/** An input's name: lowercase letters, digits and `-` (what `defineRound` accepts). */
+const INPUT = /^[a-z][a-z0-9-]*$/;
+
+/** One question asked before the round runs, as the form holds it. */
+interface InputRow {
+  readonly key: number;
+  readonly name: string;
+  readonly question: string;
+}
+
+/** A line with `marker` appended, on a line of its own. */
+const appended = (text: string, marker: string): string =>
+  `${text.replace(/\n*$/, '')}${text.trim().length === 0 ? '' : '\n'}${marker}`;
+
 export function CreatePage(): ReactNode {
   // The records arrive before the pages render: read them here, not when
   // this module loads.
@@ -119,6 +136,13 @@ export function CreatePage(): ReactNode {
   const [goal, setGoal] = useState('');
   /** What changed since the last run (`label`), in the user's words. */
   const [label, setLabel] = useState('');
+  /** What the round asks before it runs (`inputs`). */
+  const [inputs, setInputs] = useState<readonly InputRow[]>([]);
+  const updateInput = (key: number, change: Partial<InputRow>): void => {
+    setInputs((rows) =>
+      rows.map((row) => (row.key === key ? { ...row, ...change } : row)),
+    );
+  };
   const [repeat, setRepeat] = useState('1');
   /** The fixture chosen; until then, a new one named after the round. */
   const [fixtureChoice, setFixture] = useState<string | undefined>(undefined);
@@ -146,6 +170,17 @@ export function CreatePage(): ReactNode {
   const [copied, setCopied] = useState(false);
 
   const names = agents.map(nameOf);
+  /** The questions that can go in the declaration, by name. */
+  const declaredInputs = inputs
+    .filter(
+      (input) =>
+        INPUT.test(input.name.trim()) && input.question.trim().length > 0,
+    )
+    .map((input): [string, string] => [
+      input.name.trim(),
+      input.question.trim(),
+    ]);
+  const askedNames = declaredInputs.map(([name]) => name);
   const current = agents.find((agent) => agent.key === selected) ?? agents[0];
 
   /**
@@ -265,6 +300,33 @@ export function CreatePage(): ReactNode {
           ]
         : [],
     ),
+    ...inputs.flatMap((input, index) => [
+      ...(INPUT.test(input.name.trim())
+        ? []
+        : [
+            `Pergunta ${String(index + 1)}: o nome é como a resposta aparece no pedido; só letras minúsculas, números e hífens, como termo.`,
+          ]),
+      ...(input.question.trim().length === 0
+        ? [`Pergunta ${String(index + 1)}: escreva o que perguntar.`]
+        : []),
+    ]),
+    ...[
+      ...new Set(
+        [
+          ...JSON.stringify(agents.map((agent) => agent.criteria)).matchAll(
+            /\{\{input:([^}]+)\}\}/g,
+          ),
+          ...steps.flatMap((step) => [
+            ...step.prompt.matchAll(/\{\{input:([^}]+)\}\}/g),
+          ]),
+        ].map((match) => match[1] ?? ''),
+      ),
+    ]
+      .filter((name) => !inputs.some((input) => input.name.trim() === name))
+      .map(
+        (name) =>
+          `A resposta de ${name} é usada, mas não há pergunta com esse nome: adicione-a em "Perguntas antes de rodar".`,
+      ),
     ...limitProblems(roundLimits).map(
       (problem) => `Rodada inteira: ${problem}.`,
     ),
@@ -313,6 +375,9 @@ export function CreatePage(): ReactNode {
       ...(toolCallAsText ? ['no-tool-call-as-text'] : []),
     ],
     ...(Object.keys(criteria).length === 0 ? {} : { criteria }),
+    ...(declaredInputs.length === 0
+      ? {}
+      : { inputs: Object.fromEntries(declaredInputs) }),
     repeat: Number.isInteger(repeatCount) && repeatCount >= 1 ? repeatCount : 1,
   };
   const source = declarationSource(declaration, PROJECT_TOOLS);
@@ -326,6 +391,13 @@ export function CreatePage(): ReactNode {
     setId(loaded.id);
     setGoal(loaded.goal);
     setLabel(loaded.label ?? '');
+    setInputs(
+      Object.entries(loaded.inputs ?? {}).map(([name, question], index) => ({
+        key: index + 1,
+        name,
+        question,
+      })),
+    );
     setRepeat(String(loaded.repeat));
     if (loaded.start === null) {
       warnings.push('Sem ponto de partida: o formulário pede uma fixture.');
@@ -503,6 +575,65 @@ export function CreatePage(): ReactNode {
                 />
               </label>
             </div>
+            <span className="criterion-branch">
+              Perguntas antes de rodar <code>inputs</code>
+            </span>
+            <p className="muted">
+              Quando a rodada começa, o Goiaba pergunta a você, uma vez para
+              todas as repetições. A resposta entra no pedido (botões em cada
+              passo) e nas conferências, escrevendo{' '}
+              <code>{inputMarker('nome')}</code>. O arquivo guarda a pergunta,
+              nunca a resposta.
+            </p>
+            {inputs.map((input) => (
+              <div className="criterion-row" key={input.key}>
+                <label>
+                  Nome <span className="muted">como termo</span>
+                  <input
+                    value={input.name}
+                    onChange={(e) =>
+                      updateInput(input.key, { name: e.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  Pergunta
+                  <input
+                    value={input.question}
+                    placeholder="Quem você quer pesquisar?"
+                    onChange={(e) =>
+                      updateInput(input.key, { question: e.target.value })
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="close"
+                  aria-label="Tirar esta pergunta"
+                  onClick={() =>
+                    setInputs((rows) =>
+                      rows.filter((row) => row.key !== input.key),
+                    )
+                  }
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <div className="criterion-add">
+              <button
+                type="button"
+                className="more-rounds"
+                onClick={() =>
+                  setInputs((rows) => [
+                    ...rows,
+                    { key: nextKey(rows), name: '', question: '' },
+                  ])
+                }
+              >
+                Perguntar algo antes de rodar
+              </button>
+            </div>
           </fieldset>
 
           <section className="agents" aria-label="Agentes">
@@ -665,22 +796,57 @@ export function CreatePage(): ReactNode {
                         }
                       />
                     </label>
-                    {earlier.length > 0 && (
+                    {(earlier.length > 0 ||
+                      askedNames.length > 0 ||
+                      repeatCount > 1) && (
                       <div className="criterion-add">
                         {earlier.map((name) => (
                           <button
-                            key={name}
+                            key={`said-${name}`}
                             type="button"
                             className="more-rounds"
                             onClick={() =>
                               updateStep(step.key, {
-                                prompt: `${step.prompt.replace(/\n*$/, '')}${step.prompt.trim().length === 0 ? '' : '\n'}${saidMarker(name)}`,
+                                prompt: appended(step.prompt, saidMarker(name)),
                               })
                             }
                           >
                             + o que {name} respondeu
                           </button>
                         ))}
+                        {askedNames.map((name) => (
+                          <button
+                            key={`input-${name}`}
+                            type="button"
+                            className="more-rounds"
+                            onClick={() =>
+                              updateStep(step.key, {
+                                prompt: appended(
+                                  step.prompt,
+                                  inputMarker(name),
+                                ),
+                              })
+                            }
+                          >
+                            + a resposta de {name}
+                          </button>
+                        ))}
+                        {repeatCount > 1 && (
+                          <button
+                            type="button"
+                            className="more-rounds"
+                            onClick={() =>
+                              updateStep(step.key, {
+                                prompt: appended(
+                                  step.prompt,
+                                  'Tentativa {{repeat:index}} de {{repeat:total}}.',
+                                ),
+                              })
+                            }
+                          >
+                            + o número da tentativa
+                          </button>
+                        )}
                       </div>
                     )}
                   </li>

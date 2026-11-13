@@ -24,7 +24,17 @@ import type {
   RoundRecord,
 } from '../../../src/rounds/types';
 
-const SAID = /\{\{said:([^}]+)\}\}/g;
+/**
+ * `{{said:analista}}`, `{{input:termo}}` or `{{repeat:index}}`: what a
+ * prompt line brings in.
+ */
+const MARKER = /\{\{(said|input|repeat):([^}]+)\}\}/g;
+
+/** The expression a marker stands for: `said['analista'] ?? ''`, `String(repeat.index)`. */
+function markerValue(kind: string, name: string): string {
+  if (kind === 'repeat') return `String(repeat.${name})`;
+  return `${kind === 'said' ? 'said' : 'inputs'}[${quote(name)}] ?? ''`;
+}
 
 /** The rule functions `src/rounds` exports, by the id their rule reports. */
 const RULES: Readonly<Partial<Record<string, string>>> = {
@@ -41,18 +51,28 @@ const PROVIDERS: Readonly<Partial<Record<string, string>>> = {
   codex: 'CodexProvider',
 };
 
-/** One prompt line as an expression: a string, `said[…]`, or a template. */
+/** One prompt line as an expression: a string, `said[…]`, `inputs[…]`, or a template. */
 function promptLine(line: string): string {
-  const whole = /^\{\{said:([^}]+)\}\}$/.exec(line);
-  if (whole?.[1] !== undefined) {
-    return `said[${quote(whole[1])}] ?? ''`;
+  const whole = /^\{\{(said|input|repeat):([^}]+)\}\}$/.exec(line);
+  if (whole?.[1] !== undefined && whole[2] !== undefined) {
+    return markerValue(whole[1], whole[2]);
   }
-  if (!line.includes('{{said:')) return quote(line);
+  if (!new RegExp(MARKER.source).test(line)) return quote(line);
   const escaped = line
     .replaceAll('\\', '\\\\')
     .replaceAll('`', '\\`')
     .replaceAll('${', '\\${');
-  return `\`${escaped.replace(SAID, (_match, actor: string) => `\${said[${quote(actor)}] ?? ''}`)}\``;
+  return `\`${escaped.replace(MARKER, (_match, kind: string, name: string) => `\${${markerValue(kind, name)}}`)}\``;
+}
+
+/** The prompt's parameters: what of the context its lines use. */
+function promptParams(lines: readonly string[]): string {
+  const used = [
+    ...(lines.some((line) => line.includes('{{said:')) ? ['said'] : []),
+    ...(lines.some((line) => line.includes('{{input:')) ? ['inputs'] : []),
+    ...(lines.some((line) => line.includes('{{repeat:')) ? ['repeat'] : []),
+  ];
+  return used.length === 0 ? '()' : `({ ${used.join(', ')} })`;
 }
 
 /**
@@ -214,9 +234,7 @@ export function declarationSource(
         ? // The prompt could not be read as lines: write it.
           new Code('() => [] /* o prompt deste passo não pôde ser lido */')
         : new Arrow(
-            step.prompt.some((line) => line.includes('{{said:'))
-              ? '({ said })'
-              : '()',
+            promptParams(step.prompt),
             step.prompt.map((line) => new Code(promptLine(line))),
           ),
   }));
@@ -237,6 +255,7 @@ export function declarationSource(
               },
             },
           }),
+    ...(declaration.inputs === undefined ? {} : { inputs: declaration.inputs }),
     actors: actorValues,
     flow: flowValues,
     ...(declaration.criteria === undefined
