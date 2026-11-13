@@ -11,7 +11,7 @@ import { useState, type ReactNode } from 'react';
 import { RECENT_TESTS } from '../constants';
 import { lastRun, recentTests, type Test } from '../data';
 import { count, goalOf, when } from '../format';
-import { createHref, indexHref, testHref } from '../route';
+import { createHref, indexHref, testHref, useRoute } from '../route';
 import { Modal } from './Modal';
 
 function Chip({
@@ -105,11 +105,13 @@ export function TestsNav({
   const close = (): void => setOpen(false);
   const recent = recentTests.slice(0, RECENT_TESTS);
   const others = recentTests.length - recent.length;
+  // A link home from every page but home itself.
+  const onIndex = useRoute().page === 'index';
 
   return (
     <header className="topbar">
       <div className="topbar-row">
-        {current === undefined ? (
+        {onIndex ? (
           <span className="brand" aria-current="page">
             Rodadas
           </span>

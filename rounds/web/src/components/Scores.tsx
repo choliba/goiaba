@@ -11,6 +11,7 @@ import type {
   CriterionScore,
   RoundScore,
 } from '../../../../src/rounds/score';
+import { RUBRIC } from '../../../../src/rounds/constants';
 import type { RoundRecord, ToolRecord } from '../../../../src/rounds/types';
 import { NOT_MEASURED, title } from '../format';
 import { Modal } from './Modal';
@@ -256,29 +257,105 @@ export function Scores({
   );
   const actors = Object.values(score.actors);
   const evaluated = actors.filter((a) => a.effectiveness.score !== null).length;
+  const effectivenessWeight = percent(RUBRIC.weights.effectiveness);
+  const efficiencyWeight = percent(RUBRIC.weights.efficiency);
   return (
     <section className="block" aria-labelledby="avaliacao">
       <h2 id="avaliacao">Avaliação</h2>
-      <p className="note">
-        Rubrica {score.version}: os critérios estão em rounds/README.md.
-        Eficácia é o que foi entregue; eficiência, o que custou entregar.
-        Rodada: nota <Grade score={score.round.final} />, eficácia{' '}
-        <Grade score={score.round.effectiveness.score} />, eficiência{' '}
-        <Grade score={score.round.efficiency.score} /> (agentes avaliados:{' '}
-        {evaluated} de {actors.length}). Nota = 60% eficácia + 40% eficiência
-        (antes da escala).
-      </p>
-      {roundCriteria.length > 0 && <Criteria criteria={roundCriteria} />}
-      <div className="actors">
-        {Object.entries(score.actors).map(([name, actorScore]) => (
-          <ActorCard
-            key={name}
-            name={name}
-            score={actorScore}
-            failed={failedOf(name)}
+      <section className="score-part" aria-labelledby="avaliacao-rodada">
+        <h3 id="avaliacao-rodada" className="score-part-title">
+          Rodada <Grade score={score.round.final} />
+        </h3>
+        <p className="note">
+          A nota da rodada junta as duas medidas abaixo: a eficácia vale{' '}
+          {effectivenessWeight} e a eficiência, {efficiencyWeight}.
+        </p>
+        {/* The whole score, 100%, split by what each part weighs in it. */}
+        <div
+          className="round-scores"
+          style={{
+            gridTemplateColumns: `minmax(0, ${String(Math.round(RUBRIC.weights.effectiveness * 100))}fr) minmax(0, ${String(Math.round(RUBRIC.weights.efficiency * 100))}fr)`,
+          }}
+        >
+          <RoundScoreBox
+            label="Eficácia"
+            weight={effectivenessWeight}
+            caption="O que foi entregue"
+            score={score.round.effectiveness.score}
           />
-        ))}
-      </div>
+          <RoundScoreBox
+            label="Eficiência"
+            weight={efficiencyWeight}
+            caption="O que custou entregar"
+            score={score.round.efficiency.score}
+            title="Na nota, a eficiência entra antes de ser escalada pela eficácia."
+          />
+        </div>
+        {roundCriteria.length > 0 && <Criteria criteria={roundCriteria} />}
+      </section>
+      <section className="score-part" aria-labelledby="avaliacao-agentes">
+        <h3 id="avaliacao-agentes">Agentes</h3>
+        {evaluated < actors.length && (
+          <p className="note">
+            {evaluated} de {actors.length} agentes avaliados.
+          </p>
+        )}
+        <div className="actors">
+          {Object.entries(score.actors).map(([name, actorScore]) => (
+            <ActorCard
+              key={name}
+              name={name}
+              score={actorScore}
+              failed={failedOf(name)}
+            />
+          ))}
+        </div>
+      </section>
+      <p className="note round-rubric">
+        Rubrica {score.version}: os critérios e os números de cada um estão em
+        rounds/README.md.
+      </p>
     </section>
+  );
+}
+
+/** `0.6` → `60%`. */
+const percent = (weight: number): string =>
+  `${String(Math.round(weight * 100))}%`;
+
+/** `5,0`, always one decimal so the three line up; `—` when not evaluated. */
+const fixedGrade = (score: number | null): string =>
+  score === null
+    ? NOT_MEASURED
+    : score.toLocaleString('pt-BR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      });
+
+/** One part of the round's score: label and weight, the number, what it means. */
+function RoundScoreBox({
+  label,
+  weight,
+  caption,
+  score,
+  title: hint,
+}: {
+  readonly label: string;
+  readonly weight?: string;
+  readonly caption: string;
+  readonly score: number | null;
+  readonly title?: string;
+}): ReactNode {
+  return (
+    <div className={`round-score ${statusOf(score)}`} title={hint}>
+      <span className="round-score-head">
+        <span className="round-score-label">
+          {label}
+          {weight !== undefined && <span className="muted"> ({weight})</span>}
+        </span>
+        <span className="round-score-value">{fixedGrade(score)}</span>
+      </span>
+      <span className="round-score-caption">{caption}</span>
+    </div>
   );
 }

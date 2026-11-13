@@ -71,6 +71,9 @@
   box-sizing: border-box;
 }
 html {
+  /* Everything 10% larger, the same as one Ctrl + in the browser: the sizes
+     below are in px, and this scales them all alike. */
+  zoom: 1.1;
   scroll-behavior: smooth;
   /* The scrollbar's room stays when a modal locks the page: no jump. */
   scrollbar-gutter: stable;
@@ -1140,6 +1143,66 @@ a.crumbs-test:hover {
 }
 
 /* An agent's score in short: the whole card opens its details (a modal) */
+/* The evaluation's two parts, the round and its agents, each in its frame */
+.score-part {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+/* The round's score, 100%: its parts side by side, each as wide as its weight */
+.score-part-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.score-part-title .grade {
+  font-size: 15px;
+}
+.round-scores {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.round-score {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--surface);
+  /* The share of the score it is: a band in the color of its situation */
+  border-top: 4px solid var(--status, var(--line));
+}
+.round-score + .round-score {
+  border-left: 1px solid var(--line);
+}
+.round-score-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.round-score-label {
+  font: 600 15px/1.2 var(--display);
+}
+.round-score-value {
+  font: 600 22px/1 var(--display);
+  font-variant-numeric: tabular-nums;
+  color: var(--status, var(--ink));
+}
+.round-score-caption {
+  font-size: 13px;
+  color: var(--muted);
+}
+.round-rubric {
+  font-size: 13px;
+}
 .actor-card {
   display: grid;
   gap: 10px;
