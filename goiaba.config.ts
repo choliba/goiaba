@@ -10,6 +10,11 @@ const dirStorage = join(dirRoot, 'storage');
 // DEBUG=1 (ou true) liga o debug e o log em nível debug
 const DEBUG = ['1', 'true'].includes(environment()['DEBUG'] ?? '');
 
+const normalise = (e: string) => {
+  return environment()[e];
+  // const _ENVIROMENT_ = ['1', 'true'].includes(environment()['DEBUG'] ?? '');
+};
+
 export default defineConfig({
   debug: DEBUG,
   logger: {
@@ -36,18 +41,29 @@ export default defineConfig({
     homes: join(dirStorage, 'homes'),
   },
   rounds: {
+    // As suas rodadas ficam fora deste repositório, em ~/dev/minhas-rodadas:
+    // as declarações, as fixtures e os registros. Rodando daqui, o Goiaba usa
+    // essas pastas (bun run rounds <id>, bun run rounds:web).
     // Onde as rodadas rodam: uma pasta por rodada (<dir>/<id>), recriada a
-    // partir da fixture a cada execução. Obrigatória para rodar rodadas e
-    // fora do projeto. O `bun run clear --rounds` a esvazia.
-    dir: '~/.local/share/goiaba/rounds/rodadas',
-    // definitions: '~/.local/share/goiaba/rounds/definitions',
-    // fixtures: '~/.local/share/goiaba/rounds/fixtures',
-    // data: '~/.local/share/goiaba/rounds/data',
+    // partir da fixture a cada execução. O `bun run clear --rounds` a esvazia.
+    // dir: '~/dev/minhas-rodadas/rounds/rodadas',
+    // definitions: '~/dev/minhas-rodadas/rounds/definitions',
+    // fixtures: '~/dev/minhas-rodadas/rounds/fixtures',
+    // data: '~/dev/minhas-rodadas/rounds/data',
+    dir: normalise('ROUNDS_DIR'),
+    definitions: normalise('ROUNDS_DEFINITIONS'),
+    fixtures: normalise('ROUNDS_FIXTURES'),
+    data: normalise('ROUNDS_DATA'),
   },
   envs: [
     {
       CURSOR_API_KEY: process.env['CURSOR_API_KEY'],
       CLAUDE_CODE_OAUTH_TOKEN: process.env['CLAUDE_CODE_OAUTH_TOKEN'],
+
+      ROUNDS_DIR: process.env['ROUNDS_DIR'],
+      ROUNDS_DEFINITIONS: process.env['ROUNDS_DEFINITIONS'],
+      ROUNDS_FIXTURES: process.env['ROUNDS_FIXTURES'],
+      ROUNDS_DATA: process.env['ROUNDS_DATA'],
     },
   ],
 });

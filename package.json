@@ -28,7 +28,7 @@
     "ollama": "bun agents/ollama.ts",
     "tui": "bun agents/tui.ts",
     "rounds": "bun rounds/run.ts",
-    "rounds:web": "bun run --cwd rounds/web dev",
+    "rounds:web": "bun bin/goiaba.ts rounds:web",
     "rounds:build": "bun run --cwd rounds/web build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p rounds/web",
     "lint": "oxlint --type-aware src bin test agents scripts guides rounds config goiaba.config.ts",
