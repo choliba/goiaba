@@ -8,3 +8,6 @@ bun.lock
 rounds/data/
 # Build das páginas das rodadas (bun run rounds:build)
 rounds/web/dist/
+# Gerados pelo bun run test:cov (scripts/coverage-ratchet.ts)
+coverage/
+COVERAGE.md

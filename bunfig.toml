@@ -1,0 +1,21 @@
+# Cobertura dos testes (bun run test:cov). O Bun só mede e escreve o lcov; os
+# limites (que só sobem) ficam em coverage-thresholds.json, conferidos pelo
+# scripts/coverage-ratchet.ts. Sem coverageThreshold aqui: o do Bun vale para
+# cada arquivo, não para o total. Veja .agents/skills/coverage-ratchet.
+[test]
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"
+coverageSkipTestFiles = true
+# Fora da conta: o que não é o produto. Os testes e o que eles criam em
+# pastas temporárias, os exemplos (agents/, guides/), as rodadas declaradas
+# e as fixtures delas, e os arquivos de configuração do projeto.
+coveragePathIgnorePatterns = [
+  "../**",
+  "test/**",
+  "agents/**",
+  "guides/**",
+  "rounds/definitions/**",
+  "rounds/fixtures/**",
+  "config/**",
+  "goiaba.config.ts",
+]

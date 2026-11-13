@@ -4,6 +4,7 @@
 ![GitHub contributors](https://img.shields.io/github/contributors/choliba/goiaba?color=bright-green&style=flat-square)
 [![license](https://img.shields.io/github/license/choliba/goiaba.svg?color=bright-green&style=flat-square)](LICENSE)
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
+[![cobertura](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/choliba/goiaba/develop/.github/badges/coverage.json&style=flat-square)](COVERAGE.md)
 
 Roda agentes de código (Claude Code, Codex, Cursor e modelos locais pelo Ollama) a partir de scripts TypeScript,
 sempre dentro de uma sandbox.

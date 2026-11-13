@@ -56,7 +56,9 @@ próprio `goiaba.config.ts` seguem a mesma regra.
   comentário que diz o que é, em que unidade e por que tem aquele valor. Quem cria o objeto pode trocar o valor
   por uma opção (`maxRecordBytes`, `killGraceMs`…); sem a opção, vale o padrão. Valores de protocolo ou de
   segurança (códigos HTTP, permissão de um arquivo de log) também moram lá, mas sem opção.
-- Antes de entregar: `bun run check` (typecheck, lint, formatação e testes) passando.
+- Antes de entregar: `bun run check` (typecheck, lint, formatação e testes com cobertura) passando. A cobertura
+  não pode cair: os limites em `coverage-thresholds.json` só sobem (skill
+  [`.agents/skills/coverage-ratchet`](.agents/skills/coverage-ratchet/SKILL.md)); a correção de uma queda é um teste.
 
 ## Cursos (`guides/`)
 

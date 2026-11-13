@@ -10,3 +10,6 @@ storage
 agents/meus-testes/goiaba.json
 # O pacote gerado por bun pm pack
 goiaba-*.tgz
+
+# Relatórios do bun test --coverage (o resumo versionado é o COVERAGE.md)
+coverage/
