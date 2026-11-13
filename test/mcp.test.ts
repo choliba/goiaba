@@ -8,7 +8,7 @@ import {
   tool,
   ToolBroker,
   type AgentTool,
-} from '../src/tools/index';
+} from '../src/mcp/index';
 
 afterEach(() => clearTools());
 
@@ -101,7 +101,17 @@ describe('ToolBroker', () => {
     });
     try {
       const requests = [
-        { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+        // What a CLI sends, with the oldest version the CLIs still start with.
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2024-11-05',
+            capabilities: {},
+            clientInfo: { name: 'teste', version: '1' },
+          },
+        },
         { jsonrpc: '2.0', method: 'notifications/initialized' },
         { jsonrpc: '2.0', id: 2, method: 'tools/list' },
         {
@@ -139,7 +149,11 @@ describe('ToolBroker', () => {
       }
 
       expect(responses.get(1)).toMatchObject({
-        result: { serverInfo: { name: 'goiaba' } },
+        result: {
+          protocolVersion: '2024-11-05',
+          serverInfo: { name: 'goiaba' },
+          capabilities: { tools: {} },
+        },
       });
       expect(responses.get(2)).toMatchObject({
         result: {
@@ -160,6 +174,57 @@ describe('ToolBroker', () => {
           isError: false,
         },
       });
+    } finally {
+      server.kill();
+      await broker.close();
+    }
+  });
+});
+
+describe('o servidor MCP com o stdin fechado logo depois dos pedidos', () => {
+  test('responde a todos antes de sair', async () => {
+    const broker = new ToolBroker({ tools: [echo], policy: undefined });
+    await broker.start();
+    const [executable = '', ...args] = broker.serverCommand().command;
+    const server = Bun.spawn([executable, ...args], {
+      stdin: 'pipe',
+      stdout: 'pipe',
+      stderr: 'ignore',
+    });
+    try {
+      const requests = [
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-06-18',
+            capabilities: {},
+            clientInfo: { name: 'teste', version: '1' },
+          },
+        },
+        { jsonrpc: '2.0', method: 'notifications/initialized' },
+        { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+        {
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: { name: 'ecoar', arguments: { texto: 'fim' } },
+        },
+      ];
+      void server.stdin.write(
+        `${requests.map((request) => JSON.stringify(request)).join('\n')}\n`,
+      );
+      // The client goes away at once: the answers must still come.
+      void server.stdin.end();
+      const out = await new Response(server.stdout).text();
+      const ids = out
+        .trim()
+        .split('\n')
+        .map((line): unknown => Reflect.get(Object(JSON.parse(line)), 'id'));
+      expect(ids.toSorted((a, b) => Number(a) - Number(b))).toEqual([1, 2, 3]);
+      expect(out).toContain('eco: fim');
+      expect(await server.exited).toBe(0);
     } finally {
       server.kill();
       await broker.close();

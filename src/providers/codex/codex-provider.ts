@@ -26,6 +26,10 @@ import type {
   PolicyTranslation,
 } from '../provider.interface';
 import { wrapCommand } from '../../workspace/sandbox/wrap-command';
+import { UsageError } from '../../errors';
+import { CODEX_BACKGROUND_ENDPOINTS } from '../constants';
+import type { ToolServer } from '../../mcp/broker';
+import { cliTools, isOwnTool, type AgentToolName } from '../tools';
 import type {
   ExecutionGate,
   Provider,
@@ -63,7 +67,19 @@ export interface CodexProviderOptions extends ProviderOptions {
    * A small model reads them, each time, as part of the request.
    */
   readonly rulesOnce?: boolean;
+  /**
+   * The project's registered tools the model gets (`goiaba/<nome>`), served
+   * over MCP. Only those: Codex does not let anyone choose which of its own
+   * tools the model sees (it always reads, writes and runs commands).
+   */
+  readonly tools?: readonly AgentToolName[];
 }
+
+/** `-c` takes TOML: a JSON string or list of strings is one. */
+const tomlValue = (value: string | readonly string[]): string =>
+  typeof value === 'string'
+    ? JSON.stringify(value)
+    : `[${value.map((item) => JSON.stringify(item)).join(',')}]`;
 
 export class CodexProvider
   implements
@@ -80,6 +96,10 @@ export class CodexProvider
   /** Per-workspace CODEX_HOME carrying the gate's hook, when gated. */
   private codexHome: string | undefined;
   private webSearchConfig: string | undefined;
+  /** The registered tools its `tools` names (`goiaba/…`). */
+  private readonly tools: readonly `goiaba/${string}`[];
+  /** The MCP server of the agent's own tools, once the agent hands it over. */
+  private toolServer: ToolServer | undefined;
 
   /** What the constructor was given, as written. */
   private readonly declared: Readonly<Record<string, unknown>>;
@@ -90,11 +110,19 @@ export class CodexProvider
       model,
       login = true,
       rulesOnce = false,
+      tools = [],
     } = options;
     this.declared = { ...options };
     if (model.trim().length === 0) {
       throw new Error('O modelo não pode estar vazio.');
     }
+    const ownCli = cliTools(tools);
+    if (ownCli.length > 0) {
+      throw new UsageError(
+        `O Codex não deixa escolher quais ferramentas dele o modelo enxerga: ele sempre lê, escreve e roda comandos. No tools do Codex entram só as do projeto (goiaba/…); tire ${ownCli.join(', ')}.`,
+      );
+    }
+    this.tools = tools.filter(isOwnTool);
 
     this.executable = executable;
     this.model = model;
@@ -108,7 +136,21 @@ export class CodexProvider
   }
 
   public describe(): ProviderDescription {
-    return { name: 'codex', model: this.model };
+    return {
+      name: 'codex',
+      model: this.model,
+      ...(this.tools.length === 0 ? {} : { tools: this.tools }),
+    };
+  }
+
+  /** The registered tools its `tools` names, the ones the agent serves. */
+  public ownTools(): readonly string[] {
+    return this.tools;
+  }
+
+  /** The MCP server of the agent's own tools, given to Codex (`mcp_servers`). */
+  public applyTools(server: ToolServer): void {
+    this.toolServer = server;
   }
 
   /** Its state (sessions, config) and its login. */
@@ -125,6 +167,11 @@ export class CodexProvider
   /** The OpenAI API, and ChatGPT for a ChatGPT login (and its token). */
   public networkEndpoints(): readonly string[] {
     return ['api.openai.com:443', 'chatgpt.com:443', 'auth.openai.com:443'];
+  }
+
+  /** Its background traffic (GitHub): denied quietly, never asked about. */
+  public networkBlocked(): readonly string[] {
+    return CODEX_BACKGROUND_ENDPOINTS;
   }
 
   /** The policy as Codex settings (`-c`) and command rules (`.rules`). */
@@ -204,6 +251,7 @@ export class CodexProvider
       ...(this.codexHome === undefined
         ? []
         : ['--dangerously-bypass-hook-trust']),
+      ...this.mcpArguments(),
     ];
 
     return {
@@ -225,6 +273,19 @@ export class CodexProvider
           ? input
           : appendInteractionProtocol(input),
     };
+  }
+
+  /** The agent's tools server, as Codex takes an MCP server on the command line. */
+  private mcpArguments(): string[] {
+    if (this.toolServer === undefined) return [];
+    const { name, command } = this.toolServer;
+    const [program = '', ...args] = command;
+    return [
+      '-c',
+      `mcp_servers.${name}.command=${tomlValue(program)}`,
+      '-c',
+      `mcp_servers.${name}.args=${tomlValue(args)}`,
+    ];
   }
 
   public async *parseOutput(

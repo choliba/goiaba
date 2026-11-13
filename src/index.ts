@@ -155,7 +155,7 @@ export {
   type JsonSchema,
   type ToolInputSchema,
   type ToolOutput,
-} from './tools/index';
+} from './mcp/index';
 
 // Importing Goiaba is enough to run an agent: goiaba.config.ts (log,
 // database, envs) is loaded here, so `process.env` already has its values at

@@ -23,7 +23,7 @@ import type {
   TrafficEvent,
 } from '../types';
 import { readOllamaTraffic } from './ollama-traffic';
-import type { ToolServer } from '../../tools/broker';
+import type { ToolServer } from '../../mcp/broker';
 import type { AgentToolName } from '../tools';
 
 export type OllamaCli = (typeof OLLAMA_CLIS)[number];
@@ -41,9 +41,11 @@ export interface OllamaProviderOptions extends ProviderOptions {
   /** Only with `cli: 'codex'`: see `COMPACT_AT`. */
   readonly compactAt?: number;
   /**
-   * Only with `cli: 'claude'`: the capabilities the model sees, in Goiaba's
-   * vocabulary (`file_read`, `shell`…; `ClaudeProvider`'s `tools`). Claude
-   * Code's full set is ~15k tokens on every request.
+   * With `cli: 'claude'`: the capabilities the model sees, in Goiaba's
+   * vocabulary (`file_read`, `shell`…; `ClaudeProvider`'s `tools`), and the
+   * project's (`goiaba/…`). Claude Code's full set is ~15k tokens on every
+   * request. With `cli: 'codex'`: only the project's (`CodexProvider`'s
+   * `tools`), since Codex always sees its own.
    */
   readonly tools?: readonly AgentToolName[];
   /**
@@ -158,16 +160,13 @@ export class OllamaProvider implements Provider<string, string> {
         return { ...turn, command: wrapCommand('env', env, turn.command) };
       };
     } else {
-      if (options.tools !== undefined) {
-        throw new UsageError(
-          'A opção tools do OllamaProvider só vale com cli: claude. Tire-a ou use o Claude.',
-        );
-      }
       // Ollama needs no OpenAI login: the user's stays out of the sandbox.
+      // `tools` takes only the project's (goiaba/…): Codex refuses the rest.
       this.inner = new CodexProvider({
         ...providerOptions,
         login: false,
         rulesOnce: true,
+        ...(options.tools === undefined ? {} : { tools: options.tools }),
       });
       this.env = [
         `CODEX_OSS_BASE_URL=${baseUrl}/v1`,
@@ -223,9 +222,14 @@ export class OllamaProvider implements Provider<string, string> {
    * tries with a local model: never needed here.
    */
   public networkBlocked(): readonly string[] {
-    return this.inner
-      .networkEndpoints()
-      .filter((endpoint) => endpoint !== this.endpoint);
+    return [
+      ...this.inner
+        .networkEndpoints()
+        .filter((endpoint) => endpoint !== this.endpoint),
+      ...(this.inner instanceof CodexProvider
+        ? this.inner.networkBlocked()
+        : []),
+    ];
   }
 
   /**
@@ -252,18 +256,13 @@ export class OllamaProvider implements Provider<string, string> {
       : this.inner.applyPolicy(policy, gate);
   }
 
-  /** The registered tools its `tools` names: only with `cli: 'claude'`. */
+  /** The registered tools its `tools` names, served by the agent over MCP. */
   public ownTools(): readonly string[] {
-    return this.inner instanceof ClaudeProvider ? this.inner.ownTools() : [];
+    return this.inner.ownTools();
   }
 
   /** The agent's own tools' MCP server, given to the CLI that drives the model. */
   public applyTools(server: ToolServer): void {
-    if (!(this.inner instanceof ClaudeProvider)) {
-      throw new UsageError(
-        'As ferramentas registradas (goiaba/…) só valem no OllamaProvider com cli: claude.',
-      );
-    }
     this.inner.applyTools(server);
   }
 

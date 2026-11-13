@@ -6,6 +6,16 @@
  */
 export const OLLAMA_CLIS = ['claude', 'codex'] as const;
 
+/**
+ * Destinations Codex reaches on its own, in the background, whatever the
+ * model (it syncs from GitHub): never part of the task. Denied quietly, so
+ * they do not wait in the approvals queue, where nobody answers in a round.
+ */
+export const CODEX_BACKGROUND_ENDPOINTS = [
+  'github.com:443',
+  'api.github.com:443',
+] as const;
+
 /** Where Ollama listens unless told otherwise (`OllamaProvider`, option `baseUrl`). */
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 

@@ -28,7 +28,7 @@ import type {
   TokenUsage,
   HostAccess,
 } from '../types';
-import type { ToolServer } from '../../tools/broker';
+import type { ToolServer } from '../../mcp/broker';
 import {
   cliTools,
   ownTools,
@@ -74,7 +74,7 @@ export interface ClaudeProviderOptions extends ProviderOptions {
    * `shell`…); translated to the CLI's `--tools`. `[]` leaves none. Without
    * it, all of them: their definitions are most of every request, which a
    * small local model reads slowly and poorly. A registered tool of the
-   * project (`goiaba/<nome>`, src/tools) comes over MCP, not `--tools`.
+   * project (`goiaba/<nome>`, src/mcp) comes over MCP, not `--tools`.
    */
   readonly tools?: readonly AgentToolName[];
   /**

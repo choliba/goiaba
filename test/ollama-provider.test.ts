@@ -426,7 +426,35 @@ describe('OllamaProvider', () => {
     ).toEqual(['--tools', 'Bash', 'Read']);
     expect(
       () => new OllamaProvider({ cli: 'codex', model: 'm', tools: ['shell'] }),
-    ).toThrow('só vale com cli: claude');
+    ).toThrow('O Codex não deixa escolher quais ferramentas dele');
+  });
+
+  test('com o codex, as ferramentas do projeto chegam pelo servidor MCP', () => {
+    const codex = new OllamaProvider({
+      cli: 'codex',
+      model: 'm',
+      tools: ['goiaba/buscar'],
+    });
+    expect(codex.ownTools()).toEqual(['goiaba/buscar']);
+    // Codex's background traffic is denied quietly, never queued for approval.
+    expect(codex.networkBlocked()).toContain('github.com:443');
+    codex.applyTools({
+      name: 'goiaba',
+      command: [
+        '/usr/bin/bun',
+        '/tmp/ferramentas/server',
+        '/tmp/ferramentas/tools.sock',
+      ],
+    });
+    const args = codex.createCommand('oi').arguments ?? [];
+    expect(args).toContain('mcp_servers.goiaba.command="/usr/bin/bun"');
+    expect(args).toContain(
+      'mcp_servers.goiaba.args=["/tmp/ferramentas/server","/tmp/ferramentas/tools.sock"]',
+    );
+    // Exec-level options: before `-`, the prompt from stdin.
+    expect(
+      args.indexOf('mcp_servers.goiaba.command="/usr/bin/bun"'),
+    ).toBeLessThan(args.indexOf('-'));
   });
 });
 

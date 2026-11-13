@@ -1,5 +1,5 @@
 import type { ProgramCommand, ProgramOutput } from '../execute/types';
-import type { ToolServer } from '../tools/broker';
+import type { ToolServer } from '../mcp/broker';
 import type { AgentPolicy } from '../policy/policy.interface';
 import type { AgentToolName } from './tools';
 

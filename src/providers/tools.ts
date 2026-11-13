@@ -25,7 +25,7 @@ export type GoiabaTool = (typeof GOIABA_TOOLS)[number];
 
 /**
  * A name in a provider's `tools`: a capability of the CLI (`file_read`), or
- * a registered tool of the project, `goiaba/<nome>` (src/tools), which the
+ * a registered tool of the project, `goiaba/<nome>` (src/mcp), which the
  * Goiaba serves to the CLI over MCP.
  */
 export type AgentToolName = GoiabaTool | `goiaba/${string}`;

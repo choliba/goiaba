@@ -8,7 +8,7 @@ import type {
   AgentSubscriber,
 } from './types';
 import { ApprovalBroker } from '../approval/broker';
-import { registeredTool, TOOL_SERVER, ToolBroker } from '../tools/index';
+import { registeredTool, TOOL_SERVER, ToolBroker } from '../mcp/index';
 import type { CommandApprover } from '../approval/gate';
 import { humanApprover } from '../approval/human';
 import { ApprovalReview } from '../approval/review';
@@ -88,7 +88,7 @@ export class Agent {
   private interrupted: AbortSignal | undefined;
   private readonly store: Store | undefined;
   private readonly broker: ApprovalBroker | undefined;
-  /** The agent's own tools (src/tools), served to its CLI over MCP. */
+  /** The agent's own tools (src/mcp), served to its CLI over MCP. */
   private readonly toolBroker: ToolBroker | undefined;
   /** Where the network gate keeps its decisions, in this run's session. */
   private readonly networkLedger: StoreNetworkLedger | undefined;

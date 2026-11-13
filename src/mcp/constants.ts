@@ -1,4 +1,4 @@
-/** Defaults of the agents' own tools (src/tools). */
+/** Defaults of the agents' own tools (src/mcp). */
 
 /**
  * The MCP server the tools are served by, and the prefix of their names in
@@ -20,5 +20,8 @@ export const TOOL_NAME = /^[a-z][a-z0-9_]*$/;
  */
 export const TOOL_CALL_MS = 120_000;
 
-/** The MCP protocol version the server speaks (the one the CLIs start with). */
-export const MCP_PROTOCOL_VERSION = '2024-11-05';
+/**
+ * The version the tools' MCP server gives in the handshake (`serverInfo`):
+ * the server's, not the protocol's, which the SDK negotiates with the CLI.
+ */
+export const TOOL_SERVER_VERSION = '2';

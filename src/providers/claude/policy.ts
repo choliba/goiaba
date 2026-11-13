@@ -1,6 +1,6 @@
 import { HOOK_TIMEOUT_SECONDS } from '../../approval/constants';
-import { TOOL_SERVER } from '../../tools/constants';
-import type { ToolServer } from '../../tools/broker';
+import { TOOL_SERVER } from '../../mcp/constants';
+import type { ToolServer } from '../../mcp/broker';
 import { UsageError } from '../../errors';
 import { commandMatches } from '../../policy/command';
 import { delegatedCategories } from '../../policy/index';
