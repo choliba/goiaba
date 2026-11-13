@@ -1,9 +1,7 @@
-import { hostname } from 'node:os';
 import { dirname, join } from './src/filesystem/index';
-import { ecsFormat } from '@elastic/ecs-pino-format';
-import pino from 'pino';
 import { defineConfig } from './src/config';
 import { environment } from './src/execute/process';
+import { pinoLogger } from './config/pino.config';
 
 // define diretórios
 const dirRoot = dirname(__filename);
@@ -12,29 +10,18 @@ const dirStorage = join(dirRoot, 'storage');
 // DEBUG=1 (ou true) liga o debug e o log em nível debug
 const DEBUG = ['1', 'true'].includes(environment()['DEBUG'] ?? '');
 
-// resolve o destino do log, criando diretórios se necessário
-const destination = (dest: string) =>
-  pino.destination({ dest, sync: true, mkdir: true, mode: 0o600 });
-
-// cria um logger pino com ECS e nível de log configurável
-type LoggerPinoOptions = { dir: string; session: string };
-const loggerPino = ({ dir, session }: LoggerPinoOptions) =>
-  pino(
-    {
-      ...ecsFormat({ serviceName: 'goiaba', serviceVersion: '0.1.0' }),
-      level: DEBUG ? 'debug' : 'info',
-      // Sem pid: process.* descreve o comando de cada evento.
-      base: { hostname: hostname() },
-    },
-    destination(join(dir, `${session}.jsonl`)),
-  );
-
 export default defineConfig({
   debug: DEBUG,
   logger: {
     dir: join(dirStorage, 'logs'), // relativo a este arquivo
     // Trocar de pacote muda só esta função; erros têm log.level "error".
-    use: loggerPino,
+    use: pinoLogger({ debug: DEBUG }),
+    logrotate: {
+      maxFileSize: '50kb', // limite suave: o registro termina inteiro, o próximo vai para <sessão>.2.jsonl
+      days: 1, // sessões mais antigas que isso são apagadas
+      maxTotalSize: '100kb', // se a pasta passar disso, apaga das mais antigas
+      compress: true, // true: as sessões encerradas viram .jsonl.gz
+    },
   },
   database: {
     dir: join(dirStorage, 'db'), // relativo a este arquivo

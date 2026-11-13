@@ -31,7 +31,7 @@
     "rounds:web": "bun run --cwd rounds/web dev",
     "rounds:build": "bun run --cwd rounds/web build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p rounds/web",
-    "lint": "oxlint --type-aware src bin test agents scripts guides rounds goiaba.config.ts",
+    "lint": "oxlint --type-aware src bin test agents scripts guides rounds config goiaba.config.ts",
     "lint:fix": "oxlint --type-aware --fix src test agents scripts guides rounds goiaba.config.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
